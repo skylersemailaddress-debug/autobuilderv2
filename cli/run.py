@@ -34,6 +34,7 @@ from validator.contracts import (
 from state.run_state import RunStateStore
 from state.json_store import JsonRunStore
 from state.resume import resume_run
+from state.audit import append_audit_event, build_audit_record
 from validator.confidence import calculate_confidence
 from nexus.mode import NexusMode
 from validator.validator import Validator
@@ -75,8 +76,9 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
 
     memory_store.add_memory("goal", {"goal": goal})
     checkpoints = [
-        asdict(create_checkpoint("start", {"run_id": run_id})),
+        asdict(create_checkpoint("start", {"run_id": run_id}, mutation_safety={"risk_level": "safe"})),
     ]
+    audit_trail = append_audit_event([], "run_started", details={"run_id": run_id, "goal": goal})
 
     history = [run_sm.state.value]
     state_store.save(run_id, run_sm.state.value)
@@ -129,16 +131,49 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
             if policy["approval_required"]
             else "Action allowed without operator pause"
         ),
+        policy_snapshot=policy,
     )
 
     approval_request = None
     if policy["approval_required"]:
-        approval_request = require_approval("run_execution", f"High-risk action: {goal}")
+        approval_request = require_approval(
+            "run_execution",
+            f"High-risk action: {goal}",
+            requested_by="autobuilder",
+            action_scope=[goal],
+            escalation_level="operator",
+            audit_metadata={
+                "risk_level": policy["risk_level"],
+                "checkpoint_required": policy.get("checkpoint_required", False),
+            },
+        )
         events.append(serialize_event(create_event("approval_requested", {
             "approval_id": approval_request.approval_id,
             "action": "run_execution",
             "reason": control_decision.reason,
         })))
+        audit_trail = append_audit_event(
+            audit_trail,
+            "approval_requested",
+            actor="autobuilder",
+            details={
+                "approval_id": approval_request.approval_id,
+                "risk_level": policy["risk_level"],
+                "action_scope": approval_request.action_scope,
+            },
+        )
+        audit_record = build_audit_record(
+            "run",
+            outcome="awaiting_approval",
+            run_id=run_id,
+            risk_level=policy["risk_level"],
+            approval_state=approval_request.status,
+            checkpoint_ids=[item["checkpoint_id"] for item in checkpoints],
+            rollback_ready=bool(policy.get("checkpoint_required", False)),
+            restore_checkpoint_id=checkpoints[-1]["checkpoint_id"],
+            actor="autobuilder",
+            details={"goal": goal, "policy": policy},
+        )
         record = {
             "run_id": run_id,
             "created_at": created_at,
@@ -164,6 +199,8 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
             "repair_count": repair_count,
             "events": events,
             "failures": failures,
+            "audit_trail": audit_trail,
+            "audit_record": audit_record,
             "awaiting_approval": True,
             "control_state": asdict(control_decision),
             "nexus_mode": bool(nexus_config),
@@ -200,8 +237,10 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
         return record, str(saved_path)
 
     events.append(serialize_event(create_event("execution_started", {"task_count": len(tasks)})))
+    audit_trail = append_audit_event(audit_trail, "execution_started", details={"task_count": len(tasks)})
     tasks = executor.run_tasks(tasks)
     events.append(serialize_event(create_event("execution_completed", {"task_count": len(tasks)})))
+    audit_trail = append_audit_event(audit_trail, "execution_completed", details={"task_count": len(tasks)})
 
     artifacts = [
         asdict(
@@ -215,7 +254,18 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
         for task in tasks
         if task.result is not None
     ]
-    checkpoints.append(asdict(create_checkpoint("execution_completed", {"task_count": len(tasks)})))
+    checkpoints.append(
+        asdict(
+            create_checkpoint(
+                "execution_completed",
+                {"task_count": len(tasks)},
+                mutation_safety={
+                    "risk_level": policy["risk_level"],
+                    "checkpoint_required": policy.get("checkpoint_required", False),
+                },
+            )
+        )
+    )
 
     # Intentionally leave one task incomplete to exercise the repair loop.
     if tasks:
@@ -237,6 +287,14 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
                     "failure_id": failure_record.failure_id,
                     "failure_type": failure_record.failure_type
                 })))
+                audit_trail = append_audit_event(
+                    audit_trail,
+                    "validation_failed",
+                    details={
+                        "failure_id": failure_record.failure_id,
+                        "failure_type": failure_record.failure_type,
+                    },
+                )
                 if retry_policy.can_retry(repair_count):
                     next_state = run_sm.transition(success=False)
                 else:
@@ -248,6 +306,11 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
             repair_used = True
             repair_count += 1
             events.append(serialize_event(create_event("repair_completed", {"repair_count": repair_count})))
+            audit_trail = append_audit_event(
+                audit_trail,
+                "repair_completed",
+                details={"repair_count": repair_count},
+            )
             next_state = run_sm.transition(success=True)
         else:
             next_state = run_sm.transition(success=True)
@@ -270,7 +333,18 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
         events.append(serialize_event(create_event("run_completed", {"status": "failed"})))
 
     status = run_sm.state.value
-    checkpoints.append(asdict(create_checkpoint("run_completed", {"status": status})))
+    checkpoints.append(
+        asdict(
+            create_checkpoint(
+                "run_completed",
+                {"status": status},
+                mutation_safety={
+                    "risk_level": policy["risk_level"],
+                    "checkpoint_required": policy.get("checkpoint_required", False),
+                },
+            )
+        )
+    )
 
     confidence = calculate_confidence(tasks, validation_result, repair_count)
     record = {
@@ -298,6 +372,11 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
         "repair_count": repair_count,
         "events": events,
         "failures": failures,
+        "audit_trail": append_audit_event(
+            audit_trail,
+            "run_completed",
+            details={"status": status, "repair_count": repair_count},
+        ),
         "nexus_mode": bool(nexus_config),
         "project_name": nexus_config.project_name if nexus_config else None,
         "approvals_enabled": nexus_config.approvals_enabled if nexus_config else False,
@@ -308,6 +387,23 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
     
     if approval_request:
         record["approval_request"] = asdict(approval_request)
+
+    record["audit_record"] = build_audit_record(
+        "run",
+        outcome=status,
+        run_id=run_id,
+        risk_level=policy["risk_level"],
+        approval_state=(approval_request.status if approval_request else "not_required"),
+        checkpoint_ids=[item["checkpoint_id"] for item in checkpoints],
+        rollback_ready=bool(policy.get("checkpoint_required", False)),
+        restore_checkpoint_id=checkpoints[-1]["checkpoint_id"],
+        actor="autobuilder",
+        details={
+            "goal": goal,
+            "repair_count": repair_count,
+            "contract_validation_enabled": record["contract_validation_enabled"],
+        },
+    )
     
     record["summary"] = build_run_summary(record)
     plan_valid, plan_evidence = validate_plan_artifact(record["plan_artifact"])

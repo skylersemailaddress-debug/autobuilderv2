@@ -78,6 +78,18 @@ Support category definitions:
 - `structural_only`: contracts/schema with bounded hooks.
 - `future`: placeholder only.
 
+## Command Safety Guarantees
+
+JSON outputs for `mission`, `resume`, `inspect`, `build`, `ship`, `chat-build`, `agent-runtime`, and `self-extend` include `audit_record` and `safety_guarantee` metadata.
+
+- `mission`: dangerous goals require approval, capture approval history, and emit restore payloads when checkpoints are required.
+- `resume`: only continues after approved governance state and records resumed audit outcome.
+- `inspect`: remains read-only while surfacing rollback and audit state.
+- `build` and `ship`: preserve deterministic validation/proof semantics and expose rollback-ready proof metadata.
+- `chat-build`: keeps preview-first gating before approved build execution.
+- `agent-runtime`: keeps bounded execution with explicit approval-gated step handling.
+- `self-extend`: keeps sandbox and quarantine controls around synthesized capabilities.
+
 Current parser behavior:
 
 - Reads YAML via `PyYAML` when installed.

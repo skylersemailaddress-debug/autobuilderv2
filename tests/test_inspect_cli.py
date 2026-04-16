@@ -28,6 +28,8 @@ def test_inspect_run_exposes_expected_fields():
     assert "memory_policy_summary" in payload
     assert "selected_memory_usage" in payload
     assert "quality_report" in payload
+    assert "audit_record" in payload
+    assert "audit_event_count" in payload
 
     Path(saved_path).unlink()
 
@@ -76,6 +78,7 @@ def test_inspect_includes_mutation_and_lineage_info_from_mission_run():
     assert "benchmark_summary" in payload
     assert "memory_policy_summary" in payload
     assert "selected_memory_usage" in payload
+    assert payload["audit_record"]["rollback_ready"] is True
 
     Path(mission_result["saved_path"]).unlink()
     Path(mission_result["mission_result_path"]).unlink()

@@ -40,6 +40,8 @@ def test_one_button_mission_low_risk_goal():
     assert payload["change_sets"]
     assert "quality_report" in payload
     assert payload["quality_report"] is not None
+    assert "audit_record" in payload
+    assert payload["audit_event_count"] >= 1
     assert Path(payload["saved_path"]).exists()
     assert Path(payload["mission_result_path"]).exists()
 
@@ -64,6 +66,7 @@ def test_mission_result_contains_expected_fields():
     assert expected_fields.issubset(result.keys())
     assert isinstance(result["summary"], dict)
     assert "quality_report" in result
+    assert "audit_record" in result
 
     _cleanup_result_files(result)
 
@@ -81,6 +84,7 @@ def test_high_risk_goal_enters_approval_pause_cleanly():
     assert "resume_hint" in result
     assert "restore_hint" in result
     assert "quality_report" in result
+    assert result["audit_record"]["approval_state"] == "pending"
 
     _cleanup_result_files(result)
 
@@ -95,5 +99,6 @@ def test_resume_path_continues_after_approval_pause():
     assert resumed_result["final_status"] == "complete"
     assert resumed_result["awaiting_approval"] is False
     assert resumed_result["checkpoint_required"] is True
+    assert resumed_result["audit_record"]["approval_state"] == "approved"
 
     _cleanup_result_files(resumed_result)

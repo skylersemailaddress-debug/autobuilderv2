@@ -59,6 +59,16 @@ Output contract expectations for all top-level commands:
 - `command` field identifies the command that emitted the payload
 - command-specific details remain stable and machine-readable
 
+## Command Safety Guarantees
+
+- `mission`: approval pauses now record request history, approver identity, checkpoint references, and restore hints.
+- `resume`: only continues from an approved paused mission and records resumed audit state.
+- `inspect`: read-only; surfaces audit records, rollback references, and restore plans without mutating run state.
+- `build` and `ship`: deterministic proof/readiness/package checks remain the success gate.
+- `chat-build`: preview-first operator confirmation remains the gate before build/ship handoff.
+- `agent-runtime`: sensitive modeled steps remain approval-gated and auditable.
+- `self-extend`: sandboxed generation and quarantine-backed registration remain the rollback boundary.
+
 ## Chat-First Product Architect Flow
 
 Use chat-first flow when an operator has only a plain-language idea and no structured specs yet:

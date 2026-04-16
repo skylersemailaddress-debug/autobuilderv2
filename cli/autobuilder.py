@@ -27,6 +27,19 @@ from stack_registry.registry import StackRegistryResolutionError
 from specs.loader import SpecValidationError, load_spec_bundle
 from universal_capability.agent_runtime import execute_computer_use_plan, model_computer_use_task
 from universal_capability.self_extension import synthesize_missing_capabilities
+from state.audit import build_audit_record
+
+
+COMMAND_SAFETY_GUARANTEES = {
+    "mission": {"risk_level": "bounded", "rollback": "checkpointed when mutation risk is dangerous"},
+    "resume": {"risk_level": "bounded", "rollback": "reuses latest checkpoint restore payload"},
+    "inspect": {"risk_level": "safe", "rollback": "read_only"},
+    "build": {"risk_level": "bounded", "rollback": "generated output can be rebuilt deterministically"},
+    "ship": {"risk_level": "bounded", "rollback": "proof artifacts and package bundle are emitted before ship success"},
+    "chat-build": {"risk_level": "bounded", "rollback": "preview gate before approved build"},
+    "agent-runtime": {"risk_level": "bounded", "rollback": "sensitive steps can be blocked by approval map"},
+    "self-extend": {"risk_level": "bounded", "rollback": "sandboxed generation with quarantine registry"},
+}
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -207,6 +220,25 @@ def _success_payload(command: str, payload: dict[str, object]) -> dict[str, obje
     result = dict(payload)
     result.setdefault("status", "ok")
     result.setdefault("command", command)
+    audit_record = result.get("audit_record")
+    if not isinstance(audit_record, dict):
+        audit_record = build_audit_record(
+            command,
+            outcome=str(result.get("status", "ok")),
+            run_id=str(result.get("run_id")) if result.get("run_id") else None,
+            risk_level=str(result.get("mutation_risk") or result.get("build_status") or "safe"),
+            approval_state="approved" if result.get("approval_required") else "not_required",
+            rollback_ready=bool(
+                result.get("restore_payload", {}).get("restore_possible")
+                or result.get("determinism", {}).get("verified")
+                or (result.get("execution") is not None)
+            ),
+            restore_checkpoint_id=(result.get("restore_payload") or {}).get("checkpoint_id"),
+            actor="autobuilder",
+            details={"safety_guarantee": COMMAND_SAFETY_GUARANTEES.get(command, {})},
+        )
+    result["audit_record"] = audit_record
+    result.setdefault("safety_guarantee", COMMAND_SAFETY_GUARANTEES.get(command, {}))
     return result
 
 
@@ -215,6 +247,16 @@ def _error_payload(command: str, message: str) -> dict[str, object]:
         "status": "error",
         "command": command,
         "error": message,
+        "audit_record": build_audit_record(
+            command,
+            outcome="error",
+            risk_level="unknown",
+            approval_state="unknown",
+            rollback_ready=False,
+            actor="autobuilder",
+            details={"error": message, "safety_guarantee": COMMAND_SAFETY_GUARANTEES.get(command, {})},
+        ),
+        "safety_guarantee": COMMAND_SAFETY_GUARANTEES.get(command, {}),
     }
 
 

@@ -58,6 +58,8 @@ else:
                 "change_set_count": len(change_sets),
             },
             "checkpoint_restore": restore_payload,
+            "audit_record": record.get("audit_record"),
+            "audit_event_count": len(record.get("audit_trail", [])),
             "artifact_lineage_summary": artifact_lineage_summary,
             "benchmark_summary": record.get("benchmark_summary"),
             "quality_report": record.get("quality_report"),
@@ -117,6 +119,8 @@ else:
             print(f"change_sets={json.dumps(payload['change_sets'])}")
             print(f"mutation_risk_summary={json.dumps(payload['mutation_risk_summary'])}")
             print(f"checkpoint_restore={json.dumps(payload['checkpoint_restore'])}")
+            print(f"audit_record={json.dumps(payload['audit_record'])}")
+            print(f"audit_event_count={payload['audit_event_count']}")
             print(f"artifact_lineage_summary={json.dumps(payload['artifact_lineage_summary'])}")
             print(f"benchmark_summary={json.dumps(payload['benchmark_summary'])}")
             print(f"quality_report={json.dumps(payload['quality_report'])}")

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Dict
 
 
 @dataclass
@@ -7,3 +8,4 @@ class ControlDecision:
     allowed: bool
     requires_pause: bool
     reason: str
+    policy_snapshot: Dict | None = None

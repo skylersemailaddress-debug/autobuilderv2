@@ -19,6 +19,8 @@ def test_build_restore_payload_found_checkpoint():
     assert payload["stage"] == "plan"
     assert payload["metadata"]["task_count"] == 3
     assert payload["restore_possible"] is True
+    assert payload["restore_plan"]["rollback_ready"] is True
+    assert payload["failure_semantics"] == "resume_from_checkpoint"
 
 
 def test_build_restore_payload_missing_checkpoint():
@@ -27,6 +29,7 @@ def test_build_restore_payload_missing_checkpoint():
     assert payload["run_id"] == "run-1"
     assert payload["checkpoint_id"] == "missing"
     assert payload["restore_possible"] is False
+    assert payload["failure_semantics"] == "checkpoint_missing"
 
 
 def test_latest_restore_payload():
@@ -41,3 +44,4 @@ def test_latest_restore_payload():
     assert payload is not None
     assert payload["checkpoint_id"] == "end-b"
     assert payload["restore_possible"] is True
+    assert payload["restore_plan"]["strategy"] == "checkpoint_restore"

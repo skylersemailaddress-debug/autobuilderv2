@@ -45,6 +45,8 @@ def test_autobuilder_cli_reaches_core_flows():
     mission_payload = json.loads(mission.stdout)
     assert mission_payload["status"] == "ok"
     assert mission_payload["command"] == "mission"
+    assert "audit_record" in mission_payload
+    assert "safety_guarantee" in mission_payload
     run_id = mission_payload["run_id"]
     assert mission_payload["awaiting_approval"] is True
 
@@ -60,6 +62,7 @@ def test_autobuilder_cli_reaches_core_flows():
     assert inspect_payload["status"] == "ok"
     assert inspect_payload["command"] == "inspect"
     assert inspect_payload["run_id"] == run_id
+    assert inspect_payload["safety_guarantee"]["rollback"] == "read_only"
 
     resume = subprocess.run(
         [sys.executable, str(script_path), "resume", run_id, "--approve", "--json"],
@@ -73,6 +76,7 @@ def test_autobuilder_cli_reaches_core_flows():
     assert resume_payload["status"] == "ok"
     assert resume_payload["command"] == "resume"
     assert resume_payload["final_status"] == "complete"
+    assert resume_payload["audit_record"]["approval_state"] == "approved"
 
     benchmark = subprocess.run(
         [
@@ -93,6 +97,7 @@ def test_autobuilder_cli_reaches_core_flows():
     assert benchmark_payload["status"] == "ok"
     assert benchmark_payload["command"] == "benchmark"
     assert benchmark_payload["total_cases"] == 1
+    assert "audit_record" in benchmark_payload
 
     readiness = subprocess.run(
         [sys.executable, str(script_path), "readiness", "--json"],
@@ -107,6 +112,7 @@ def test_autobuilder_cli_reaches_core_flows():
     assert readiness_payload["command"] == "readiness"
     assert "readiness_status" in readiness_payload
     assert "readiness_reasons" in readiness_payload
+    assert "safety_guarantee" in readiness_payload
 
     for payload in (mission_payload, resume_payload):
         saved_path = Path(payload["saved_path"])

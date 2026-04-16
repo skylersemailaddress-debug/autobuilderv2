@@ -78,6 +78,21 @@ python cli/autobuilder.py proof-app --target /tmp/my-app --repair --json
 
 Operational autonomy commands (`mission`, `resume`, `inspect`, `benchmark`, `proof`) remain available but are secondary to the commercial ship lane above.
 
+## Command Safety Guarantees
+
+Every top-level JSON command now emits `audit_record` metadata plus a `safety_guarantee` summary.
+
+| command | approval and governance guarantee | rollback / restore guarantee |
+| --- | --- | --- |
+| `mission` | dangerous mutation goals pause in `awaiting_approval` with approval history | dangerous missions emit checkpoint-backed restore payloads |
+| `resume` | resumes only after explicit approval state is recorded | reuses the latest checkpoint restore plan |
+| `inspect` | read-only inspection with no mutation side effects | no rollback needed; audit trail is surfaced |
+| `build` | deterministic contract validation remains enforced | outputs can be regenerated deterministically |
+| `ship` | proof/readiness/package artifacts must certify before success | packaged proof bundle is emitted before ship success |
+| `chat-build` | preview-first operator gate remains intact | approved builds inherit ship proof bundle semantics |
+| `agent-runtime` | approval-gated sensitive steps remain explicit in execution output | blocked or replayable execution remains auditable |
+| `self-extend` | sandbox and quarantine rules still bound extension synthesis | generated capabilities remain rollbackable by registry/quarantine state |
+
 ### Cleanup Runtime Artifacts
 
 Remove all generated runs, memory, and cache (preserves source/tests/docs):

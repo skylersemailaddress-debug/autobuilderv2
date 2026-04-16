@@ -21,6 +21,7 @@ from memory.json_memory import JsonMemoryStore
 from observability.events import create_event, event_to_dict
 from runs.summary import build_run_summary
 from state.checkpoints import create_checkpoint
+from state.audit import append_audit_event, build_audit_record
 from state.run_state import RunStateStore
 from state.json_store import JsonRunStore
 from state.resume_runner import infer_next_stage, resume_run
@@ -73,6 +74,12 @@ def resume_saved_run(run_id: str):
             print(f"Approval granted for run {run_id}, resuming execution")
             record["awaiting_approval"] = False
             record["control_state"] = record.get("control_state", {})
+            record["audit_trail"] = append_audit_event(
+                record.get("audit_trail", []),
+                "resume_approved",
+                actor="resume",
+                details={"approval_id": approval_request.get("approval_id")},
+            )
         elif approval_request and approval_request.get("status") == "denied":
             print(f"Run {run_id} cannot resume because approval was denied")
             return record, None
@@ -196,6 +203,19 @@ def continue_execution(record: Dict, next_stage: str) -> Dict:
     
     record["status"] = run_sm.state.value
     record["summary"] = build_run_summary(record)
+    restore_payload = record.get("restore_payload") or {}
+    record["audit_record"] = build_audit_record(
+        "resume",
+        outcome=record.get("status", "unknown"),
+        run_id=run_id,
+        risk_level=(record.get("policy") or {}).get("risk_level", "low"),
+        approval_state=(record.get("approval_request") or {}).get("status", "not_required"),
+        checkpoint_ids=[item.get("checkpoint_id") for item in checkpoints if item.get("checkpoint_id")],
+        rollback_ready=bool(restore_payload.get("restore_possible")),
+        restore_checkpoint_id=restore_payload.get("checkpoint_id"),
+        actor="resume",
+        details={"resumed_from": record.get("resumed_from")},
+    )
     
     # Update memory
     memory_store.add_memory("summary", record["summary"])
@@ -203,6 +223,12 @@ def continue_execution(record: Dict, next_stage: str) -> Dict:
     
     durable_memory_store.add_memory("summary", record["summary"])
     record["durable_memory_keys"] = durable_memory_store.list_keys()
+    record["audit_trail"] = append_audit_event(
+        record.get("audit_trail", []),
+        "resume_completed",
+        actor="resume",
+        details={"status": record.get("status")},
+    )
     
     return record
 

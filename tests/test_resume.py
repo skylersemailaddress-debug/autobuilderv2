@@ -21,6 +21,8 @@ def test_resume_payload_shape():
     assert resume["memory_keys"] == ["goal", "summary"]
     assert resume["last_state"] == "complete"
     assert resume["repair_count"] == 1
+    assert resume["approval_state"] == "not_required"
+    assert resume["rollback_ready"] is False
 
 
 def test_resume_payload_empty_state_history():
@@ -38,3 +40,4 @@ def test_resume_payload_empty_state_history():
     assert resume["run_id"] == "run-456"
     assert resume["last_state"] is None
     assert resume["repair_count"] == 0
+    assert resume["restore_checkpoint_id"] is None

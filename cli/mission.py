@@ -6,7 +6,7 @@ import uuid
 from contextlib import redirect_stdout
 from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 # Ensure top-level package imports work when executing cli/mission.py directly.
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -14,11 +14,13 @@ sys.path.insert(0, str(ROOT_DIR))
 
 from cli.resume import resume_saved_run
 from cli.run import perform_run
+from control_plane.approvals import ApprovalRequest, transition_approval
 from execution.lineage import build_artifact_lineage, summarize_artifact_lineage
 from mutation.change_set import ChangeSet
 from mutation.safety import DANGEROUS, MutationSafetyPolicy
 from quality.report import build_mission_quality_report
 from runs.summary import build_run_summary
+from state.audit import append_audit_event, build_audit_record
 from state.json_store import JsonRunStore
 from state.restore import latest_restore_payload
 
@@ -61,6 +63,12 @@ def _plan_change_set(goal: str) -> ChangeSet:
         requires_checkpoint=decision.checkpoint_required,
         approved=False,
         applied=False,
+        action_class=decision.action_class,
+        target_type=decision.target_type,
+        destructive_potential=decision.destructive_potential,
+        environment_sensitivity=decision.environment_sensitivity,
+        irreversible_operation=decision.irreversible_operation,
+        rollback_strategy=decision.restore_strategy,
     )
 
 
@@ -81,6 +89,8 @@ def build_mission_result(record: Dict, saved_path: str) -> Dict:
         record.get("checkpoints", []),
     )
     quality_report = record.get("quality_report")
+    audit_record = record.get("audit_record")
+    audit_trail = record.get("audit_trail", [])
 
     if mutation_risk == DANGEROUS:
         approval_required = True
@@ -100,6 +110,8 @@ def build_mission_result(record: Dict, saved_path: str) -> Dict:
         "restore_payload": restore_payload,
         "artifact_lineage_summary": lineage_summary,
         "quality_report": quality_report,
+        "audit_record": audit_record,
+        "audit_event_count": len(audit_trail),
         "saved_path": saved_path,
     }
     if awaiting_approval:
@@ -142,6 +154,24 @@ def run_mission(goal: str) -> Dict:
         record["restore_payload"] = None
     restore_payload = record.get("restore_payload") or {}
     record["restore_available"] = bool(restore_payload.get("restore_possible"))
+    record["audit_trail"] = append_audit_event(
+        record.get("audit_trail", []),
+        "mission_result_built",
+        actor="mission",
+        details={"mutation_risk": record["mutation_risk"], "checkpoint_required": record["checkpoint_required"]},
+    )
+    record["audit_record"] = build_audit_record(
+        "mission",
+        outcome=record.get("status", "unknown"),
+        run_id=run_id,
+        risk_level=record["mutation_risk"],
+        approval_state=(record.get("approval_request") or {}).get("status", "not_required"),
+        checkpoint_ids=[item["checkpoint_id"] for item in record.get("checkpoints", [])],
+        rollback_ready=record["restore_available"],
+        restore_checkpoint_id=restore_payload.get("checkpoint_id"),
+        actor="mission",
+        details={"goal": goal, "change_set_count": len(record["change_sets"])},
+    )
     record["summary"] = build_run_summary(record)
     record["quality_report"] = build_mission_quality_report(
         record,
@@ -165,8 +195,21 @@ def resume_mission(run_id: str, approve: bool = False) -> Dict:
     if approve and record.get("awaiting_approval"):
         approval_request = record.get("approval_request")
         if approval_request:
-            approval_request["status"] = "approved"
-            record["approval_request"] = approval_request
+            updated_request = transition_approval(
+                ApprovalRequest(**approval_request),
+                "approved",
+                approver_identity="mission-operator",
+                decision_reason="Mission resume approved by operator",
+                actor="mission-operator",
+                metadata={"resume_run_id": run_id},
+            )
+            record["approval_request"] = asdict(updated_request)
+            record["audit_trail"] = append_audit_event(
+                record.get("audit_trail", []),
+                "approval_granted",
+                actor="mission-operator",
+                details={"approval_id": updated_request.approval_id},
+            )
             store.save(run_id, record)
 
     with io.StringIO() as capture, redirect_stdout(capture):
@@ -192,6 +235,24 @@ def resume_mission(run_id: str, approve: bool = False) -> Dict:
         resumed_record["restore_payload"] = None
     resumed_restore_payload = resumed_record.get("restore_payload") or {}
     resumed_record["restore_available"] = bool(resumed_restore_payload.get("restore_possible"))
+    resumed_record["audit_trail"] = append_audit_event(
+        resumed_record.get("audit_trail", []),
+        "mission_resumed",
+        actor="mission",
+        details={"approved": approve, "final_status": resumed_record.get("status")},
+    )
+    resumed_record["audit_record"] = build_audit_record(
+        "mission",
+        outcome=resumed_record.get("status", "unknown"),
+        run_id=run_id,
+        risk_level=resumed_record.get("mutation_risk", "safe"),
+        approval_state=(resumed_record.get("approval_request") or {}).get("status", "not_required"),
+        checkpoint_ids=[item["checkpoint_id"] for item in resumed_record.get("checkpoints", [])],
+        rollback_ready=resumed_record["restore_available"],
+        restore_checkpoint_id=resumed_restore_payload.get("checkpoint_id"),
+        actor="mission",
+        details={"change_set_count": len(existing_change_sets), "resumed": True},
+    )
     resumed_record["summary"] = build_run_summary(resumed_record)
     resumed_record["quality_report"] = build_mission_quality_report(
         resumed_record,

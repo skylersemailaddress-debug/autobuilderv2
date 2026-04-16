@@ -25,3 +25,6 @@ def test_support_matrix_categories_and_lanes_are_documented_consistently() -> No
 
     assert "Support matrix scope" in operator
     assert "bounded_prototype" in operator
+    assert "command safety guarantees" in readme.lower()
+    assert "command safety guarantees" in spec.lower()
+    assert "command safety guarantees" in operator.lower()
