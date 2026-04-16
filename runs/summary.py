@@ -8,6 +8,11 @@ def build_run_summary(record: Dict) -> Dict:
     completed_tasks = sum(1 for task in tasks if task.get("status") == "complete")
 
     repo_context = record.get("repo_context", {})
+    change_sets = record.get("change_sets", [])
+    checkpoint_required = any(item.get("requires_checkpoint", False) for item in change_sets)
+    restore_payload = record.get("restore_payload") or {}
+    artifact_lineage = record.get("artifact_lineage", {})
+    artifact_lineage_count = len(artifact_lineage.get("lineage", [])) if artifact_lineage else len(record.get("artifacts", []))
     repo_signals = {
         "framework_hints": repo_context.get("framework_hints", []),
         "config_files": repo_context.get("config_files", []),
@@ -40,6 +45,10 @@ def build_run_summary(record: Dict) -> Dict:
         "failure_count": len(failures),
         "failure_types": list(set(f.get("failure_type", "unknown") for f in failures)),
         "critical_failures": sum(1 for f in failures if f.get("severity") == "critical"),
+        "mutation_risk": record.get("mutation_risk", "safe"),
+        "checkpoint_required": checkpoint_required,
+        "restore_available": bool(restore_payload.get("restore_possible", False)),
+        "artifact_lineage_count": artifact_lineage_count,
         "repo_mode": bool(repo_context),
         "repo_signals": repo_signals,
     }

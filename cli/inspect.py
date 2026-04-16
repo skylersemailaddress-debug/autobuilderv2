@@ -21,12 +21,23 @@ else:
     ROOT_DIR = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(ROOT_DIR))
 
+    from execution.lineage import summarize_artifact_lineage
     from state.json_store import JsonRunStore
+    from state.restore import latest_restore_payload
 
 
     def build_inspection_payload(record: Dict) -> Dict:
         summary = record.get("summary", {})
         failures = record.get("failures", [])
+        change_sets = record.get("change_sets", [])
+        mutation_risk = record.get("mutation_risk", "safe")
+        checkpoint_required = any(item.get("requires_checkpoint", False) for item in change_sets)
+        restore_payload = record.get("restore_payload") or latest_restore_payload(record)
+        artifact_lineage_summary = summarize_artifact_lineage(
+            record.get("run_id"),
+            record.get("artifacts", []),
+            record.get("checkpoints", []),
+        )
 
         payload = {
             "run_id": record.get("run_id"),
@@ -40,6 +51,14 @@ else:
             ),
             "event_count": summary.get("event_count", len(record.get("events", []))),
             "summary": summary,
+            "change_sets": change_sets,
+            "mutation_risk_summary": {
+                "risk_level": mutation_risk,
+                "checkpoint_required": checkpoint_required,
+                "change_set_count": len(change_sets),
+            },
+            "checkpoint_restore": restore_payload,
+            "artifact_lineage_summary": artifact_lineage_summary,
         }
 
         if failures:
@@ -87,6 +106,10 @@ else:
             print(f"approval_required={payload['approval_required']}")
             print(f"event_count={payload['event_count']}")
             print(f"summary={json.dumps(payload['summary'])}")
+            print(f"change_sets={json.dumps(payload['change_sets'])}")
+            print(f"mutation_risk_summary={json.dumps(payload['mutation_risk_summary'])}")
+            print(f"checkpoint_restore={json.dumps(payload['checkpoint_restore'])}")
+            print(f"artifact_lineage_summary={json.dumps(payload['artifact_lineage_summary'])}")
             if "failure_info" in payload:
                 print(f"failure_info={json.dumps(payload['failure_info'])}")
 

@@ -35,6 +35,9 @@ def test_one_button_mission_low_risk_goal():
     assert payload["final_status"] == "complete"
     assert payload["approval_required"] is False
     assert payload["awaiting_approval"] is False
+    assert payload["checkpoint_required"] is False
+    assert isinstance(payload["change_sets"], list)
+    assert payload["change_sets"]
     assert Path(payload["saved_path"]).exists()
     assert Path(payload["mission_result_path"]).exists()
 
@@ -68,7 +71,12 @@ def test_high_risk_goal_enters_approval_pause_cleanly():
     assert result["final_status"] == "awaiting_approval"
     assert result["approval_required"] is True
     assert result["awaiting_approval"] is True
+    assert result["checkpoint_required"] is True
+    assert result["mutation_risk"] == "dangerous"
+    assert isinstance(result["change_sets"], list)
+    assert result["change_sets"][0]["requires_checkpoint"] is True
     assert "resume_hint" in result
+    assert "restore_hint" in result
 
     _cleanup_result_files(result)
 
@@ -82,5 +90,6 @@ def test_resume_path_continues_after_approval_pause():
     assert resumed_result["run_id"] == run_id
     assert resumed_result["final_status"] == "complete"
     assert resumed_result["awaiting_approval"] is False
+    assert resumed_result["checkpoint_required"] is True
 
     _cleanup_result_files(resumed_result)
