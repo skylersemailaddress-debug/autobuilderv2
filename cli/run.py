@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import uuid
 import json
+import argparse
 
 # Ensure top-level package imports work when executing cli/run.py directly.
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -24,10 +25,16 @@ from memory.json_memory import JsonMemoryStore
 from observability.events import create_event, event_to_dict
 from runs.summary import build_run_summary
 from state.checkpoints import create_checkpoint
+from validator.contracts import (
+    validate_plan_artifact,
+    validate_task_result_artifact,
+    validate_run_summary_contract,
+)
 from state.run_state import RunStateStore
 from state.json_store import JsonRunStore
 from state.resume import resume_run
 from validator.confidence import calculate_confidence
+from nexus.mode import NexusMode
 from validator.validator import Validator
 from control_plane.approvals import require_approval
 from policies.action_policy import ActionPolicy
@@ -48,8 +55,9 @@ def serialize_event(event):
     return event_to_dict(event)
 
 
-def perform_run(run_id, goal=DEFAULT_GOAL):
+def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
     created_at = datetime.now(timezone.utc).isoformat()
+    nexus_config = NexusMode() if nexus_mode_enabled else None
     state_store = RunStateStore()
     run_sm = RunStateMachine()
     planner = Planner()
@@ -94,6 +102,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
     plan_result = planner.create_plan(goal, planning_context)
     tasks = plan_result["tasks"]
     plan_metadata = plan_result["metadata"]
+    plan_artifact = plan_metadata.copy()
     
     events.append(serialize_event(create_event("plan_created", {"goal": goal, "task_count": len(tasks), "memory_used": plan_metadata["memory_used"]})))
     checkpoints.append(asdict(create_checkpoint("plan_created", {"task_count": len(tasks), "goal": goal, "memory_used": plan_metadata["memory_used"]})))
@@ -132,6 +141,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
             "policy": policy,
             "memory_context": memory_context,
             "repo_context": repo_context,
+            "plan_artifact": plan_artifact,
             "memory_used": plan_metadata["memory_used"],
             "memory_hits": len(memory_hits),
             "plan_metadata": plan_metadata,
@@ -143,13 +153,30 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
             "failures": failures,
             "awaiting_approval": True,
             "control_state": asdict(control_decision),
+            "nexus_mode": bool(nexus_config),
+            "project_name": nexus_config.project_name if nexus_config else None,
+            "approvals_enabled": nexus_config.approvals_enabled if nexus_config else False,
+            "resumability_enabled": nexus_config.resumability_enabled if nexus_config else False,
+            "memory_enabled": nexus_config.memory_enabled if nexus_config else False,
+            "contract_validation_enabled": nexus_config.contract_validation_enabled if nexus_config else False,
         }
         if approval_request:
             record["approval_request"] = asdict(approval_request)
         record["summary"] = build_run_summary(record)
-        memory_store.add_memory("summary", record["summary"])
-        record["memory_keys"] = memory_store.list_keys()
-        durable_memory_store.add_memory("summary", record["summary"])
+        plan_valid, plan_evidence = validate_plan_artifact(record["plan_artifact"])
+        summary_valid, summary_evidence = validate_run_summary_contract(record["summary"])
+        task_contracts = []
+        for artifact in record["artifacts"]:
+            if artifact.get("artifact_type") == "task_output":
+                passed, evidence = validate_task_result_artifact(artifact)
+                task_contracts.append({"artifact_id": artifact.get("artifact_id"), "passed": passed, "evidence": evidence})
+        contract_validation_passed = plan_valid and summary_valid and all(item["passed"] for item in task_contracts)
+        record["contract_validation_passed"] = contract_validation_passed
+        record["contract_validation_results"] = {
+            "plan": plan_evidence,
+            "tasks": task_contracts,
+            "summary": summary_evidence,
+        }
         record["durable_memory_keys"] = durable_memory_store.list_keys()
         record["resume"] = resume_run(record)
         saved_path = json_store.save(run_id, record)
@@ -246,6 +273,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         "policy": policy,
         "memory_context": memory_context,
         "repo_context": repo_context,
+        "plan_artifact": plan_artifact,
         "memory_used": plan_metadata["memory_used"],
         "memory_hits": len(memory_hits),
         "plan_metadata": plan_metadata,
@@ -255,12 +283,32 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         "repair_count": repair_count,
         "events": events,
         "failures": failures,
+        "nexus_mode": bool(nexus_config),
+        "project_name": nexus_config.project_name if nexus_config else None,
+        "approvals_enabled": nexus_config.approvals_enabled if nexus_config else False,
+        "resumability_enabled": nexus_config.resumability_enabled if nexus_config else False,
+        "memory_enabled": nexus_config.memory_enabled if nexus_config else False,
+        "contract_validation_enabled": nexus_config.contract_validation_enabled if nexus_config else False,
     }
     
     if approval_request:
         record["approval_request"] = asdict(approval_request)
     
     record["summary"] = build_run_summary(record)
+    plan_valid, plan_evidence = validate_plan_artifact(record["plan_artifact"])
+    summary_valid, summary_evidence = validate_run_summary_contract(record["summary"])
+    task_contracts = []
+    for artifact in record["artifacts"]:
+        if artifact.get("artifact_type") == "task_output":
+            passed, evidence = validate_task_result_artifact(artifact)
+            task_contracts.append({"artifact_id": artifact.get("artifact_id"), "passed": passed, "evidence": evidence})
+    contract_validation_passed = plan_valid and summary_valid and all(item["passed"] for item in task_contracts)
+    record["contract_validation_passed"] = contract_validation_passed
+    record["contract_validation_results"] = {
+        "plan": plan_evidence,
+        "tasks": task_contracts,
+        "summary": summary_evidence,
+    }
     memory_store.add_memory("summary", record["summary"])
     record["memory_keys"] = memory_store.list_keys()
     
@@ -281,8 +329,16 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Run AutobuilderV2")
+    parser.add_argument(
+        "--nexus",
+        action="store_true",
+        help="Enable Nexus0.5 mission mode for controlled autonomous execution",
+    )
+    args = parser.parse_args()
+
     run_id = uuid.uuid4().hex
-    perform_run(run_id)
+    perform_run(run_id, nexus_mode_enabled=args.nexus)
 
 
 if __name__ == "__main__":
