@@ -53,6 +53,11 @@ runs/*.json
 memory/*.json
 runs/
 memory/
+state/chat_memory/
+state/generated_capabilities_registry.json
+state/generated_capabilities_quarantine.json
+state/capability_failure_intelligence/
+output-app/
 
 # Temporary build artifacts
 *.zip

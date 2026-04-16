@@ -43,6 +43,8 @@ def test_autobuilder_cli_reaches_core_flows():
     )
     assert mission.returncode == 0, mission.stderr
     mission_payload = json.loads(mission.stdout)
+    assert mission_payload["status"] == "ok"
+    assert mission_payload["command"] == "mission"
     run_id = mission_payload["run_id"]
     assert mission_payload["awaiting_approval"] is True
 
@@ -55,6 +57,8 @@ def test_autobuilder_cli_reaches_core_flows():
     )
     assert inspect.returncode == 0, inspect.stderr
     inspect_payload = json.loads(inspect.stdout)
+    assert inspect_payload["status"] == "ok"
+    assert inspect_payload["command"] == "inspect"
     assert inspect_payload["run_id"] == run_id
 
     resume = subprocess.run(
@@ -66,6 +70,8 @@ def test_autobuilder_cli_reaches_core_flows():
     )
     assert resume.returncode == 0, resume.stderr
     resume_payload = json.loads(resume.stdout)
+    assert resume_payload["status"] == "ok"
+    assert resume_payload["command"] == "resume"
     assert resume_payload["final_status"] == "complete"
 
     benchmark = subprocess.run(
@@ -84,6 +90,8 @@ def test_autobuilder_cli_reaches_core_flows():
     )
     assert benchmark.returncode == 0, benchmark.stderr
     benchmark_payload = json.loads(benchmark.stdout)
+    assert benchmark_payload["status"] == "ok"
+    assert benchmark_payload["command"] == "benchmark"
     assert benchmark_payload["total_cases"] == 1
 
     readiness = subprocess.run(
@@ -95,6 +103,8 @@ def test_autobuilder_cli_reaches_core_flows():
     )
     assert readiness.returncode == 0, readiness.stderr
     readiness_payload = json.loads(readiness.stdout)
+    assert readiness_payload["status"] == "ok"
+    assert readiness_payload["command"] == "readiness"
     assert "readiness_status" in readiness_payload
     assert "readiness_reasons" in readiness_payload
 

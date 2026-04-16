@@ -4,7 +4,7 @@ This document defines the canonical spec bundle and the current build-mode compi
 
 ## Scope
 
-This tranche adds a deterministic compiler spine and commercial generation surface:
+AutobuilderV2 provides a deterministic compiler spine and commercial generation surface:
 
 1. Load and validate canonical specs.
 2. Resolve app archetype and stack selections.
@@ -63,15 +63,20 @@ Supported `app_type` values:
 - `realtime_system`
 - `enterprise_agent_system`
 
-First-class supported stack lanes in this tranche:
+Lane support matrix:
 
-- web lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
-- mobile lane: `flutter_mobile` + `fastapi` + `postgres` + `docker_compose`
-- game lane: `godot_game` + `fastapi` + `postgres` + `docker_compose`
-- realtime/sensing lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
-- enterprise-agent/workflow lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
+- `first_class_commercial`: `react_next` + `fastapi` + `postgres` + `docker_compose` (`first_class`)
+- `first_class_mobile`: `flutter_mobile` + `fastapi` + `postgres` + `docker_compose` (`first_class`)
+- `first_class_game`: `godot_game` + `fastapi` + `postgres` + `docker_compose` (`bounded_prototype`)
+- `first_class_realtime`: `react_next` + `fastapi` + `postgres` + `docker_compose` (`first_class`)
+- `first_class_enterprise_agent`: `react_next` + `fastapi` + `postgres` + `docker_compose` (`first_class`)
 
-Registry placeholders may exist for future expansion, but only first-class lanes above are in scope for deterministic planning and generation in this tranche.
+Support category definitions:
+
+- `first_class`: deterministic generation/validation/proof/ship.
+- `bounded_prototype`: deterministic but intentionally scoped runtime envelope.
+- `structural_only`: contracts/schema with bounded hooks.
+- `future`: placeholder only.
 
 Current parser behavior:
 
@@ -282,10 +287,19 @@ Proof artifacts written under `.autobuilder/`:
 - `package_artifact_summary.json`
 - `proof_readiness_bundle.json`
 
-## Support Tiers
+## Command Surface Contract
 
-- `first_class`: deterministic planning and build-plan support exists now
-- `future`: placeholder registry entry only
+Top-level commands produce machine-readable JSON with:
+
+- `status`: `ok` or `error`
+- `command`: command identifier
+- command-specific payload fields
+
+Failure semantics are stable:
+
+- `build`/`ship`/`chat-build`/`self-extend` return non-zero on deterministic contract errors
+- `validate-app`/`proof-app` return non-zero when validation/proof requirements are not met
+- `agent-runtime` returns `ok` with `completed` or `blocked` execution status depending on approval-gated steps
 
 ## Plugin Registry
 
@@ -298,7 +312,7 @@ Proof artifacts written under `.autobuilder/`:
 
 ## Current Limitations
 
-- Only the defined first-class lanes are generated in this tranche.
+- Only the defined support-matrix lanes are generated.
 - YAML fallback without `PyYAML` requires JSON-compatible YAML syntax.
 - Generated starter is intentionally clean and minimal but deployable locally.
 - First-class lanes are constrained to:
@@ -307,4 +321,4 @@ Proof artifacts written under `.autobuilder/`:
   - `godot_game` + `fastapi` + `postgres` + `docker_compose`
 	- realtime/sensing profile on `react_next` + `fastapi` + `postgres` + `docker_compose`
 	- enterprise-agent/workflow profile on `react_next` + `fastapi` + `postgres` + `docker_compose`
-- Existing readiness/proof/benchmark/mission/repair flows are unchanged.
+- Existing readiness/proof/benchmark/mission/repair flows remain deterministic and unchanged in contract.

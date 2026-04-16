@@ -26,7 +26,7 @@ Use the top-level CLI for all standard operations:
 python cli/autobuilder.py --help
 ```
 
-Available commands for the commercial lane: `readiness`, `build`, `validate-app`, `proof-app`, `ship`
+Canonical command set: `readiness`, `build`, `validate-app`, `proof-app`, `ship`, `chat-build`, `agent-runtime`, `self-extend`
 
 Chat-first command for non-expert operators: `chat-build`
 
@@ -37,13 +37,13 @@ Universal capability commands:
 
 Secondary operational autonomy commands remain available (`mission`, `resume`, `inspect`, `benchmark`, `proof`) but are not required for the commercial ship lane.
 
-Supported commercial lane scope:
+Support matrix scope:
 
 - app archetypes: `internal_tool`, `workspace_app`, `saas_web_app`, `api_service`, `workflow_system`, `copilot_chat_app`, `mobile_app`, `game_app`, `realtime_system`, `enterprise_agent_system`
-- first-class lane stacks:
+- lane stacks and support category:
   - web: `react_next` + `fastapi` + `postgres` + `docker_compose`
   - mobile: `flutter_mobile` + `fastapi` + `postgres` + `docker_compose`
-  - game: `godot_game` + `fastapi` + `postgres` + `docker_compose`
+  - game: `godot_game` + `fastapi` + `postgres` + `docker_compose` (`bounded_prototype`)
   - realtime/sensing: `react_next` + `fastapi` + `postgres` + `docker_compose`
   - enterprise-agent/workflow: `react_next` + `fastapi` + `postgres` + `docker_compose`
 
@@ -52,6 +52,12 @@ Not yet supported in this tranche:
 - future/non-first-class stack entries
 - additional languages or deployment lanes
 - cloud-specific production deployment manifests
+
+Output contract expectations for all top-level commands:
+
+- `status` field is always present (`ok` or `error`)
+- `command` field identifies the command that emitted the payload
+- command-specific details remain stable and machine-readable
 
 ## Chat-First Product Architect Flow
 

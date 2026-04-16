@@ -112,30 +112,36 @@ Output archive is in `dist/` directory, ready to distribute or deploy.
 - Commercial planning: app archetype resolution and controlled stack selection for spec-driven builds
 - Build generation: deterministic commercial starter app generation with machine-readable summaries and validation plan
 
-## Commercial Build Support
+## Support Matrix
 
-Supported app archetypes:
+Support categories:
 
-- `internal_tool`
-- `workspace_app`
-- `saas_web_app`
-- `api_service`
-- `workflow_system`
-- `copilot_chat_app`
-- `mobile_app`
-- `game_app`
-- `realtime_system`
-- `enterprise_agent_system`
+- `first_class`: fully generated and validated with deterministic build/proof/ship behavior.
+- `bounded_prototype`: generated and validated for a scoped prototype envelope, not broad production breadth.
+- `structural_only`: schema/contracts exist but runtime generation is intentionally limited.
+- `future`: placeholder only.
 
-First-class stack lanes in this tranche:
+Lane and stack matrix:
 
-- web lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
-- mobile lane: `flutter_mobile` + `fastapi` + `postgres` + `docker_compose`
-- game lane: `godot_game` + `fastapi` + `postgres` + `docker_compose`
-- realtime/sensing lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
-- enterprise-agent/workflow lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
+| lane_id | app_type | stack | support_category |
+| --- | --- | --- | --- |
+| `first_class_commercial` | `internal_tool`, `workspace_app`, `saas_web_app`, `api_service`, `copilot_chat_app` | `react_next` + `fastapi` + `postgres` + `docker_compose` | `first_class` |
+| `first_class_mobile` | `mobile_app` | `flutter_mobile` + `fastapi` + `postgres` + `docker_compose` | `first_class` |
+| `first_class_game` | `game_app` | `godot_game` + `fastapi` + `postgres` + `docker_compose` | `bounded_prototype` |
+| `first_class_realtime` | `realtime_system` | `react_next` + `fastapi` + `postgres` + `docker_compose` | `first_class` |
+| `first_class_enterprise_agent` | `workflow_system`, `enterprise_agent_system` | `react_next` + `fastapi` + `postgres` + `docker_compose` | `first_class` |
 
-Enterprise polish in this tranche means generated apps include:
+Advanced capability matrix:
+
+| capability | support_category | notes |
+| --- | --- | --- |
+| `chat-build` conversation-to-spec | `first_class` | preview-first and deterministic build handoff |
+| computer-use `agent-runtime` | `bounded_prototype` | modeled and bounded execution with approvals/audit/replay |
+| `self-extend` tool synthesis | `bounded_prototype` | sandbox validation, registration, quarantine, rollback |
+| multimodal/world-state schema | `structural_only` | normalized schema and bounded hooks |
+| cloud IaC deployment generation | `future` | not generated in current surface |
+
+Enterprise polish means generated apps include:
 
 - deterministic loading/empty/error response states
 - shell navigation and status conventions
@@ -143,18 +149,13 @@ Enterprise polish in this tranche means generated apps include:
 - backend readiness/version/health and admin/operator/audit placeholders
 - proof/readiness and packaging bundle artifacts for handoff
 
-Support tiers:
-
-- `first_class`: implemented and validated in this tranche
-- `future`: registry placeholder only, not generated or validated yet
-
-Plugin architecture scope in this tranche:
+Plugin architecture scope:
 
 - production plugin lanes: `first_class_commercial`, `first_class_mobile`, `first_class_game`, `first_class_realtime`, `first_class_enterprise_agent`
 - plugin registry resolves compatible plugin combinations deterministically per spec
 - unsupported or incompatible plugin combinations fail cleanly before generation
 
-Not yet supported in this tranche:
+Not yet supported:
 
 - additional frontend/backend/database/deployment stacks
 - non-first-class stack combinations

@@ -203,6 +203,21 @@ def _print(data, as_json: bool) -> None:
         print(json.dumps(data, indent=2))
 
 
+def _success_payload(command: str, payload: dict[str, object]) -> dict[str, object]:
+    result = dict(payload)
+    result.setdefault("status", "ok")
+    result.setdefault("command", command)
+    return result
+
+
+def _error_payload(command: str, message: str) -> dict[str, object]:
+    return {
+        "status": "error",
+        "command": command,
+        "error": message,
+    }
+
+
 def _run_benchmarks(case_names: str | None = None) -> dict:
     selected = BENCHMARK_CASES
     if case_names:
@@ -791,34 +806,34 @@ def main() -> int:
 
     if args.command == "mission":
         result = run_mission(args.goal)
-        _print(result, args.json)
+        _print(_success_payload("mission", result), args.json)
         return 0
 
     if args.command == "resume":
         result = resume_mission(args.run_id, approve=args.approve)
-        _print(result, args.json)
+        _print(_success_payload("resume", result), args.json)
         return 0
 
     if args.command == "inspect":
         result = inspect_run(args.run_id)
-        _print(result, args.json)
+        _print(_success_payload("inspect", result), args.json)
         return 0
 
     if args.command == "benchmark":
         report = _run_benchmarks(args.cases)
-        _print(report, args.json)
+        _print(_success_payload("benchmark", report), args.json)
         return 0
 
     if args.command == "readiness":
         benchmark_summary = _run_benchmarks(args.cases) if args.with_benchmarks else None
         checks = run_readiness_checks()
         report = build_readiness_report(checks, benchmark_summary=benchmark_summary)
-        _print(report, args.json)
+        _print(_success_payload("readiness", report), args.json)
         return 0
 
     if args.command == "proof":
         proof = run_proof_workflow()
-        _print(proof, args.json)
+        _print(_success_payload("proof", proof), args.json)
         return 0
 
     if args.command == "build":
@@ -831,19 +846,19 @@ def main() -> int:
             PluginResolutionError,
             RuntimeError,
         ) as exc:
-            _print({"status": "error", "error": str(exc)}, args.json)
+            _print(_error_payload("build", str(exc)), args.json)
             return 2
-        _print(result, args.json)
+        _print(_success_payload("build", result), args.json)
         return 0
 
     if args.command == "validate-app":
         result = run_generated_app_validation_workflow(target_path=args.target, repair=args.repair)
-        _print(result, args.json)
+        _print(_success_payload("validate-app", result), args.json)
         return 0 if result["validation_status"] == "passed" else 2
 
     if args.command == "proof-app":
         result = run_generated_app_proof_workflow(target_path=args.target, repair=args.repair)
-        _print(result, args.json)
+        _print(_success_payload("proof-app", result), args.json)
         return 0 if str(result["proof_status"]).startswith("certified") else 2
 
     if args.command == "ship":
@@ -856,9 +871,9 @@ def main() -> int:
             PluginResolutionError,
             RuntimeError,
         ) as exc:
-            _print({"status": "error", "error": str(exc)}, args.json)
+            _print(_error_payload("ship", str(exc)), args.json)
             return 2
-        _print(result, args.json)
+        _print(_success_payload("ship", result), args.json)
         return 0
 
     if args.command == "chat-build":
@@ -877,10 +892,10 @@ def main() -> int:
             PluginResolutionError,
             RuntimeError,
         ) as exc:
-            _print({"status": "error", "error": str(exc)}, args.json)
+            _print(_error_payload("chat-build", str(exc)), args.json)
             return 2
 
-        _print(result, args.json)
+        _print(_success_payload("chat-build", result), args.json)
         status = str(result.get("status", ""))
         if status in {"preview_ready", "needs_clarification", "built"}:
             return 0
@@ -902,16 +917,16 @@ def main() -> int:
             execution = execute_computer_use_plan(plan, approvals=approvals)
             result = {"status": "ok", "plan": plan, "execution": execution}
         except (ValueError, json.JSONDecodeError) as exc:
-            _print({"status": "error", "error": str(exc)}, args.json)
+            _print(_error_payload("agent-runtime", str(exc)), args.json)
             return 2
 
-        _print(result, args.json)
+        _print(_success_payload("agent-runtime", result), args.json)
         return 0 if execution.get("overall_status") in {"completed", "blocked"} else 2
 
     if args.command == "self-extend":
         needs = [item.strip() for item in args.needs.split(",") if item.strip()]
         if not needs:
-            _print({"status": "error", "error": "--needs must include at least one capability"}, args.json)
+            _print(_error_payload("self-extend", "--needs must include at least one capability"), args.json)
             return 2
         result = synthesize_missing_capabilities(
             lane_id=args.lane,
@@ -923,7 +938,7 @@ def main() -> int:
             approved=args.approve_core,
             failure_intelligence_root=ROOT_DIR / "state" / "capability_failure_intelligence",
         )
-        _print(result, args.json)
+        _print(_success_payload("self-extend", result), args.json)
         return 0 if result.get("status") in {"extended", "no_gap"} else 2
 
     parser.error("Unknown command")
