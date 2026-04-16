@@ -30,6 +30,11 @@ Available commands for the commercial lane: `readiness`, `build`, `validate-app`
 
 Chat-first command for non-expert operators: `chat-build`
 
+Universal capability commands:
+
+- `agent-runtime` for bounded computer-use workflow modeling/execution
+- `self-extend` for sandboxed capability synthesis and safe registration
+
 Secondary operational autonomy commands remain available (`mission`, `resume`, `inspect`, `benchmark`, `proof`) but are not required for the commercial ship lane.
 
 Supported commercial lane scope:
@@ -67,6 +72,26 @@ What this adds:
 - project memory for decisions/defaults/failures/fixes/artifact traceability
 - preview-first approval gate before build execution
 - final proof/readiness output reuse from existing ship lane
+
+## Universal Capability Operations
+
+Computer-use runtime example:
+
+```bash
+python cli/autobuilder.py agent-runtime --task "Open app, fill form, and save result" --json
+```
+
+Safe self-extension example:
+
+```bash
+python cli/autobuilder.py self-extend --lane first_class_commercial --needs custom_validator_for_geo --sandbox /tmp/autobuilder-sandbox --approve-core --json
+```
+
+Governance expectations:
+
+- treat self-extension as sandbox-first, not direct core rewrites
+- require validation before registration
+- review quarantine and rollback records for rejected/rolled-back capabilities
 
 ### 1a. Check System Readiness
 

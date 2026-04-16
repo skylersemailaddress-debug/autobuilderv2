@@ -17,6 +17,10 @@
 - Commerce Contract Packs
 - Runtime Verification and Repair Policies
 - Failure Corpus and Replay Harness
+- Computer-Use Agent Runtime
+- Multimodal and World-State Schema Layer
+- Self-Extension Meta-Builder and Tool Factory
+- Capability Governance Registry and Rollback
 
 ## Run Lifecycle
 1. Intake
@@ -70,3 +74,12 @@ Current bounded first-class lanes:
 - Deterministic plugin selection by lane-compatible metadata
 - Deterministic pack composition profiles per lane
 - Deterministic replay payload signatures for build/validate/proof workflows
+- Deterministic computer-use plan and replay signatures
+- Deterministic tool-candidate generation and validation scoring
+
+## Autonomous Capability Growth Safeguards
+- Sandbox-first candidate capability synthesis
+- Validation thresholds before registration
+- Optional approval gates for core-impact changes
+- Quarantine path for rejected candidates
+- Rollback support for active generated capabilities

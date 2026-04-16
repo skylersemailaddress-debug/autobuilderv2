@@ -27,6 +27,11 @@ def test_pack_registry_contains_required_pack_types_for_each_lane() -> None:
         profile = registry.compose_lane_profile(lane_id)
         assert set(profile["pack_types"]) == required
         assert profile["pack_count"] == len(required)
+        for pack in profile["packs"]:
+            assert pack["purpose"]
+            assert "quality_tier" in pack
+            assert "validation_requirements" in pack
+            assert "safety_tier" in pack
 
 
 def test_pack_composition_is_deterministic() -> None:

@@ -63,6 +63,12 @@ python cli/autobuilder.py ship --spec specs --target /tmp/my-app --json
 python cli/autobuilder.py chat-build --prompt "Build a mobile app for school reminders" --target /tmp/my-app --json
 python cli/autobuilder.py chat-build --prompt "Build a mobile app for school reminders" --target /tmp/my-app --approve --json
 
+# Computer-use agent runtime modeling/execution
+python cli/autobuilder.py agent-runtime --task "Open app, fill form, and save result" --json
+
+# Safe self-extension in sandbox
+python cli/autobuilder.py self-extend --lane first_class_commercial --needs custom_validator_for_geo --sandbox /tmp/autobuilder-sandbox --approve-core --json
+
 # Validate generated app structure/surfaces and auto-repair common defects
 python cli/autobuilder.py validate-app --target /tmp/my-app --repair --json
 
@@ -176,6 +182,8 @@ Supported commands:
 - `proof-app`
 - `ship`
 - `chat-build`
+- `agent-runtime`
+- `self-extend`
 
 ## Chat-First Builder UX
 
@@ -201,6 +209,23 @@ Safety and explainability in chat flow:
 - simple tradeoff explanations
 - deterministic default inference (no silent assumption drift)
 - next-step guidance in every response
+
+## Universal Capability Layer
+
+AutobuilderV2 now includes bounded universal capability systems for controlled autonomous growth:
+
+- computer-use agent runtime: browser/file/form/app interaction abstractions with audit logs, approval gating, and replay signatures
+- multimodal/world-state foundations: text/doc/media/sensor/event references and normalized action-output schema
+- self-extension/meta-builder: detect capability gaps, synthesize candidate tools in sandbox, validate, and safely register
+- tool factory: deterministic generation of validators/connectors/helpers/domain utilities
+- safe governance: tiered registration decisions, quarantine on failure, and rollback for active generated capabilities
+- universal failure intelligence: failure corpus and replay artifacts for self-generated capabilities
+
+Commercial guardrails remain intact:
+
+- core build/ship determinism is unchanged
+- first-class lane compatibility gates remain enforced
+- self-generated capabilities require validation and can be quarantined/rolled back
 
 Canonical commercial lane command order:
 

@@ -25,6 +25,8 @@ from readiness.checks import run_readiness_checks
 from readiness.report import build_readiness_report
 from stack_registry.registry import StackRegistryResolutionError
 from specs.loader import SpecValidationError, load_spec_bundle
+from universal_capability.agent_runtime import execute_computer_use_plan, model_computer_use_task
+from universal_capability.self_extension import synthesize_missing_capabilities
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -746,6 +748,45 @@ def main() -> int:
     )
     chat_build_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output")
 
+    agent_runtime_parser = subparsers.add_parser(
+        "agent-runtime",
+        help="Model and execute bounded computer-use workflows with approval gating and replay",
+    )
+    agent_runtime_parser.add_argument("--task", required=True, help="Plain-language computer-use task")
+    agent_runtime_parser.add_argument(
+        "--world-state-json",
+        default="{}",
+        help="Optional JSON world-state payload for task modeling",
+    )
+    agent_runtime_parser.add_argument(
+        "--approvals-json",
+        default="{}",
+        help="Optional JSON map of approved sensitive actions by step_id/action_type",
+    )
+    agent_runtime_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output")
+
+    self_extend_parser = subparsers.add_parser(
+        "self-extend",
+        help="Detect capability gaps and synthesize candidate tools in sandbox with safe registration",
+    )
+    self_extend_parser.add_argument("--lane", required=True, help="Lane id to extend")
+    self_extend_parser.add_argument(
+        "--needs",
+        required=True,
+        help="Comma-separated capability needs",
+    )
+    self_extend_parser.add_argument(
+        "--sandbox",
+        required=True,
+        help="Sandbox directory for generated candidate tools",
+    )
+    self_extend_parser.add_argument(
+        "--approve-core",
+        action="store_true",
+        help="Approve core-impact candidates if required",
+    )
+    self_extend_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output")
+
     args = parser.parse_args()
 
     if args.command == "mission":
@@ -848,6 +889,42 @@ def main() -> int:
         if status == "build_failed":
             return 2
         return 0
+
+    if args.command == "agent-runtime":
+        try:
+            world_state = json.loads(args.world_state_json)
+            approvals = json.loads(args.approvals_json)
+            if not isinstance(world_state, dict):
+                raise ValueError("world-state-json must decode to an object")
+            if not isinstance(approvals, dict):
+                raise ValueError("approvals-json must decode to an object")
+            plan = model_computer_use_task(args.task, world_state)
+            execution = execute_computer_use_plan(plan, approvals=approvals)
+            result = {"status": "ok", "plan": plan, "execution": execution}
+        except (ValueError, json.JSONDecodeError) as exc:
+            _print({"status": "error", "error": str(exc)}, args.json)
+            return 2
+
+        _print(result, args.json)
+        return 0 if execution.get("overall_status") in {"completed", "blocked"} else 2
+
+    if args.command == "self-extend":
+        needs = [item.strip() for item in args.needs.split(",") if item.strip()]
+        if not needs:
+            _print({"status": "error", "error": "--needs must include at least one capability"}, args.json)
+            return 2
+        result = synthesize_missing_capabilities(
+            lane_id=args.lane,
+            requested_capabilities=needs,
+            sandbox_root=args.sandbox,
+            registry_path=ROOT_DIR / "state" / "generated_capabilities_registry.json",
+            quarantine_path=ROOT_DIR / "state" / "generated_capabilities_quarantine.json",
+            require_approval_for_core=True,
+            approved=args.approve_core,
+            failure_intelligence_root=ROOT_DIR / "state" / "capability_failure_intelligence",
+        )
+        _print(result, args.json)
+        return 0 if result.get("status") in {"extended", "no_gap"} else 2
 
     parser.error("Unknown command")
     return 1

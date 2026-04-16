@@ -14,6 +14,13 @@ class PackDefinition:
     version: str
     capabilities: list[str]
     metadata: dict[str, object]
+    purpose: str = "general"
+    dependencies: list[str] | None = None
+    supported_lanes: list[str] | None = None
+    supported_stacks: dict[str, list[str]] | None = None
+    quality_tier: str = "first_class"
+    validation_requirements: list[str] | None = None
+    safety_tier: str = "standard"
     priority: int = 100
 
     def to_dict(self) -> dict[str, object]:
@@ -139,6 +146,21 @@ def _register_base_packs() -> None:
                         "deterministic": True,
                         "enabled": True,
                     },
+                    purpose=f"{pack_type} capabilities for {lane_id}",
+                    dependencies=[],
+                    supported_lanes=[lane_id],
+                    supported_stacks={
+                        "frontend": ["react_next", "flutter_mobile", "godot_game"],
+                        "backend": ["fastapi"],
+                        "database": ["postgres"],
+                        "deployment": ["docker_compose"],
+                    },
+                    quality_tier="first_class",
+                    validation_requirements=[
+                        "deterministic_pack_order",
+                        "capability_schema_valid",
+                    ],
+                    safety_tier="standard",
                     priority=idx + 1,
                 )
             )
