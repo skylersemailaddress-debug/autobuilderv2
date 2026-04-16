@@ -15,6 +15,8 @@ from planner.planner import Planner
 from execution.executor import Executor
 from execution.artifacts import Artifact
 from debugger.repair import RepairEngine
+from debugger.classifier import FailureClassifier
+from debugger.failures import FailureRecord
 from memory.store import MemoryStore
 from memory.json_memory import JsonMemoryStore
 from observability.events import create_event, event_to_dict
@@ -57,6 +59,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
     memory_store = MemoryStore()
     durable_memory_store = JsonMemoryStore(str(ROOT_DIR / "memory" / f"{run_id}.json"))
     action_policy = ActionPolicy()
+    failure_classifier = FailureClassifier()
 
     memory_store.add_memory("goal", {"goal": goal})
     checkpoints = [
@@ -69,6 +72,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
     validation_result = None
     repair_used = False
     repair_count = 0
+    failures = []
     events = [
         serialize_event(create_event("run_started", {"run_id": run_id})),
     ]
@@ -129,7 +133,14 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
                 events.append(serialize_event(create_event("validation_passed", {"task_count": len(tasks)})))
                 next_state = run_sm.transition(success=True)
             else:
-                events.append(serialize_event(create_event("validation_failed", {"validation": validation_result})))
+                # Classify the validation failure
+                failure_record = failure_classifier.classify(validation_result)
+                failures.append(asdict(failure_record))
+                events.append(serialize_event(create_event("validation_failed", {
+                    "validation": validation_result,
+                    "failure_id": failure_record.failure_id,
+                    "failure_type": failure_record.failure_type
+                })))
                 if retry_policy.can_retry(repair_count):
                     next_state = run_sm.transition(success=False)
                 else:
@@ -186,6 +197,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         "repair_used": repair_used,
         "repair_count": repair_count,
         "events": events,
+        "failures": failures,
     }
     
     if approval_request:

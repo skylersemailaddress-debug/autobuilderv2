@@ -48,6 +48,17 @@ def test_cli_run_script():
     assert len(data["tasks"]) == 3
     assert all(task["status"] == "complete" for task in data["tasks"])
     assert data.get("validation") is not None
+    # Check that failures list exists and contains records from validation failure
+    assert "failures" in data
+    assert isinstance(data["failures"], list)
+    # Should have at least one failure from the initial validation failure
+    assert len(data["failures"]) >= 1
+    failure = data["failures"][0]
+    assert "failure_id" in failure
+    assert "failure_type" in failure
+    assert "severity" in failure
+    assert "message" in failure
+    assert "recoverable" in failure
     assert data.get("repair_used") is True
     assert data.get("repair_count") == 1
     assert isinstance(data.get("events"), list)

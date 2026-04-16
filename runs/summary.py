@@ -4,6 +4,7 @@ from typing import Dict
 def build_run_summary(record: Dict) -> Dict:
     tasks = record.get("tasks", [])
     events = record.get("events", [])
+    failures = record.get("failures", [])
     completed_tasks = sum(1 for task in tasks if task.get("status") == "complete")
 
     return {
@@ -22,4 +23,7 @@ def build_run_summary(record: Dict) -> Dict:
         "approval_required": record.get("policy", {}).get("approval_required", False),
         "memory_used": record.get("memory_used", False),
         "memory_hits": record.get("memory_hits", 0),
+        "failure_count": len(failures),
+        "failure_types": list(set(f.get("failure_type", "unknown") for f in failures)),
+        "critical_failures": sum(1 for f in failures if f.get("severity") == "critical"),
     }

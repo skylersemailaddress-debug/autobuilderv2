@@ -1,0 +1,287 @@
+{
+  "run_id": "c99b1b32d8da4e62a000dff69001519b",
+  "created_at": "2026-04-16T01:59:57.473711+00:00",
+  "goal": "Build an autonomous execution plan",
+  "status": "execute",
+  "state_history": [
+    "intake",
+    "plan",
+    "execute",
+    "validate",
+    "repair",
+    "execute",
+    "validate",
+    "complete"
+  ],
+  "tasks": [
+    {
+      "task_id": "task-1",
+      "title": "Analyze goal: Build an autonomous execution plan",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "task_id": "task-2",
+      "title": "Generate artifact",
+      "status": "complete",
+      "result": {
+        "task_id": "task-2",
+        "title": "Generate artifact",
+        "message": "Generate artifact completed successfully"
+      }
+    },
+    {
+      "task_id": "task-3",
+      "title": "Validate output",
+      "status": "complete",
+      "result": {
+        "task_id": "task-3",
+        "title": "Validate output",
+        "message": "Validate output completed successfully"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "task-1",
+      "artifact_type": "task_output",
+      "content": {
+        "task_id": "task-1",
+        "title": "Analyze goal: Build an autonomous execution plan",
+        "message": "Analyze goal: Build an autonomous execution plan completed successfully"
+      },
+      "created_at": "2026-04-16T01:59:57.474236+00:00"
+    },
+    {
+      "artifact_id": "task-2",
+      "artifact_type": "task_output",
+      "content": {
+        "task_id": "task-2",
+        "title": "Generate artifact",
+        "message": "Generate artifact completed successfully"
+      },
+      "created_at": "2026-04-16T01:59:57.474250+00:00"
+    },
+    {
+      "artifact_id": "task-3",
+      "artifact_type": "task_output",
+      "content": {
+        "task_id": "task-3",
+        "title": "Validate output",
+        "message": "Validate output completed successfully"
+      },
+      "created_at": "2026-04-16T01:59:57.474258+00:00"
+    },
+    {
+      "state": "plan",
+      "timestamp": "2026-04-16T01:59:57.474287+00:00"
+    },
+    {
+      "state": "execute",
+      "timestamp": "2026-04-16T01:59:57.474292+00:00"
+    },
+    {
+      "state": "validate",
+      "timestamp": "2026-04-16T01:59:57.474297+00:00"
+    },
+    {
+      "state": "repair",
+      "timestamp": "2026-04-16T01:59:57.474319+00:00"
+    },
+    {
+      "state": "execute",
+      "timestamp": "2026-04-16T01:59:57.474339+00:00"
+    },
+    {
+      "state": "validate",
+      "timestamp": "2026-04-16T01:59:57.474343+00:00"
+    },
+    {
+      "state": "complete",
+      "timestamp": "2026-04-16T01:59:57.474356+00:00"
+    }
+  ],
+  "checkpoints": [
+    {
+      "checkpoint_id": "start-36257424de71457c9b057ab04dfb80e0",
+      "stage": "start",
+      "created_at": "2026-04-16T01:59:57.473997+00:00",
+      "metadata": {
+        "run_id": "c99b1b32d8da4e62a000dff69001519b"
+      }
+    },
+    {
+      "checkpoint_id": "plan_created-0a74a4455589439eadb144513d5fdb94",
+      "stage": "plan_created",
+      "created_at": "2026-04-16T01:59:57.474174+00:00",
+      "metadata": {
+        "task_count": 3,
+        "goal": "Build an autonomous execution plan",
+        "memory_used": true
+      }
+    },
+    {
+      "checkpoint_id": "execution_completed-61cb553714384a198e58e90881eb6684",
+      "stage": "execution_completed",
+      "created_at": "2026-04-16T01:59:57.474273+00:00",
+      "metadata": {
+        "task_count": 3
+      }
+    },
+    {
+      "checkpoint_id": "run_completed-7a6aafe0edbd4c53b9a3e8983ea5a438",
+      "stage": "run_completed",
+      "created_at": "2026-04-16T01:59:57.474377+00:00",
+      "metadata": {
+        "status": "complete"
+      }
+    }
+  ],
+  "confidence": 0.9,
+  "policy": {
+    "risk_level": "low",
+    "approval_required": false
+  },
+  "memory_context": {},
+  "memory_used": true,
+  "memory_hits": 0,
+  "plan_metadata": {
+    "goal": "Build an autonomous execution plan",
+    "task_count": 3,
+    "memory_used": true,
+    "memory_insights": []
+  },
+  "validation_result": {
+    "status": "pass"
+  },
+  "validation": {
+    "status": "pass"
+  },
+  "repair_used": true,
+  "repair_count": 1,
+  "events": [
+    {
+      "timestamp": "2026-04-16T01:59:57.474034+00:00",
+      "event_type": "run_started",
+      "detail": {
+        "run_id": "c99b1b32d8da4e62a000dff69001519b"
+      }
+    },
+    {
+      "timestamp": "2026-04-16T01:59:57.474138+00:00",
+      "event_type": "plan_created",
+      "detail": {
+        "goal": "Build an autonomous execution plan",
+        "task_count": 3,
+        "memory_used": true
+      }
+    },
+    {
+      "timestamp": "2026-04-16T01:59:57.474206+00:00",
+      "event_type": "execution_started",
+      "detail": {
+        "task_count": 3
+      }
+    },
+    {
+      "timestamp": "2026-04-16T01:59:57.474223+00:00",
+      "event_type": "execution_completed",
+      "detail": {
+        "task_count": 3
+      }
+    },
+    {
+      "timestamp": "2026-04-16T01:59:57.474304+00:00",
+      "event_type": "validation_failed",
+      "detail": {
+        "validation": {
+          "status": "fail",
+          "failed_tasks": [
+            "task-1"
+          ],
+          "reason": "Some tasks are not complete"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-16T01:59:57.474322+00:00",
+      "event_type": "repair_started",
+      "detail": {
+        "repair_count": 1
+      }
+    },
+    {
+      "timestamp": "2026-04-16T01:59:57.474331+00:00",
+      "event_type": "repair_completed",
+      "detail": {
+        "repair_count": 1
+      }
+    },
+    {
+      "timestamp": "2026-04-16T01:59:57.474348+00:00",
+      "event_type": "validation_passed",
+      "detail": {
+        "task_count": 3
+      }
+    },
+    {
+      "timestamp": "2026-04-16T01:59:57.474359+00:00",
+      "event_type": "run_completed",
+      "detail": {
+        "status": "complete"
+      }
+    }
+  ],
+  "summary": {
+    "run_id": "c99b1b32d8da4e62a000dff69001519b",
+    "goal": "Build an autonomous execution plan",
+    "final_status": "complete",
+    "repair_used": true,
+    "repair_count": 1,
+    "total_tasks": 3,
+    "completed_tasks": 3,
+    "event_count": 9,
+    "confidence": 0.9,
+    "checkpoint_count": 4,
+    "artifact_count": 10,
+    "risk_level": "low",
+    "approval_required": false,
+    "memory_used": true,
+    "memory_hits": 0
+  },
+  "memory_keys": [
+    "goal",
+    "summary"
+  ],
+  "durable_memory_keys": [
+    "summary"
+  ],
+  "resume": {
+    "run_id": "c99b1b32d8da4e62a000dff69001519b",
+    "goal": "Build an autonomous execution plan",
+    "final_status": "complete",
+    "summary": {
+      "run_id": "c99b1b32d8da4e62a000dff69001519b",
+      "goal": "Build an autonomous execution plan",
+      "final_status": "complete",
+      "repair_used": true,
+      "repair_count": 1,
+      "total_tasks": 3,
+      "completed_tasks": 3,
+      "event_count": 9,
+      "confidence": 0.9,
+      "checkpoint_count": 4,
+      "artifact_count": 10,
+      "risk_level": "low",
+      "approval_required": false,
+      "memory_used": true,
+      "memory_hits": 0
+    },
+    "memory_keys": [
+      "goal",
+      "summary"
+    ],
+    "last_state": "complete",
+    "repair_count": 1
+  }
+}
