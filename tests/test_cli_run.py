@@ -43,6 +43,9 @@ def test_cli_run_script():
     assert data["state_history"][-1] == "complete"
     assert data["run_id"]
     assert data["created_at"]
+    assert data["goal"] == "Build an autonomous execution plan"
+    assert isinstance(data.get("tasks"), list)
+    assert all(task["status"] == "complete" for task in data["tasks"])
     assert isinstance(data.get("artifacts"), list)
 
     saved_path.unlink()

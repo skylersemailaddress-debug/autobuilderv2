@@ -9,15 +9,30 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
 from orchestrator.run_state_machine import RunStateMachine, RunState
+from planner.planner import Planner
+from execution.executor import Executor
 from state.run_state import RunStateStore
 from state.json_store import JsonRunStore
 from validator.validator import Validator
 
+DEFAULT_GOAL = "Build an autonomous execution plan"
 
-def perform_run(run_id):
+
+def serialize_task(task):
+    return {
+        "task_id": task.task_id,
+        "title": task.title,
+        "status": task.status,
+        "result": task.result,
+    }
+
+
+def perform_run(run_id, goal=DEFAULT_GOAL):
     created_at = datetime.now(timezone.utc).isoformat()
     state_store = RunStateStore()
     run_sm = RunStateMachine()
+    planner = Planner()
+    executor = Executor()
     validator = Validator()
     json_store = JsonRunStore(base_dir=ROOT_DIR / "runs")
 
@@ -25,6 +40,10 @@ def perform_run(run_id):
     state_store.save(run_id, run_sm.state.value)
     artifacts = [{"state": run_sm.state.value, "timestamp": created_at}]
     validation_result = None
+
+    tasks = planner.create_plan(goal)
+    tasks = executor.run_tasks(tasks)
+    artifacts.extend([task.result for task in tasks if task.result is not None])
 
     while run_sm.state not in (RunState.COMPLETE, RunState.FAILED):
         if run_sm.state == RunState.VALIDATE:
@@ -49,8 +68,10 @@ def perform_run(run_id):
     record = {
         "run_id": run_id,
         "created_at": created_at,
+        "goal": goal,
         "status": status,
         "state_history": history,
+        "tasks": [serialize_task(task) for task in tasks],
         "artifacts": artifacts,
         "validation_result": validation_result,
     }
