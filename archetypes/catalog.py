@@ -62,6 +62,27 @@ ARCHETYPES: dict[str, AppArchetype] = {
         expected_runtime_concerns=["conversation_state", "tool_safety", "response_observability"],
         expected_validation_concerns=["tool_invocation", "conversation_continuity", "policy_controls"],
     ),
+    "mobile_app": AppArchetype(
+        name="mobile_app",
+        expected_surfaces=["mobile_navigation", "native_ui", "offline_state"],
+        expected_backend_shape=["mobile_api", "session_services", "sync_services"],
+        expected_runtime_concerns=["device_state", "session_resilience", "background_sync"],
+        expected_validation_concerns=["navigation_state", "offline_recovery", "session_consistency"],
+    ),
+    "game_app": AppArchetype(
+        name="game_app",
+        expected_surfaces=["scenes", "hud_ui", "input_surface"],
+        expected_backend_shape=["game_state_services", "asset_services", "event_services"],
+        expected_runtime_concerns=["update_loops", "input_latency", "event_consistency"],
+        expected_validation_concerns=["scene_transitions", "entity_updates", "asset_integrity"],
+    ),
+    "realtime_system": AppArchetype(
+        name="realtime_system",
+        expected_surfaces=["live_dashboard", "channel_controls", "event_streams"],
+        expected_backend_shape=["realtime_api", "channel_router", "event_processors"],
+        expected_runtime_concerns=["channel_uptime", "event_ordering", "session_presence"],
+        expected_validation_concerns=["channel_delivery", "event_replay", "presence_accuracy"],
+    ),
 }
 
 
