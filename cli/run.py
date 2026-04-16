@@ -9,9 +9,12 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
 from orchestrator.run_state_machine import RunStateMachine, RunState
+from orchestrator.policy import RetryPolicy
 from planner.planner import Planner
 from execution.executor import Executor
 from debugger.repair import RepairEngine
+from observability.events import create_event, event_to_dict
+from runs.summary import build_run_summary
 from state.run_state import RunStateStore
 from state.json_store import JsonRunStore
 from validator.validator import Validator
@@ -27,6 +30,9 @@ def serialize_task(task):
         "result": task.result,
     }
 
+def serialize_event(event):
+    return event_to_dict(event)
+
 
 def perform_run(run_id, goal=DEFAULT_GOAL):
     created_at = datetime.now(timezone.utc).isoformat()
@@ -36,6 +42,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
     executor = Executor()
     repair_engine = RepairEngine()
     validator = Validator()
+    retry_policy = RetryPolicy(max_repairs=1)
     json_store = JsonRunStore(base_dir=ROOT_DIR / "runs")
 
     history = [run_sm.state.value]
@@ -43,9 +50,17 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
     artifacts = [{"state": run_sm.state.value, "timestamp": created_at}]
     validation_result = None
     repair_used = False
+    repair_count = 0
+    events = [
+        serialize_event(create_event("run_started", {"run_id": run_id})),
+    ]
 
     tasks = planner.create_plan(goal)
+    events.append(serialize_event(create_event("plan_created", {"goal": goal, "task_count": len(tasks)})))
+
+    events.append(serialize_event(create_event("execution_started", {"task_count": len(tasks)})))
     tasks = executor.run_tasks(tasks)
+    events.append(serialize_event(create_event("execution_completed", {"task_count": len(tasks)})))
 
     # Intentionally leave one task incomplete to exercise the repair loop.
     if tasks:
@@ -57,10 +72,22 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
     while run_sm.state not in (RunState.COMPLETE, RunState.FAILED):
         if run_sm.state == RunState.VALIDATE:
             success, validation_result = validator.validate(tasks)
-            next_state = run_sm.transition(success=success)
+            if success:
+                events.append(serialize_event(create_event("validation_passed", {"task_count": len(tasks)})))
+                next_state = run_sm.transition(success=True)
+            else:
+                events.append(serialize_event(create_event("validation_failed", {"validation": validation_result})))
+                if retry_policy.can_retry(repair_count):
+                    next_state = run_sm.transition(success=False)
+                else:
+                    run_sm.state = RunState.FAILED
+                    next_state = run_sm.state
         elif run_sm.state == RunState.REPAIR:
+            events.append(serialize_event(create_event("repair_started", {"repair_count": repair_count + 1})))
             tasks = repair_engine.repair_tasks(tasks)
             repair_used = True
+            repair_count += 1
+            events.append(serialize_event(create_event("repair_completed", {"repair_count": repair_count})))
             next_state = run_sm.transition(success=True)
         else:
             next_state = run_sm.transition(success=True)
@@ -77,6 +104,11 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         if next_state == RunState.FAILED:
             break
 
+    if run_sm.state == RunState.COMPLETE:
+        events.append(serialize_event(create_event("run_completed", {"status": "complete"})))
+    else:
+        events.append(serialize_event(create_event("run_completed", {"status": "failed"})))
+
     status = run_sm.state.value
     record = {
         "run_id": run_id,
@@ -89,7 +121,10 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         "validation_result": validation_result,
         "validation": validation_result,
         "repair_used": repair_used,
+        "repair_count": repair_count,
+        "events": events,
     }
+    record["summary"] = build_run_summary(record)
     saved_path = json_store.save(run_id, record)
 
     print(f"run_id={run_id}")

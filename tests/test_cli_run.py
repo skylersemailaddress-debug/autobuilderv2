@@ -49,6 +49,12 @@ def test_cli_run_script():
     assert all(task["status"] == "complete" for task in data["tasks"])
     assert data.get("validation") is not None
     assert data.get("repair_used") is True
+    assert data.get("repair_count") == 1
+    assert isinstance(data.get("events"), list)
+    assert len(data["events"]) > 0
+    assert isinstance(data.get("summary"), dict)
+    assert data["summary"]["final_status"] == "complete"
+    assert data["summary"]["event_count"] == len(data["events"])
     assert isinstance(data.get("artifacts"), list)
 
     saved_path.unlink()
