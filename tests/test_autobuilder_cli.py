@@ -23,6 +23,7 @@ def test_autobuilder_cli_help_shows_expected_subcommands():
     assert "benchmark" in result.stdout
     assert "readiness" in result.stdout
     assert "build" in result.stdout
+    assert "chat-build" in result.stdout
 
 
 def test_autobuilder_cli_reaches_core_flows():

@@ -13,6 +13,7 @@ from archetypes.catalog import ArchetypeResolutionError
 from benchmarks.cases import BENCHMARK_CASES
 from benchmarks.report import build_benchmark_report
 from benchmarks.runner import run_benchmark_cases
+from chat_builder.workflow import run_chat_first_workflow
 from cli.inspect import inspect_run
 from cli.mission import resume_mission, run_mission
 from generator.executor import apply_build_plan
@@ -724,6 +725,27 @@ def main() -> int:
     )
     ship_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output")
 
+    chat_build_parser = subparsers.add_parser(
+        "chat-build",
+        help="Chat-first preview and build flow: plain language -> guided preview -> approved build/proof",
+    )
+    chat_build_parser.add_argument(
+        "--prompt",
+        required=True,
+        help="Plain-language app request from user conversation",
+    )
+    chat_build_parser.add_argument(
+        "--target",
+        required=True,
+        help="Target repository path for generated output",
+    )
+    chat_build_parser.add_argument(
+        "--approve",
+        action="store_true",
+        help="Approve preview and execute build/proof flow",
+    )
+    chat_build_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output")
+
     args = parser.parse_args()
 
     if args.command == "mission":
@@ -796,6 +818,35 @@ def main() -> int:
             _print({"status": "error", "error": str(exc)}, args.json)
             return 2
         _print(result, args.json)
+        return 0
+
+    if args.command == "chat-build":
+        try:
+            result = run_chat_first_workflow(
+                prompt=args.prompt,
+                target_path=args.target,
+                approve=args.approve,
+                project_memory_root=ROOT_DIR / "state" / "chat_memory",
+                ship_runner=run_ship_workflow,
+            )
+        except (
+            SpecValidationError,
+            ArchetypeResolutionError,
+            StackRegistryResolutionError,
+            PluginResolutionError,
+            RuntimeError,
+        ) as exc:
+            _print({"status": "error", "error": str(exc)}, args.json)
+            return 2
+
+        _print(result, args.json)
+        status = str(result.get("status", ""))
+        if status in {"preview_ready", "needs_clarification", "built"}:
+            return 0
+        if status == "unsupported":
+            return 2
+        if status == "build_failed":
+            return 2
         return 0
 
     parser.error("Unknown command")

@@ -59,6 +59,10 @@ python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
 # Canonical one-command commercial builder
 python cli/autobuilder.py ship --spec specs --target /tmp/my-app --json
 
+# Chat-first preview and guided build
+python cli/autobuilder.py chat-build --prompt "Build a mobile app for school reminders" --target /tmp/my-app --json
+python cli/autobuilder.py chat-build --prompt "Build a mobile app for school reminders" --target /tmp/my-app --approve --json
+
 # Validate generated app structure/surfaces and auto-repair common defects
 python cli/autobuilder.py validate-app --target /tmp/my-app --repair --json
 
@@ -171,6 +175,32 @@ Supported commands:
 - `validate-app`
 - `proof-app`
 - `ship`
+- `chat-build`
+
+## Chat-First Builder UX
+
+AutobuilderV2 now includes a thin, conversation-centered operator surface through `chat-build`:
+
+- one main conversation surface: your plain-language prompt
+- plan summary: lane, stack, defaults, questions, and tradeoffs
+- build progress: preview, approval, build/proof milestones
+- final outputs/proof: readiness/proof/package summaries from ship flow
+
+Preview-first flow:
+
+1. Describe app in plain English
+2. Autobuilder infers lane + safe defaults
+3. Autobuilder asks only critical missing questions
+4. Autobuilder returns a structured spec preview
+5. Approve with `--approve` to run build/proof
+6. Review final readiness and proof outputs
+
+Safety and explainability in chat flow:
+
+- clear unsupported feature messages
+- simple tradeoff explanations
+- deterministic default inference (no silent assumption drift)
+- next-step guidance in every response
 
 Canonical commercial lane command order:
 

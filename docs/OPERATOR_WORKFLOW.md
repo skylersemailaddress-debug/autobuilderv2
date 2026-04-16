@@ -28,6 +28,8 @@ python cli/autobuilder.py --help
 
 Available commands for the commercial lane: `readiness`, `build`, `validate-app`, `proof-app`, `ship`
 
+Chat-first command for non-expert operators: `chat-build`
+
 Secondary operational autonomy commands remain available (`mission`, `resume`, `inspect`, `benchmark`, `proof`) but are not required for the commercial ship lane.
 
 Supported commercial lane scope:
@@ -45,6 +47,26 @@ Not yet supported in this tranche:
 - future/non-first-class stack entries
 - additional languages or deployment lanes
 - cloud-specific production deployment manifests
+
+## Chat-First Product Architect Flow
+
+Use chat-first flow when an operator has only a plain-language idea and no structured specs yet:
+
+```bash
+# preview only
+python cli/autobuilder.py chat-build --prompt "Build an app for live school alerts" --target /tmp/chat-app --json
+
+# approve preview and build
+python cli/autobuilder.py chat-build --prompt "Build an app for live school alerts" --target /tmp/chat-app --approve --json
+```
+
+What this adds:
+
+- conversation-to-spec synthesis from plain language
+- guided steering with minimal critical questions and simple tradeoffs
+- project memory for decisions/defaults/failures/fixes/artifact traceability
+- preview-first approval gate before build execution
+- final proof/readiness output reuse from existing ship lane
 
 ### 1a. Check System Readiness
 
