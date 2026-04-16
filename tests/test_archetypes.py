@@ -21,6 +21,7 @@ def test_resolve_archetype_supports_multidomain_app_types():
     mobile = resolve_archetype("mobile_app")
     game = resolve_archetype("game_app")
     realtime = resolve_archetype("realtime_system")
+    enterprise_agent = resolve_archetype("enterprise_agent_system")
 
     assert mobile.name == "mobile_app"
     assert "mobile_navigation" in mobile.expected_surfaces
@@ -28,3 +29,5 @@ def test_resolve_archetype_supports_multidomain_app_types():
     assert "scene_transitions" in game.expected_validation_concerns
     assert realtime.name == "realtime_system"
     assert "event_ordering" in realtime.expected_runtime_concerns
+    assert enterprise_agent.name == "enterprise_agent_system"
+    assert "workflow_approvals" in enterprise_agent.expected_validation_concerns

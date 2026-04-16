@@ -17,7 +17,13 @@ def test_pack_registry_contains_required_pack_types_for_each_lane() -> None:
         "commerce",
     }
 
-    for lane_id in ("first_class_commercial", "first_class_mobile", "first_class_game"):
+    for lane_id in (
+        "first_class_commercial",
+        "first_class_mobile",
+        "first_class_game",
+        "first_class_realtime",
+        "first_class_enterprise_agent",
+    ):
         profile = registry.compose_lane_profile(lane_id)
         assert set(profile["pack_types"]) == required
         assert profile["pack_count"] == len(required)

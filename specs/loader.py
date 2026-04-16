@@ -77,6 +77,7 @@ DOMAIN_BY_APP_TYPE: dict[str, list[str]] = {
     "mobile_app": ["mobile_apps"],
     "game_app": ["games"],
     "realtime_system": ["realtime_systems"],
+    "enterprise_agent_system": ["enterprise_systems"],
 }
 
 

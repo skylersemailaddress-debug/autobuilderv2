@@ -60,12 +60,16 @@ Supported `app_type` values:
 - `copilot_chat_app`
 - `mobile_app`
 - `game_app`
+- `realtime_system`
+- `enterprise_agent_system`
 
 First-class supported stack lanes in this tranche:
 
 - web lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
 - mobile lane: `flutter_mobile` + `fastapi` + `postgres` + `docker_compose`
 - game lane: `godot_game` + `fastapi` + `postgres` + `docker_compose`
+- realtime/sensing lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
+- enterprise-agent/workflow lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
 
 Registry placeholders may exist for future expansion, but only first-class lanes above are in scope for deterministic planning and generation in this tranche.
 
@@ -301,4 +305,6 @@ Proof artifacts written under `.autobuilder/`:
   - `react_next` + `fastapi` + `postgres` + `docker_compose`
   - `flutter_mobile` + `fastapi` + `postgres` + `docker_compose`
   - `godot_game` + `fastapi` + `postgres` + `docker_compose`
+	- realtime/sensing profile on `react_next` + `fastapi` + `postgres` + `docker_compose`
+	- enterprise-agent/workflow profile on `react_next` + `fastapi` + `postgres` + `docker_compose`
 - Existing readiness/proof/benchmark/mission/repair flows are unchanged.

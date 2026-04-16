@@ -33,6 +33,14 @@ Plugin build lanes resolve deterministically before generation:
 
 Input -> Plugin Resolution -> Lane Generation -> Validation -> Stack Repair -> Runtime Verification -> Proof/Packaging
 
+Current bounded first-class lanes:
+
+- commercial web
+- mobile
+- game prototype
+- realtime/sensing
+- enterprise-agent/workflow
+
 ## Storage
 - Run state
 - Artifacts

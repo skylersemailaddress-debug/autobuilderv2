@@ -83,6 +83,13 @@ ARCHETYPES: dict[str, AppArchetype] = {
         expected_runtime_concerns=["channel_uptime", "event_ordering", "session_presence"],
         expected_validation_concerns=["channel_delivery", "event_replay", "presence_accuracy"],
     ),
+    "enterprise_agent_system": AppArchetype(
+        name="enterprise_agent_system",
+        expected_surfaces=["operator_console", "workflow_board", "briefing_center"],
+        expected_backend_shape=["agent_router", "workflow_runtime", "memory_state_store"],
+        expected_runtime_concerns=["multi_role_routing", "approval_integrity", "durable_memory"],
+        expected_validation_concerns=["workflow_approvals", "task_handoffs", "briefing_accuracy"],
+    ),
 }
 
 

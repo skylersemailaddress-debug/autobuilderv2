@@ -114,12 +114,16 @@ Supported app archetypes:
 - `copilot_chat_app`
 - `mobile_app`
 - `game_app`
+- `realtime_system`
+- `enterprise_agent_system`
 
 First-class stack lanes in this tranche:
 
 - web lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
 - mobile lane: `flutter_mobile` + `fastapi` + `postgres` + `docker_compose`
 - game lane: `godot_game` + `fastapi` + `postgres` + `docker_compose`
+- realtime/sensing lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
+- enterprise-agent/workflow lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
 
 Enterprise polish in this tranche means generated apps include:
 
@@ -136,7 +140,7 @@ Support tiers:
 
 Plugin architecture scope in this tranche:
 
-- production plugin lanes: `first_class_commercial`, `first_class_mobile`, `first_class_game`
+- production plugin lanes: `first_class_commercial`, `first_class_mobile`, `first_class_game`, `first_class_realtime`, `first_class_enterprise_agent`
 - plugin registry resolves compatible plugin combinations deterministically per spec
 - unsupported or incompatible plugin combinations fail cleanly before generation
 
@@ -222,6 +226,16 @@ Lane-specific first-class additions:
 
 - Mobile lane (`flutter_mobile`): Flutter scaffold with `pubspec.yaml`, `lib/main.dart`, navigation/state/API client modules, and lane validation markers.
 - Game lane (`godot_game`): Godot scaffold with `project.godot`, `scenes/*`, `scripts/*`, input mapping, and prototype main-loop validation markers.
+- Realtime lane (`react_next` realtime profile): stream subscription/polling scaffold, sensor connectors, alert/action paths, and world-state update placeholders.
+- Enterprise-agent lane (`react_next` workflow profile): multi-role routing, approvals, memory/state scaffolds, reporting/briefing outputs, and operator workflow surfaces.
+
+Current lane status:
+
+- `first_class_commercial`: first-class production web lane
+- `first_class_mobile`: first-class bounded mobile lane
+- `first_class_game`: first-class bounded game prototype lane
+- `first_class_realtime`: first-class bounded realtime/sensing lane
+- `first_class_enterprise_agent`: first-class bounded enterprise-agent/workflow lane
 
 Build JSON output includes:
 

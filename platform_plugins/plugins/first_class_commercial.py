@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from archetypes.catalog import ARCHETYPES, resolve_archetype
+from archetypes.catalog import resolve_archetype
 from generator.template_packs import first_class_validation_plan, generate_first_class_templates
 from platform_hardening.proof_enrichment import enrich_proof_with_platform_hardening
 from platform_hardening.repair_runtime import repair_with_lane_policy
@@ -11,7 +11,13 @@ from validator.generated_app import validate_generated_app
 from validator.generated_app_proof import emit_generated_app_proof_artifacts
 
 
-SUPPORTED_ARCHETYPES = sorted(ARCHETYPES.keys())
+SUPPORTED_ARCHETYPES = [
+    "internal_tool",
+    "workspace_app",
+    "saas_web_app",
+    "api_service",
+    "copilot_chat_app",
+]
 SUPPORTED_STACKS = {
     "frontend": ["react_next"],
     "backend": ["fastapi"],

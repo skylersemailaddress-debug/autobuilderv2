@@ -13,10 +13,14 @@ def test_repair_policy_resolution_is_lane_specific_and_bounded() -> None:
     commercial = resolve_repair_policy("first_class_commercial", 99)
     mobile = resolve_repair_policy("first_class_mobile", 99)
     game = resolve_repair_policy("first_class_game", 99)
+    realtime = resolve_repair_policy("first_class_realtime", 99)
+    enterprise = resolve_repair_policy("first_class_enterprise_agent", 99)
 
     assert commercial["effective_max_repairs"] == 24
     assert mobile["effective_max_repairs"] == 20
     assert game["effective_max_repairs"] == 20
+    assert realtime["effective_max_repairs"] == 24
+    assert enterprise["effective_max_repairs"] == 24
 
 
 def test_failure_classification_is_machine_readable() -> None:

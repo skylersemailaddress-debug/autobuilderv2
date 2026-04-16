@@ -5,6 +5,12 @@ from specs.loader import load_spec_bundle
 
 
 def _write_bundle(root: Path, app_type: str, extra: dict[str, str]) -> None:
+    frontend_by_app_type = {
+        "mobile_app": "flutter_mobile",
+        "game_app": "godot_game",
+    }
+    frontend = frontend_by_app_type.get(app_type, "react_next")
+
     files = {
         "product.yaml": (
             '{"name": "Domain App", "app_type": "' + app_type + '", '
@@ -33,7 +39,9 @@ def _write_bundle(root: Path, app_type: str, extra: dict[str, str]) -> None:
         "ui.yaml": '{"pages": [{"name": "Home", "route": "/"}], "navigation_flows": [{"name": "UI-B"}, {"name": "UI-A"}]}\n',
         "acceptance.yaml": '{"criteria": ["works"]}\n',
         "stack.yaml": (
-            '{"frontend": "react_next", "backend": "fastapi", "database": "postgres", '
+            '{"frontend": "'
+            + frontend
+            + '", "backend": "fastapi", "database": "postgres", '
             '"deployment": "docker_compose", "deployment_target": "container", '
             '"runtime_targets": ["ios", "android", "web"], '
             '"environment_requirements": ["python3.12", "node20"], '
@@ -46,7 +54,14 @@ def _write_bundle(root: Path, app_type: str, extra: dict[str, str]) -> None:
 
 
 def test_ir_v2_compiles_multiple_domains(tmp_path: Path) -> None:
-    for app_type in ("saas_web_app", "api_service", "mobile_app", "game_app", "realtime_system"):
+    for app_type in (
+        "saas_web_app",
+        "api_service",
+        "mobile_app",
+        "game_app",
+        "realtime_system",
+        "enterprise_agent_system",
+    ):
         root = tmp_path / app_type
         root.mkdir()
         _write_bundle(root, app_type, {})

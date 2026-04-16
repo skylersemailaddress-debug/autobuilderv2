@@ -24,7 +24,7 @@ class ResolvedPluginSet:
 
 def _supports(plugin: PluginBase, app_type: str, stack_selection: dict[str, str]) -> bool:
     metadata = plugin.metadata
-    if metadata.plugin_type != "archetype" and metadata.supported_archetypes:
+    if metadata.supported_archetypes:
         if app_type not in metadata.supported_archetypes:
             return False
     for category, expected_values in metadata.supported_stacks.items():
@@ -83,6 +83,16 @@ class PluginRegistry:
             for plugin in self._plugins_by_type.get(plugin_type, {}).values()
             if _supports(plugin, app_type, stack_selection)
         ]
+        if not candidates and plugin_type == "archetype":
+            # Fallback preserves clear unknown app_type behavior by letting resolve_archetype raise explicitly.
+            candidates = [
+                plugin
+                for plugin in self._plugins_by_type.get(plugin_type, {}).values()
+                if all(
+                    stack_selection.get(category) in expected_values
+                    for category, expected_values in plugin.metadata.supported_stacks.items()
+                )
+            ]
         if not candidates:
             available = ", ".join(sorted(self._plugins_by_type.get(plugin_type, {}).keys())) or "none"
             raise PluginResolutionError(

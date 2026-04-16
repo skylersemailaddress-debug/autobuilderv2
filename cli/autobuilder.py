@@ -37,7 +37,13 @@ def _assert_first_class_lane(plugins: ResolvedPluginSet, ir: AppIR) -> None:
         if support_tier != "first_class":
             unsupported.append(f"{category}:{entry.get('name', 'unknown')} ({support_tier})")
 
-    supported_lanes = {"first_class_commercial", "first_class_mobile", "first_class_game"}
+    supported_lanes = {
+        "first_class_commercial",
+        "first_class_mobile",
+        "first_class_game",
+        "first_class_realtime",
+        "first_class_enterprise_agent",
+    }
     lane_id = plugins.generation.metadata.lane_id
     if lane_id not in supported_lanes:
         unsupported.append(f"lane:{lane_id}")

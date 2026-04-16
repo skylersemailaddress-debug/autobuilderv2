@@ -32,11 +32,13 @@ Secondary operational autonomy commands remain available (`mission`, `resume`, `
 
 Supported commercial lane scope:
 
-- app archetypes: `internal_tool`, `workspace_app`, `saas_web_app`, `api_service`, `workflow_system`, `copilot_chat_app`, `mobile_app`, `game_app`
+- app archetypes: `internal_tool`, `workspace_app`, `saas_web_app`, `api_service`, `workflow_system`, `copilot_chat_app`, `mobile_app`, `game_app`, `realtime_system`, `enterprise_agent_system`
 - first-class lane stacks:
   - web: `react_next` + `fastapi` + `postgres` + `docker_compose`
   - mobile: `flutter_mobile` + `fastapi` + `postgres` + `docker_compose`
   - game: `godot_game` + `fastapi` + `postgres` + `docker_compose`
+  - realtime/sensing: `react_next` + `fastapi` + `postgres` + `docker_compose`
+  - enterprise-agent/workflow: `react_next` + `fastapi` + `postgres` + `docker_compose`
 
 Not yet supported in this tranche:
 

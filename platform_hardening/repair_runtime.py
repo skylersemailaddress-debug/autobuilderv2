@@ -11,6 +11,8 @@ LANE_REPAIR_POLICY = {
     "first_class_commercial": 24,
     "first_class_mobile": 20,
     "first_class_game": 20,
+    "first_class_realtime": 24,
+    "first_class_enterprise_agent": 24,
 }
 
 
@@ -31,6 +33,18 @@ LANE_RUNTIME_CHECKS = {
         "project.godot",
         "scenes/Main.tscn",
         "scripts/main.gd",
+        ".autobuilder/validation_summary.json",
+    ],
+    "first_class_realtime": [
+        "frontend/app/page.tsx",
+        "backend/api/main.py",
+        "backend/realtime/world_state.py",
+        ".autobuilder/validation_summary.json",
+    ],
+    "first_class_enterprise_agent": [
+        "frontend/app/page.tsx",
+        "backend/api/main.py",
+        "backend/workflows/router.py",
         ".autobuilder/validation_summary.json",
     ],
 }

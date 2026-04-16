@@ -98,6 +98,32 @@ def _register_base_packs() -> None:
             "governance": ["approval_hooks", "sensitive_action_policy"],
             "commerce": ["subscriptions", "entitlements", "plan_catalog"],
         },
+        "first_class_realtime": {
+            "domain": ["realtime_ops", "sensor_ingestion", "state_projection"],
+            "workflow": ["event_ingestion", "alert_dispatch", "action_pipeline"],
+            "ui": ["live_dashboard", "alert_surface"],
+            "validation": ["realtime_structure", "realtime_markers", "realtime_packaging"],
+            "repair": ["realtime_repair_policy", "bounded_repair"],
+            "deployment": ["docker_local", "stream_connector_contract"],
+            "asset": ["dashboard_assets", "connector_placeholders"],
+            "research": ["sensor_latency_hook", "stream_reliability_hook"],
+            "security": ["authn_model", "stream_access_policy", "safe_defaults"],
+            "governance": ["approval_hooks", "sensitive_action_policy"],
+            "commerce": ["subscriptions", "entitlements", "usage_billing"],
+        },
+        "first_class_enterprise_agent": {
+            "domain": ["enterprise_workflows", "agent_orchestration", "corporate_ops"],
+            "workflow": ["multi_role_routing", "approval_chain", "briefing_generation"],
+            "ui": ["operator_console", "workflow_board", "briefing_surface"],
+            "validation": ["enterprise_structure", "enterprise_markers", "enterprise_packaging"],
+            "repair": ["enterprise_repair_policy", "bounded_repair"],
+            "deployment": ["docker_local", "enterprise_runtime_contract"],
+            "asset": ["report_templates", "workflow_assets"],
+            "research": ["routing_quality_hook", "approval_latency_hook"],
+            "security": ["authn_model", "rbac_abac_controls", "safe_defaults"],
+            "governance": ["approval_hooks", "governance_contract_points"],
+            "commerce": ["subscriptions", "entitlements", "enterprise_plan_catalog"],
+        },
     }
 
     for lane_id, packs_by_type in lane_config.items():
