@@ -26,7 +26,7 @@ from state.json_store import JsonRunStore
 from state.resume_runner import infer_next_stage, resume_run
 from validator.confidence import calculate_confidence
 from validator.validator import Validator
-from control_plane.approvals import require_approval
+from control_plane.approvals import ApprovalRequest
 from policies.action_policy import ActionPolicy
 from planner.task import Task
 
@@ -64,6 +64,22 @@ def resume_saved_run(run_id: str):
         print(f"Error: Run record {run_id} not found")
         return None, None
     
+    # If paused for approval, only resume after approval is granted.
+    awaiting_approval = record.get("awaiting_approval", False)
+    approval_request = record.get("approval_request")
+
+    if awaiting_approval:
+        if approval_request and approval_request.get("status") == "approved":
+            print(f"Approval granted for run {run_id}, resuming execution")
+            record["awaiting_approval"] = False
+            record["control_state"] = record.get("control_state", {})
+        elif approval_request and approval_request.get("status") == "denied":
+            print(f"Run {run_id} cannot resume because approval was denied")
+            return record, None
+        else:
+            print(f"Run {run_id} is awaiting approval and cannot resume yet")
+            return record, None
+
     # Infer next stage and resume
     next_stage = infer_next_stage(record)
     if next_stage is None:

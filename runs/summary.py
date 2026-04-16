@@ -28,6 +28,8 @@ def build_run_summary(record: Dict) -> Dict:
         "artifact_count": len(record.get("artifacts", [])),
         "risk_level": record.get("policy", {}).get("risk_level", "unknown"),
         "approval_required": record.get("policy", {}).get("approval_required", False),
+        "awaiting_approval": record.get("awaiting_approval", False),
+        "control_state": record.get("control_state", {}),
         "memory_used": record.get("memory_used", False),
         "memory_hits": record.get("memory_hits", 0),
         "failure_count": len(failures),

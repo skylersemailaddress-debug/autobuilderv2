@@ -18,6 +18,7 @@ from execution.artifacts import Artifact
 from debugger.repair import RepairEngine
 from debugger.classifier import FailureClassifier
 from debugger.failures import FailureRecord
+from control_plane.control import ControlDecision
 from memory.store import MemoryStore
 from memory.json_memory import JsonMemoryStore
 from observability.events import create_event, event_to_dict
@@ -99,13 +100,64 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
 
     # Classify action and create approval if needed
     policy = action_policy.classify_action(goal, [serialize_task(task) for task in tasks])
+    control_decision = ControlDecision(
+        action="run_execution",
+        allowed=not policy["approval_required"],
+        requires_pause=policy["approval_required"],
+        reason=(
+            f"Approval required for high-risk action: {goal}"
+            if policy["approval_required"]
+            else "Action allowed without operator pause"
+        ),
+    )
 
-    # Classify action and create approval if needed
-    policy = action_policy.classify_action(goal, [serialize_task(task) for task in tasks])
     approval_request = None
     if policy["approval_required"]:
         approval_request = require_approval("run_execution", f"High-risk action: {goal}")
+        events.append(serialize_event(create_event("approval_requested", {
+            "approval_id": approval_request.approval_id,
+            "action": "run_execution",
+            "reason": control_decision.reason,
+        })))
+        record = {
+            "run_id": run_id,
+            "created_at": created_at,
+            "goal": goal,
+            "status": "awaiting_approval",
+            "state_history": history,
+            "tasks": [serialize_task(task) for task in tasks],
+            "artifacts": artifacts,
+            "checkpoints": checkpoints,
+            "confidence": 0.0,
+            "policy": policy,
+            "memory_context": memory_context,
+            "repo_context": repo_context,
+            "memory_used": plan_metadata["memory_used"],
+            "memory_hits": len(memory_hits),
+            "plan_metadata": plan_metadata,
+            "validation_result": None,
+            "validation": None,
+            "repair_used": repair_used,
+            "repair_count": repair_count,
+            "events": events,
+            "failures": failures,
+            "awaiting_approval": True,
+            "control_state": asdict(control_decision),
+        }
+        if approval_request:
+            record["approval_request"] = asdict(approval_request)
+        record["summary"] = build_run_summary(record)
+        memory_store.add_memory("summary", record["summary"])
+        record["memory_keys"] = memory_store.list_keys()
+        durable_memory_store.add_memory("summary", record["summary"])
+        record["durable_memory_keys"] = durable_memory_store.list_keys()
+        record["resume"] = resume_run(record)
+        saved_path = json_store.save(run_id, record)
 
+        print(f"run_id={run_id}")
+        print(f"status={record['status']}")
+        print(f"saved_path={saved_path}")
+        return record, str(saved_path)
 
     events.append(serialize_event(create_event("execution_started", {"task_count": len(tasks)})))
     tasks = executor.run_tasks(tasks)
