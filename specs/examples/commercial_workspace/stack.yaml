@@ -1,0 +1,7 @@
+{
+  "frontend": "react_next",
+  "backend": "fastapi",
+  "database": "postgres",
+  "deployment": "docker_compose",
+  "deployment_target": "container"
+}

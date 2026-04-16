@@ -1,0 +1,8 @@
+{
+  "pages": [
+    {"name": "Workspace", "surface": "web", "route": "/"},
+    {"name": "Settings", "surface": "web", "route": "/settings"},
+    {"name": "Admin", "surface": "web", "route": "/admin"},
+    {"name": "Activity", "surface": "web", "route": "/activity"}
+  ]
+}

@@ -29,6 +29,48 @@ from validator.generated_app_proof import emit_generated_app_proof_artifacts
 from validator.generated_app_repair import repair_generated_app
 
 
+def _read_json(path: Path) -> dict[str, object]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _assert_ship_artifacts(target_repo: str, proof_artifacts: dict[str, object]) -> dict[str, object]:
+    paths = proof_artifacts.get("artifact_paths", {})
+    required = {
+        "proof_report": ".autobuilder/proof_report.json",
+        "readiness_report": ".autobuilder/readiness_report.json",
+        "validation_summary": ".autobuilder/validation_summary.json",
+        "determinism_signature": ".autobuilder/determinism_signature.json",
+    }
+
+    missing: list[str] = []
+    for key in required:
+        candidate = str(paths.get(key, ""))
+        if not candidate or not Path(candidate).exists():
+            missing.append(required[key])
+    if missing:
+        raise RuntimeError("Missing proof artifacts: " + ", ".join(missing))
+
+    readiness_payload = _read_json(Path(str(paths["readiness_report"])))
+    proof_payload = _read_json(Path(str(paths["proof_report"])))
+    validation_payload = _read_json(Path(str(paths["validation_summary"])))
+    determinism_payload = _read_json(Path(str(paths["determinism_signature"])))
+
+    if str(proof_payload.get("proof_status", "")) not in {"certified", "certified_with_repairs"}:
+        raise RuntimeError("Proof certification failed")
+    if str(readiness_payload.get("readiness_status", "")) != "ready":
+        raise RuntimeError("Readiness result is not ready")
+    if str(validation_payload.get("validation_status", "")) != "passed":
+        raise RuntimeError("Validation summary is not passed")
+    if bool(determinism_payload.get("verified", False)) is not True:
+        raise RuntimeError("Determinism signature is not verified")
+
+    return {
+        "target_repo": target_repo,
+        "readiness_status": readiness_payload.get("readiness_status", "not_ready"),
+        "proof_status": proof_payload.get("proof_status", "not_certified"),
+    }
+
+
 def _print(data, as_json: bool) -> None:
     if as_json:
         print(json.dumps(data, indent=2))
@@ -253,6 +295,61 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
     }
 
 
+def run_ship_workflow(spec_path: str, target_path: str) -> dict:
+    build_result = run_build_workflow(spec_path=spec_path, target_path=target_path)
+
+    if build_result.get("status") != "ok":
+        raise RuntimeError("Build status failed during ship")
+    if build_result.get("build_status") != "ok":
+        raise RuntimeError("Build status is not ok")
+    if build_result.get("validation_status") != "passed":
+        raise RuntimeError("Validation status is not passed")
+    if str(build_result.get("proof_status", "")).startswith("certified") is not True:
+        raise RuntimeError("Proof status is not certified")
+    if build_result.get("unrepaired_blockers"):
+        raise RuntimeError("Unrepairable validation blockers remain")
+
+    target_repo = str(build_result.get("target_repo", ""))
+    if not target_repo:
+        raise RuntimeError("Final target path missing")
+
+    proof_artifact_summary = _assert_ship_artifacts(
+        target_repo=target_repo,
+        proof_artifacts=dict(build_result.get("proof_artifacts", {})),
+    )
+
+    plan = dict(build_result.get("plan", {}))
+    stack_chosen = dict(plan.get("stack_chosen", {}))
+    stack = {
+        "frontend": stack_chosen.get("frontend", {}).get("name"),
+        "backend": stack_chosen.get("backend", {}).get("name"),
+        "database": stack_chosen.get("database", {}).get("name"),
+        "deployment": stack_chosen.get("deployment", {}).get("name"),
+    }
+
+    return {
+        "status": "ok",
+        "build_status": build_result.get("build_status", "failed"),
+        "archetype": plan.get("archetype_chosen", {}).get("name"),
+        "stack": stack,
+        "files_generated": build_result.get("files_created_summary", {}),
+        "validation_result": {
+            "status": build_result.get("validation_status", "failed"),
+            "summary": build_result.get("generated_app_validation", {}),
+        },
+        "repair_actions_taken": build_result.get("repair_report", {}),
+        "proof_result": {
+            "status": proof_artifact_summary.get("proof_status", "not_certified"),
+            "artifacts": build_result.get("proof_artifacts", {}),
+        },
+        "readiness_result": {
+            "status": proof_artifact_summary.get("readiness_status", "not_ready"),
+        },
+        "final_target_path": target_repo,
+        "determinism": build_result.get("determinism", {}),
+    }
+
+
 def run_generated_app_validation_workflow(target_path: str, repair: bool = False) -> dict:
     target = Path(target_path).resolve()
     validation = validate_generated_app(target)
@@ -405,6 +502,21 @@ def main() -> int:
         "--json", action="store_true", help="Print machine-readable JSON output"
     )
 
+    ship_parser = subparsers.add_parser(
+        "ship", help="One-command commercial ship mode: specs in -> app -> validate/repair -> proof"
+    )
+    ship_parser.add_argument(
+        "--spec",
+        default="specs",
+        help="Path to canonical spec bundle directory (default: specs)",
+    )
+    ship_parser.add_argument(
+        "--target",
+        required=True,
+        help="Target repository path for shipped app output",
+    )
+    ship_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output")
+
     args = parser.parse_args()
 
     if args.command == "mission":
@@ -457,6 +569,15 @@ def main() -> int:
         result = run_generated_app_proof_workflow(target_path=args.target, repair=args.repair)
         _print(result, args.json)
         return 0 if str(result["proof_status"]).startswith("certified") else 2
+
+    if args.command == "ship":
+        try:
+            result = run_ship_workflow(spec_path=args.spec, target_path=args.target)
+        except (SpecValidationError, ArchetypeResolutionError, StackRegistryResolutionError, RuntimeError) as exc:
+            _print({"status": "error", "error": str(exc)}, args.json)
+            return 2
+        _print(result, args.json)
+        return 0
 
     parser.error("Unknown command")
     return 1

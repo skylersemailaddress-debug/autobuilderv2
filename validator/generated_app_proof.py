@@ -68,6 +68,7 @@ def emit_generated_app_proof_artifacts(
 
     return {
         "proof_status": proof_status,
+        "readiness_status": readiness_report["readiness_status"],
         "validation_status": validation_status,
         "artifact_paths": paths,
         "repaired_issues": repaired,

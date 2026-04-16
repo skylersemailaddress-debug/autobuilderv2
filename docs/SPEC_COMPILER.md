@@ -86,6 +86,12 @@ Command:
 python cli/autobuilder.py build --spec <spec_dir> --target <repo_path> --json
 ```
 
+Canonical ship mode command:
+
+```bash
+python cli/autobuilder.py ship --spec <spec_dir> --target <repo_path> --json
+```
+
 Minimum behavior:
 
 1. load specs
@@ -138,6 +144,18 @@ Structured build result output includes:
 - `repair_report`, `repaired_issues`, `unrepaired_blockers`
 - `proof_artifacts`
 - `execution.operations_applied` with deterministic hashes
+
+Structured ship result output includes:
+
+- `build_status`
+- `archetype`
+- `stack`
+- `files_generated`
+- `validation_result`
+- `repair_actions_taken`
+- `proof_result`
+- `readiness_result`
+- `final_target_path`
 
 ## Template Packs
 
@@ -194,6 +212,13 @@ Emit generated-app proof artifacts and certification status:
 ```bash
 python cli/autobuilder.py proof-app --target <repo_path> --repair --json
 ```
+
+### Strict Failure Semantics
+
+- incomplete spec bundles: fail
+- deterministic repeat-build divergence: fail
+- unrepairable generated-app validation blockers: fail
+- missing or non-certified proof/readiness artifacts: fail
 
 Proof artifacts written under `.autobuilder/`:
 

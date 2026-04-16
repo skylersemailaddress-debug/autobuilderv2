@@ -41,6 +41,9 @@ python cli/autobuilder.py proof --json
 # Compile canonical specs into a target repository scaffold
 python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
 
+# Canonical one-command commercial builder
+python cli/autobuilder.py ship --spec specs --target /tmp/my-app --json
+
 # Validate generated app structure/surfaces and auto-repair common defects
 python cli/autobuilder.py validate-app --target /tmp/my-app --repair --json
 
@@ -131,6 +134,9 @@ Supported commands:
 - `readiness`
 - `proof`
 - `build`
+- `validate-app`
+- `proof-app`
+- `ship`
 
 Build command options:
 
@@ -173,6 +179,18 @@ Build JSON output includes:
 - `repair_report` and `proof_artifacts`
 - `plan` and `execution` details
 
+Ship JSON output includes:
+
+- `build_status`
+- `archetype`
+- `stack`
+- `files_generated`
+- `validation_result`
+- `repair_actions_taken`
+- `proof_result`
+- `readiness_result`
+- `final_target_path`
+
 Generated-app validation mode checks:
 
 - required repo structure
@@ -198,6 +216,20 @@ After generating an app:
 python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
 cd /tmp/my-app
 docker compose up
+```
+
+## Canonical Ship Mode
+
+One command for the commercial flow (specs in -> app generated -> validated -> repaired if needed -> proof emitted):
+
+```bash
+python cli/autobuilder.py ship --spec specs --target /tmp/my-app --json
+```
+
+Example high-quality spec bundle:
+
+```bash
+python cli/autobuilder.py ship --spec specs/examples/commercial_workspace --target /tmp/commercial-app --json
 ```
 
 Then open:

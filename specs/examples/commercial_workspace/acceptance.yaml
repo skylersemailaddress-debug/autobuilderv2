@@ -1,0 +1,8 @@
+{
+  "criteria": [
+    "Generated app includes deterministic loading/empty/error UX states",
+    "Generated backend exposes health, readiness, and version envelopes",
+    "Generated app emits proof and readiness artifacts under .autobuilder",
+    "Generated app can be shipped by one command with machine-readable report"
+  ]
+}

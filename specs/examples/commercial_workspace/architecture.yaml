@@ -1,0 +1,23 @@
+{
+  "entities": [
+    {"name": "Account", "fields": ["id", "name", "tier", "status"]},
+    {"name": "OperatorAction", "fields": ["id", "actor", "action", "timestamp", "result"]}
+  ],
+  "workflows": [
+    {"name": "Tenant Activation", "steps": ["collect_input", "validate_plan", "activate_tenant", "emit_audit_entry"]},
+    {"name": "Operator Escalation", "steps": ["open_incident", "route_to_admin", "capture_outcome"]}
+  ],
+  "api_routes": [
+    {"method": "POST", "path": "/api/workspace/execute", "workflow": "Tenant Activation"},
+    {"method": "GET", "path": "/api/audit/activity", "workflow": "Operator Escalation"}
+  ],
+  "runtime_services": [
+    {"name": "database", "type": "postgres"},
+    {"name": "api", "type": "fastapi"},
+    {"name": "web", "type": "next"}
+  ],
+  "permissions": [
+    {"role": "admin", "grants": ["tenant:write", "operator:manage", "audit:read"]},
+    {"role": "operator", "grants": ["workspace:execute", "audit:read"]}
+  ]
+}
