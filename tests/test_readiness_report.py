@@ -25,3 +25,4 @@ def test_readiness_report_includes_status_and_reasons():
     assert report["readiness_status"] == "not-ready"
     assert isinstance(report["readiness_reasons"], list)
     assert report["total_test_count"] == 76
+    assert "average_reliability" in report["benchmark_coverage_summary"]

@@ -28,12 +28,17 @@ def test_compute_benchmark_scores_structure_and_values():
     assert set(scores.keys()) == {
         "pass_rate",
         "average_confidence",
+        "average_reliability",
         "average_repair_count",
         "approval_pause_rate",
         "resumability_score",
+        "unsupported_handling_rate",
+        "reproducibility_rate",
+        "replayable_failure_rate",
     }
     assert scores["pass_rate"] == 0.5
     assert scores["average_confidence"] == 0.7
+    assert scores["average_reliability"] == 0.0
     assert scores["average_repair_count"] == 0.5
     assert scores["approval_pause_rate"] == 0.5
     assert scores["resumability_score"] == 0.0
@@ -49,6 +54,9 @@ def test_compute_per_case_score_shape():
         "final_status": "complete",
         "approval_required": False,
         "resumed": False,
+        "reliability_summary": {"score": 0.88},
+        "reproducible": True,
+        "replayable_failures": 0,
         "failure_reason": None,
     }
 
@@ -57,3 +65,4 @@ def test_compute_per_case_score_shape():
     assert score["run_id"] == "r1"
     assert 0.0 <= score["quality_score"] <= 1.0
     assert score["final_status"] == "complete"
+    assert score["reliability"] == 0.88

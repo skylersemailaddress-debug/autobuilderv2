@@ -41,3 +41,5 @@ def test_generated_app_proof_workflow_emits_certification_artifacts(tmp_path: Pa
         assert artifact_path.exists()
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
         assert isinstance(payload, dict)
+    assert proof["proof_artifacts"]["reliability_summary"]["score"] >= 0.8
+    assert proof["proof_artifacts"]["proof_bundle"]["reliability_summary"]["score"] >= 0.8

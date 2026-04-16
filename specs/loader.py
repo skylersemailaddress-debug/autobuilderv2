@@ -29,24 +29,24 @@ class NormalizedSpecBundle:
     stack_selection: dict[str, str]
     deployment_target: str
     acceptance_criteria: list[str]
-    application_domains: list[str]
-    navigation_flows: list[dict[str, Any]]
-    state_machines: list[dict[str, Any]]
-    background_jobs: list[dict[str, Any]]
-    workers: list[dict[str, Any]]
-    realtime_channels: list[dict[str, Any]]
-    realtime_events: list[dict[str, Any]]
-    user_sessions: list[dict[str, Any]]
-    auth_roles: list[dict[str, Any]]
-    scenes: list[dict[str, Any]]
-    game_entities: list[dict[str, Any]]
-    input_actions: list[dict[str, Any]]
-    update_loops: list[dict[str, Any]]
-    asset_references: list[dict[str, Any]]
-    assets: dict[str, list[str]]
-    runtime_targets: list[str]
-    environment_requirements: list[str]
-    deployment_expectations: list[str]
+    application_domains: list[str] = ()  # type: ignore[assignment]
+    assets: dict[str, list[str]] = ()  # type: ignore[assignment]
+    runtime_targets: list[str] = ()  # type: ignore[assignment]
+    environment_requirements: list[str] = ()  # type: ignore[assignment]
+    deployment_expectations: list[str] = ()  # type: ignore[assignment]
+    navigation_flows: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    state_machines: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    background_jobs: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    workers: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    realtime_channels: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    realtime_events: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    user_sessions: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    auth_roles: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    scenes: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    game_entities: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    input_actions: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    update_loops: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    asset_references: list[dict[str, Any]] = ()  # type: ignore[assignment]
 
 
 REQUIRED_FILES = (
@@ -64,20 +64,6 @@ REQUIRED_SECTION_KEYS: dict[str, tuple[str, ...]] = {
     "ui.yaml": ("pages",),
     "acceptance.yaml": ("criteria",),
     "stack.yaml": ("frontend", "backend", "database", "deployment", "deployment_target"),
-}
-
-
-DOMAIN_BY_APP_TYPE: dict[str, list[str]] = {
-    "internal_tool": ["web_apps"],
-    "workspace_app": ["web_apps"],
-    "saas_web_app": ["web_apps"],
-    "api_service": ["backend_services"],
-    "workflow_system": ["backend_services"],
-    "copilot_chat_app": ["web_apps", "realtime_systems"],
-    "mobile_app": ["mobile_apps"],
-    "game_app": ["games"],
-    "realtime_system": ["realtime_systems"],
-    "enterprise_agent_system": ["enterprise_systems"],
 }
 
 
@@ -141,55 +127,6 @@ def _normalize_non_empty_str(value: Any, field_name: str) -> str:
     return value.strip()
 
 
-def _normalize_optional_dict_list(payload: dict[str, Any], key: str, field_name: str) -> list[dict[str, Any]]:
-    if key not in payload:
-        return []
-    return _normalize_dict_list(payload[key], field_name)
-
-
-def _normalize_optional_str_list(payload: dict[str, Any], key: str, field_name: str) -> list[str]:
-    if key not in payload:
-        return []
-    return _normalize_str_list(payload[key], field_name)
-
-
-def _stable_sort_dict_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    key_candidates = ("id", "name", "route", "channel", "event", "asset", "type")
-
-    def _sort_key(item: dict[str, Any]) -> tuple[str, str]:
-        for candidate in key_candidates:
-            value = item.get(candidate)
-            if isinstance(value, str) and value:
-                return candidate, value
-        return "", json.dumps(item, sort_keys=True)
-
-    return sorted(items, key=_sort_key)
-
-
-def _normalize_assets(product: dict[str, Any], ui: dict[str, Any]) -> dict[str, list[str]]:
-    raw_assets = product.get("assets", ui.get("assets", {}))
-    if raw_assets is None:
-        raw_assets = {}
-    if not isinstance(raw_assets, dict):
-        raise SpecValidationError("assets must be an object mapping asset categories to string lists")
-
-    categories = ("images", "audio", "ui", "config")
-    normalized: dict[str, list[str]] = {}
-    for category in categories:
-        value = raw_assets.get(category, [])
-        if value == []:
-            normalized[category] = []
-            continue
-        normalized[category] = _normalize_str_list(value, f"assets.{category}")
-    return normalized
-
-
-def _infer_application_domains(app_type: str, product: dict[str, Any]) -> list[str]:
-    if "application_domains" in product:
-        return sorted(set(_normalize_str_list(product["application_domains"], "product.application_domains")))
-    return list(DOMAIN_BY_APP_TYPE.get(app_type, ["web_apps"]))
-
-
 def load_spec_bundle(spec_root: str | Path) -> NormalizedSpecBundle:
     root = Path(spec_root).resolve()
     missing_files = [name for name in REQUIRED_FILES if not (root / name).is_file()]
@@ -235,63 +172,33 @@ def load_spec_bundle(spec_root: str | Path) -> NormalizedSpecBundle:
     pages = _normalize_dict_list(ui["pages"], "ui.pages")
     acceptance_criteria = _normalize_str_list(acceptance["criteria"], "acceptance.criteria")
 
-    navigation_flows = _stable_sort_dict_items(
-        _normalize_optional_dict_list(ui, "navigation_flows", "ui.navigation_flows")
-    )
-    state_machines = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "state_machines", "architecture.state_machines")
-    )
-    background_jobs = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "background_jobs", "architecture.background_jobs")
-    )
-    workers = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "workers", "architecture.workers")
-    )
-    realtime_channels = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "realtime_channels", "architecture.realtime_channels")
-    )
-    realtime_events = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "realtime_events", "architecture.realtime_events")
-    )
-    user_sessions = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "user_sessions", "architecture.user_sessions")
-    )
-    auth_roles = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "auth_roles", "architecture.auth_roles")
-    )
-    scenes = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "scenes", "architecture.scenes")
-    )
-    game_entities = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "game_entities", "architecture.game_entities")
-    )
-    input_actions = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "input_actions", "architecture.input_actions")
-    )
-    update_loops = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "update_loops", "architecture.update_loops")
-    )
-    asset_references = _stable_sort_dict_items(
-        _normalize_optional_dict_list(architecture, "asset_references", "architecture.asset_references")
-    )
+    # Optional extended fields
+    application_domains: list[str] = list(product.get("application_domains") or [])
+    assets: dict[str, list[str]] = dict(product.get("assets") or {})
+    stack_obj = stack
+    runtime_targets: list[str] = sorted(stack_obj.get("runtime_targets") or [])
+    environment_requirements: list[str] = sorted(stack_obj.get("environment_requirements") or [])
+    deployment_expectations: list[str] = sorted(stack_obj.get("deployment_expectations") or [])
 
-    runtime_targets = sorted(
-        set(_normalize_optional_str_list(stack, "runtime_targets", "stack.runtime_targets"))
-    )
-    environment_requirements = sorted(
-        set(
-            _normalize_optional_str_list(
-                stack, "environment_requirements", "stack.environment_requirements"
-            )
-        )
-    )
-    deployment_expectations = sorted(
-        set(
-            _normalize_optional_str_list(
-                stack, "deployment_expectations", "stack.deployment_expectations"
-            )
-        )
-    )
+    def _opt_dict_list(source: dict[str, Any], key: str) -> list[dict[str, Any]]:
+        val = source.get(key)
+        if not val:
+            return []
+        return [item for item in val if isinstance(item, dict)]
+
+    navigation_flows = sorted(_opt_dict_list(ui, "navigation_flows"), key=lambda x: list(x.values())[0] if x else "")
+    state_machines = sorted(_opt_dict_list(architecture, "state_machines"), key=lambda x: x.get("name", ""))
+    background_jobs = sorted(_opt_dict_list(architecture, "background_jobs"), key=lambda x: x.get("name", ""))
+    workers = sorted(_opt_dict_list(architecture, "workers"), key=lambda x: x.get("name", ""))
+    realtime_channels = sorted(_opt_dict_list(architecture, "realtime_channels"), key=lambda x: x.get("channel", ""))
+    realtime_events = sorted(_opt_dict_list(architecture, "realtime_events"), key=lambda x: x.get("event", ""))
+    user_sessions = sorted(_opt_dict_list(architecture, "user_sessions"), key=lambda x: x.get("name", ""))
+    auth_roles = sorted(_opt_dict_list(architecture, "auth_roles"), key=lambda x: x.get("name", ""))
+    scenes = sorted(_opt_dict_list(architecture, "scenes"), key=lambda x: x.get("name", ""))
+    game_entities = sorted(_opt_dict_list(architecture, "game_entities"), key=lambda x: x.get("name", ""))
+    input_actions = sorted(_opt_dict_list(architecture, "input_actions"), key=lambda x: x.get("name", ""))
+    update_loops = sorted(_opt_dict_list(architecture, "update_loops"), key=lambda x: x.get("name", ""))
+    asset_references = sorted(_opt_dict_list(architecture, "asset_references"), key=lambda x: x.get("asset", ""))
 
     return NormalizedSpecBundle(
         spec_root=str(root),
@@ -311,7 +218,11 @@ def load_spec_bundle(spec_root: str | Path) -> NormalizedSpecBundle:
         stack_selection=stack_selection,
         deployment_target=deployment_target,
         acceptance_criteria=acceptance_criteria,
-        application_domains=_infer_application_domains(app_type, product),
+        application_domains=application_domains,
+        assets=assets,
+        runtime_targets=runtime_targets,
+        environment_requirements=environment_requirements,
+        deployment_expectations=deployment_expectations,
         navigation_flows=navigation_flows,
         state_machines=state_machines,
         background_jobs=background_jobs,
@@ -325,8 +236,4 @@ def load_spec_bundle(spec_root: str | Path) -> NormalizedSpecBundle:
         input_actions=input_actions,
         update_loops=update_loops,
         asset_references=asset_references,
-        assets=_normalize_assets(product, ui),
-        runtime_targets=runtime_targets,
-        environment_requirements=environment_requirements,
-        deployment_expectations=deployment_expectations,
     )

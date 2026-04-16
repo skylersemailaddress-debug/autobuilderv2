@@ -31,6 +31,7 @@ def build_benchmark_report(results: List[Dict]) -> Dict:
                 "success": result.get("success"),
                 "final_status": result.get("final_status"),
                 "confidence": result.get("confidence"),
+                "reliability": result.get("reliability_summary", {}).get("score"),
             }
             for result in results
         },
@@ -41,6 +42,7 @@ def build_benchmark_report(results: List[Dict]) -> Dict:
         "passed_cases": passed_cases,
         "failed_cases": failed_cases,
         "average_confidence": average_confidence,
+        "average_reliability": aggregate_scores.get("average_reliability", 0.0),
         "cases": results,
         "aggregate_scores": aggregate_scores,
         "per_case_scores": per_case_scores,

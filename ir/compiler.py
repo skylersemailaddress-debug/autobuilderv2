@@ -1,13 +1,13 @@
-from platform_plugins.registry import get_plugin_registry
+from archetypes.catalog import resolve_archetype
 from specs.loader import NormalizedSpecBundle
+from stack_registry.registry import resolve_stack_bundle
 
 from ir.model import AppIR
 
 
 def compile_specs_to_ir(specs: NormalizedSpecBundle) -> AppIR:
-    plugins = get_plugin_registry().resolve_plugins(specs.app_type, specs.stack_selection)
-    archetype = plugins.archetype.resolve_archetype(specs.app_type)
-    stack_entries = plugins.stack.resolve_stack_bundle(specs.stack_selection)
+    archetype = resolve_archetype(specs.app_type)
+    stack_entries = resolve_stack_bundle(specs.stack_selection)
 
     return AppIR(
         app_identity=specs.app_identity,
@@ -23,22 +23,22 @@ def compile_specs_to_ir(specs: NormalizedSpecBundle) -> AppIR:
         stack_entries={category: entry.to_dict() for category, entry in stack_entries.items()},
         deployment_target=specs.deployment_target,
         acceptance_criteria=specs.acceptance_criteria,
-        application_domains=specs.application_domains,
-        navigation_flows=specs.navigation_flows,
-        state_machines=specs.state_machines,
-        background_jobs=specs.background_jobs,
-        workers=specs.workers,
-        realtime_channels=specs.realtime_channels,
-        realtime_events=specs.realtime_events,
-        user_sessions=specs.user_sessions,
-        auth_roles=specs.auth_roles,
-        scenes=specs.scenes,
-        game_entities=specs.game_entities,
-        input_actions=specs.input_actions,
-        update_loops=specs.update_loops,
-        asset_references=specs.asset_references,
-        assets=specs.assets,
-        runtime_targets=specs.runtime_targets,
-        environment_requirements=specs.environment_requirements,
-        deployment_expectations=specs.deployment_expectations,
+        application_domains=list(specs.application_domains),
+        assets=dict(specs.assets),
+        runtime_targets=list(specs.runtime_targets),
+        environment_requirements=list(specs.environment_requirements),
+        deployment_expectations=list(specs.deployment_expectations),
+        navigation_flows=list(specs.navigation_flows),
+        state_machines=list(specs.state_machines),
+        background_jobs=list(specs.background_jobs),
+        workers=list(specs.workers),
+        realtime_channels=list(specs.realtime_channels),
+        realtime_events=list(specs.realtime_events),
+        user_sessions=list(specs.user_sessions),
+        auth_roles=list(specs.auth_roles),
+        scenes=list(specs.scenes),
+        game_entities=list(specs.game_entities),
+        input_actions=list(specs.input_actions),
+        update_loops=list(specs.update_loops),
+        asset_references=list(specs.asset_references),
     )

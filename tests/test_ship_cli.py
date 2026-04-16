@@ -45,6 +45,8 @@ def test_ship_command_succeeds_with_machine_readable_report(tmp_path: Path) -> N
     assert payload["packaged_app_artifact_summary"]["packaging_status"] == "ready"
     assert payload["deployment_readiness_summary"]["status"] == "ready"
     assert payload["proof_summary"]["bundle_status"] == "complete"
+    assert payload["reliability_summary"]["score"] >= 0.8
+    assert "operator_report" in payload
     assert payload["final_target_path"] == str(target_repo.resolve())
 
 
@@ -132,7 +134,11 @@ def test_ship_command_output_structure_is_stable(tmp_path: Path) -> None:
         "packaged_app_artifact_summary",
         "deployment_readiness_summary",
         "proof_summary",
+        "proof_bundle",
         "final_target_path",
         "determinism",
+        "reliability_summary",
+        "confidence",
+        "operator_report",
     }
     assert expected_top_level_keys.issubset(payload.keys())

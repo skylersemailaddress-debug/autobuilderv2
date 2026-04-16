@@ -1,5 +1,5 @@
 from planner.task import Task
-from validator.confidence import calculate_confidence
+from validator.confidence import calculate_confidence, calculate_confidence_details
 
 
 def test_confidence_score_bounds():
@@ -15,3 +15,33 @@ def test_repair_lowers_confidence():
     repaired_score = calculate_confidence(tasks, {"status": "pass"}, 1)
 
     assert repaired_score < perfect_score
+
+
+def test_confidence_derivation_is_measurable_and_consistent():
+    tasks = [
+        Task(task_id="task-1", title="Analyze goal", status="complete"),
+        Task(task_id="task-2", title="Execute plan", status="complete"),
+    ]
+
+    details = calculate_confidence_details(
+        tasks,
+        {"status": "pass"},
+        1,
+        contract_validation_passed=True,
+        rollback_available=True,
+        unsupported_feature_count=0,
+        reproducible=True,
+    )
+
+    assert details["score"] == calculate_confidence(
+        tasks,
+        {"status": "pass"},
+        1,
+        contract_validation_passed=True,
+        rollback_available=True,
+        unsupported_feature_count=0,
+        reproducible=True,
+    )
+    assert "task_completion" in details["components"]
+    assert details["derived_from"]["completed_tasks"] == 2
+    assert "measurable factors" in details["explanation"]

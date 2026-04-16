@@ -49,6 +49,16 @@ def build_readiness_report(
             if benchmark_summary
             else None
         ),
+        "average_reliability": (
+            benchmark_summary.get("aggregate_scores", {}).get("average_reliability")
+            if benchmark_summary
+            else None
+        ),
+        "reproducibility_rate": (
+            benchmark_summary.get("aggregate_scores", {}).get("reproducibility_rate")
+            if benchmark_summary
+            else None
+        ),
     }
 
     return {

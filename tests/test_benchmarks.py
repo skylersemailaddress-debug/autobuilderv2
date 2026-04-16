@@ -8,11 +8,14 @@ from benchmarks.runner import run_benchmark_cases
 def test_benchmark_cases_exist():
     case_names = {case.name for case in BENCHMARK_CASES}
     assert "simple_low_risk_mission" in case_names
-    assert "repair_required_mission" in case_names
+    assert "repair_retry_generated_app" in case_names
     assert "approval_required_dangerous_mission" in case_names
     assert "repo_targeted_mission" in case_names
     assert "nexus_mission_mode_run" in case_names
     assert "interrupted_resumable_mission" in case_names
+    assert "first_class_ship_flow" in case_names
+    assert "unsupported_feature_rejection" in case_names
+    assert "self_extension_validation_scenario" in case_names
 
 
 def test_runner_returns_structured_results():
@@ -37,6 +40,9 @@ def test_runner_returns_structured_results():
         assert "resumed" in result
         assert "expected_resumable" in result
         assert "failure_reason" in result
+        assert "reliability_summary" in result
+        assert "reproducible" in result
+        assert "replayable_failures" in result
         assert isinstance(result["event_count"], int)
 
         run_path = Path(__file__).resolve().parents[1] / "runs" / f"{result['run_id']}.json"
@@ -59,6 +65,9 @@ def test_report_output_shape():
             "repo_mode": True,
             "resumed": False,
             "expected_resumable": False,
+            "reliability_summary": {"score": 0.95},
+            "reproducible": True,
+            "replayable_failures": 0,
             "failure_reason": None,
         },
         {
@@ -74,6 +83,9 @@ def test_report_output_shape():
             "repo_mode": True,
             "resumed": False,
             "expected_resumable": False,
+            "reliability_summary": {"score": 0.4},
+            "reproducible": False,
+            "replayable_failures": 1,
             "failure_reason": "awaiting approval",
         },
     ]
@@ -88,3 +100,4 @@ def test_report_output_shape():
     assert "per_case_scores" in report
     assert "failure_reasons" in report
     assert "regression" in report
+    assert "average_reliability" in report

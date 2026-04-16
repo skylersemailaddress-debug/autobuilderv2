@@ -1,5 +1,7 @@
 from typing import Dict
 
+from quality.reliability import derive_run_reliability
+
 
 def build_run_summary(record: Dict) -> Dict:
     tasks = record.get("tasks", [])
@@ -20,6 +22,7 @@ def build_run_summary(record: Dict) -> Dict:
     }
 
     return {
+        "reliability_summary": derive_run_reliability(record),
         "run_id": record.get("run_id"),
         "goal": record.get("goal"),
         "final_status": record.get("status"),
@@ -29,6 +32,7 @@ def build_run_summary(record: Dict) -> Dict:
         "completed_tasks": completed_tasks,
         "event_count": len(events),
         "confidence": record.get("confidence", 0.0),
+        "confidence_details": record.get("confidence_details", {}),
         "checkpoint_count": len(record.get("checkpoints", [])),
         "artifact_count": len(record.get("artifacts", [])),
         "risk_level": record.get("policy", {}).get("risk_level", "unknown"),

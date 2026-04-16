@@ -15,24 +15,6 @@ Perfect for autonomous workflows, CI/CD pipelines, local development, and enterp
 
 AutobuilderV2 now also includes a commercial app-planning spine for spec-driven application builds across a controlled set of first-class archetypes and stacks.
 
-AutobuilderV2 now runs this lane through a plugin platform with deterministic plugin resolution for:
-
-- archetypes
-- stacks
-- code generation backend
-- generated-app validation
-- repair policy
-- packaging/proof targets
-
-Platform hardening layers now also run through deterministic lane contracts:
-
-- stack-specific failure classification and bounded repair policy resolution
-- stack-specific runtime/startup verification and machine-readable runtime proof outputs
-- reusable power-pack composition (domain/workflow/ui/validation/repair/deployment/asset/research)
-- security and governance contracts (auth/authz, RBAC/ABAC-ready, secrets policy, audit, approvals)
-- commerce/billing contracts (subscriptions, entitlements, webhooks, invoices/trials/plans)
-- failure corpus logging and deterministic replay harness artifacts
-
 ## Quick Start
 
 ### Local Bootstrap
@@ -47,51 +29,27 @@ This creates a virtual environment, installs dependencies, and prints next steps
 
 ### Canonical Commands
 
-Run these canonical commercial-lane commands once the environment is bootstrapped:
+Run these commands once the environment is bootstrapped:
 
 ```bash
 # Check if system is ready
 python cli/autobuilder.py readiness --json
 
+# Run proof-of-execution validation
+python cli/autobuilder.py proof --json
+
 # Compile canonical specs into a target repository scaffold
 python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
 
-# Canonical one-command commercial builder
-python cli/autobuilder.py ship --spec specs --target /tmp/my-app --json
+# Start a mission (autonomous execution)
+python cli/autobuilder.py mission "Your goal here" --json
 
-# Chat-first preview and guided build
-python cli/autobuilder.py chat-build --prompt "Build a mobile app for school reminders" --target /tmp/my-app --json
-python cli/autobuilder.py chat-build --prompt "Build a mobile app for school reminders" --target /tmp/my-app --approve --json
+# Inspect any run
+python cli/autobuilder.py inspect <run_id> --json
 
-# Computer-use agent runtime modeling/execution
-python cli/autobuilder.py agent-runtime --task "Open app, fill form, and save result" --json
-
-# Safe self-extension in sandbox
-python cli/autobuilder.py self-extend --lane first_class_commercial --needs custom_validator_for_geo --sandbox /tmp/autobuilder-sandbox --approve-core --json
-
-# Validate generated app structure/surfaces and auto-repair common defects
-python cli/autobuilder.py validate-app --target /tmp/my-app --repair --json
-
-# Emit generated-app proof certification artifacts
-python cli/autobuilder.py proof-app --target /tmp/my-app --repair --json
+# Run benchmark regression tests
+python cli/autobuilder.py benchmark --json
 ```
-
-Operational autonomy commands (`mission`, `resume`, `inspect`, `benchmark`, `proof`) remain available but are secondary to the commercial ship lane above.
-
-## Command Safety Guarantees
-
-Every top-level JSON command now emits `audit_record` metadata plus a `safety_guarantee` summary.
-
-| command | approval and governance guarantee | rollback / restore guarantee |
-| --- | --- | --- |
-| `mission` | dangerous mutation goals pause in `awaiting_approval` with approval history | dangerous missions emit checkpoint-backed restore payloads |
-| `resume` | resumes only after explicit approval state is recorded | reuses the latest checkpoint restore plan |
-| `inspect` | read-only inspection with no mutation side effects | no rollback needed; audit trail is surfaced |
-| `build` | deterministic contract validation remains enforced | outputs can be regenerated deterministically |
-| `ship` | proof/readiness/package artifacts must certify before success | packaged proof bundle is emitted before ship success |
-| `chat-build` | preview-first operator gate remains intact | approved builds inherit ship proof bundle semantics |
-| `agent-runtime` | approval-gated sensitive steps remain explicit in execution output | blocked or replayable execution remains auditable |
-| `self-extend` | sandbox and quarantine rules still bound extension synthesis | generated capabilities remain rollbackable by registry/quarantine state |
 
 ### Cleanup Runtime Artifacts
 
@@ -127,55 +85,28 @@ Output archive is in `dist/` directory, ready to distribute or deploy.
 - Commercial planning: app archetype resolution and controlled stack selection for spec-driven builds
 - Build generation: deterministic commercial starter app generation with machine-readable summaries and validation plan
 
-## Support Matrix
+## Commercial Build Support
 
-Support categories:
+Supported app archetypes:
 
-- `first_class`: fully generated and validated with deterministic build/proof/ship behavior.
-- `bounded_prototype`: generated and validated for a scoped prototype envelope, not broad production breadth.
-- `structural_only`: schema/contracts exist but runtime generation is intentionally limited.
-- `future`: placeholder only.
+- `internal_tool`
+- `workspace_app`
+- `saas_web_app`
+- `api_service`
+- `workflow_system`
+- `copilot_chat_app`
 
-Lane and stack matrix:
+First-class stack support in this tranche:
 
-| lane_id | app_type | stack | support_category |
-| --- | --- | --- | --- |
-| `first_class_commercial` | `internal_tool`, `workspace_app`, `saas_web_app`, `api_service`, `copilot_chat_app` | `react_next` + `fastapi` + `postgres` + `docker_compose` | `first_class` |
-| `first_class_mobile` | `mobile_app` | `flutter_mobile` + `fastapi` + `postgres` + `docker_compose` | `first_class` |
-| `first_class_game` | `game_app` | `godot_game` + `fastapi` + `postgres` + `docker_compose` | `bounded_prototype` |
-| `first_class_realtime` | `realtime_system` | `react_next` + `fastapi` + `postgres` + `docker_compose` | `first_class` |
-| `first_class_enterprise_agent` | `workflow_system`, `enterprise_agent_system` | `react_next` + `fastapi` + `postgres` + `docker_compose` | `first_class` |
+- frontend: `react_next`
+- backend: `fastapi`
+- database: `postgres`
+- deployment: `docker_compose`
 
-Advanced capability matrix:
+Support tiers:
 
-| capability | support_category | notes |
-| --- | --- | --- |
-| `chat-build` conversation-to-spec | `first_class` | preview-first and deterministic build handoff |
-| computer-use `agent-runtime` | `bounded_prototype` | modeled and bounded execution with approvals/audit/replay |
-| `self-extend` tool synthesis | `bounded_prototype` | sandbox validation, registration, quarantine, rollback |
-| multimodal/world-state schema | `structural_only` | normalized schema and bounded hooks |
-| cloud IaC deployment generation | `future` | not generated in current surface |
-
-Enterprise polish means generated apps include:
-
-- deterministic loading/empty/error response states
-- shell navigation and status conventions
-- settings/admin/activity operator surfaces
-- backend readiness/version/health and admin/operator/audit placeholders
-- proof/readiness and packaging bundle artifacts for handoff
-
-Plugin architecture scope:
-
-- production plugin lanes: `first_class_commercial`, `first_class_mobile`, `first_class_game`, `first_class_realtime`, `first_class_enterprise_agent`
-- plugin registry resolves compatible plugin combinations deterministically per spec
-- unsupported or incompatible plugin combinations fail cleanly before generation
-
-Not yet supported:
-
-- additional frontend/backend/database/deployment stacks
-- non-first-class stack combinations
-- non-Python backend lanes
-- production cloud IaC deployment generation
+- `first_class`: implemented and validated in this tranche
+- `future`: registry placeholder only, not generated or validated yet
 
 ## Canonical interface
 
@@ -194,62 +125,6 @@ Supported commands:
 - `readiness`
 - `proof`
 - `build`
-- `validate-app`
-- `proof-app`
-- `ship`
-- `chat-build`
-- `agent-runtime`
-- `self-extend`
-
-## Chat-First Builder UX
-
-AutobuilderV2 now includes a thin, conversation-centered operator surface through `chat-build`:
-
-- one main conversation surface: your plain-language prompt
-- plan summary: lane, stack, defaults, questions, and tradeoffs
-- build progress: preview, approval, build/proof milestones
-- final outputs/proof: readiness/proof/package summaries from ship flow
-
-Preview-first flow:
-
-1. Describe app in plain English
-2. Autobuilder infers lane + safe defaults
-3. Autobuilder asks only critical missing questions
-4. Autobuilder returns a structured spec preview
-5. Approve with `--approve` to run build/proof
-6. Review final readiness and proof outputs
-
-Safety and explainability in chat flow:
-
-- clear unsupported feature messages
-- simple tradeoff explanations
-- deterministic default inference (no silent assumption drift)
-- next-step guidance in every response
-
-## Universal Capability Layer
-
-AutobuilderV2 now includes bounded universal capability systems for controlled autonomous growth:
-
-- computer-use agent runtime: browser/file/form/app interaction abstractions with audit logs, approval gating, and replay signatures
-- multimodal/world-state foundations: text/doc/media/sensor/event references and normalized action-output schema
-- self-extension/meta-builder: detect capability gaps, synthesize candidate tools in sandbox, validate, and safely register
-- tool factory: deterministic generation of validators/connectors/helpers/domain utilities
-- safe governance: tiered registration decisions, quarantine on failure, and rollback for active generated capabilities
-- universal failure intelligence: failure corpus and replay artifacts for self-generated capabilities
-
-Commercial guardrails remain intact:
-
-- core build/ship determinism is unchanged
-- first-class lane compatibility gates remain enforced
-- self-generated capabilities require validation and can be quarantined/rolled back
-
-Canonical commercial lane command order:
-
-1. `readiness`
-2. `build`
-3. `validate-app`
-4. `proof-app`
-5. `ship`
 
 Build command options:
 
@@ -258,122 +133,27 @@ Build command options:
 
 ## What build now generates
 
-For each first-class lane, build mode now generates a real starter application into the `--target` repository:
+For the first-class stack (`react_next` + `fastapi` + `postgres` + `docker_compose`), build mode now generates a real starter application into the `--target` repository, including:
 
-- Web lane (`react_next` + `fastapi` + `postgres` + `docker_compose`) includes:
-
-- Frontend React/Next enterprise shell with:
-	- coherent shell layout with navigation and header conventions
-	- deterministic loading, empty, error, and success state rendering
-	- command/input surface polish and response-state region
-	- operator-ready route placeholders under `/settings`, `/admin`, and `/activity`
-	- status/notification convention markers used by generated validation
-- Backend FastAPI enterprise surface with:
-	- structured config and startup logging placeholder
-	- structured response envelopes for health, readiness, version, and execute routes
-	- admin/operator/audit route placeholders under `/api/admin`, `/api/operator`, `/api/audit`
-	- clearer readiness payload shape and version metadata
+- Frontend React/Next workspace shell with:
+	- one command/input surface
+	- one main content/work surface
+	- one status/response panel
+- Backend FastAPI service shell with:
+	- `/health`
+	- `/ready`
+	- `/version`
+	- `/api/workspace/execute`
 - Postgres-oriented runtime env scaffolding
 - Docker Compose local deployment scaffold
 - Root README with run instructions
-- Deterministic backend endpoint tests and frontend shell checks
-- Proof/readiness artifacts:
-	- `docs/ENTERPRISE_POLISH.md`
-	- `docs/READINESS.md`
-	- `docs/PROOF_OF_RUN.md`
-	- `.autobuilder/proof_report.json`
-	- `.autobuilder/readiness_report.json`
-- Packaging/deployment handoff assets:
-	- `docs/DEPLOYMENT.md`
-	- `docs/STARTUP_VALIDATION.md`
-	- `release/README.md`
-	- `release/deploy/DEPLOYMENT_NOTES.md`
-	- `release/runbook/OPERATOR_RUNBOOK.md`
-	- `release/proof/PROOF_BUNDLE.md`
-	- `.autobuilder/package_artifact_summary.json`
-	- `.autobuilder/proof_readiness_bundle.json`
-
-Lane-specific first-class additions:
-
-- Mobile lane (`flutter_mobile`): Flutter scaffold with `pubspec.yaml`, `lib/main.dart`, navigation/state/API client modules, and lane validation markers.
-- Game lane (`godot_game`): Godot scaffold with `project.godot`, `scenes/*`, `scripts/*`, input mapping, and prototype main-loop validation markers.
-- Realtime lane (`react_next` realtime profile): stream subscription/polling scaffold, sensor connectors, alert/action paths, and world-state update placeholders.
-- Enterprise-agent lane (`react_next` workflow profile): multi-role routing, approvals, memory/state scaffolds, reporting/briefing outputs, and operator workflow surfaces.
-
-Current lane status:
-
-- `first_class_commercial`: first-class production web lane
-- `first_class_mobile`: first-class bounded mobile lane
-- `first_class_game`: first-class bounded game prototype lane
-- `first_class_realtime`: first-class bounded realtime/sensing lane
-- `first_class_enterprise_agent`: first-class bounded enterprise-agent/workflow lane
+- Basic backend endpoint tests and frontend shell checks
 
 Build JSON output includes:
 
 - `files_created_summary` (deterministic file list and count)
 - `validation_plan` (deterministic validation checklist)
-- `generated_app_validation` (enterprise UX/backend/proof readiness checks)
-- `build_status`, `validation_status`, `proof_status`
-- `repaired_issues` and `unrepaired_blockers`
-- `repair_report` and `proof_artifacts`
-- `packaging_summary`, `deployment_readiness_summary`, `proof_summary`
-- stack-specific runtime verification and hardening contract artifact paths in `proof_artifacts`
 - `plan` and `execution` details
-
-Ship JSON output includes:
-
-- `build_status`
-- `archetype`
-- `stack`
-- `files_generated`
-- `validation_result`
-- `repair_actions_taken`
-- `proof_result`
-- `readiness_result`
-- `packaged_app_artifact_summary`
-- `deployment_readiness_summary`
-- `proof_summary`
-- `final_target_path`
-
-Generated-app validation mode checks:
-
-- required repo structure
-- frontend shell essentials
-- backend endpoint essentials
-- env/config essentials
-- docker/deployment essentials
-- proof/readiness artifact presence
-- enterprise polish surface presence
-
-Generated-app proof artifacts:
-
-- `.autobuilder/proof_report.json`
-- `.autobuilder/readiness_report.json`
-- `.autobuilder/validation_summary.json`
-- `.autobuilder/determinism_signature.json`
-- `.autobuilder/package_artifact_summary.json`
-- `.autobuilder/proof_readiness_bundle.json`
-
-## Packaging and Deployment Workflow
-
-For a commercial handoff package in one command:
-
-```bash
-python cli/autobuilder.py ship --spec specs --target /tmp/my-app --json
-```
-
-Deployment assumptions in this tranche:
-
-- local deployment model: Docker Compose
-- frontend startup: Next.js service on `3000`
-- backend startup: FastAPI/Uvicorn service on `8000`
-- database startup: Postgres 16 on `5432`
-
-Handoff packaging bundle is emitted under:
-
-- `release/`
-- `.autobuilder/package_artifact_summary.json`
-- `.autobuilder/proof_readiness_bundle.json`
 
 ## Using a generated app
 
@@ -383,20 +163,6 @@ After generating an app:
 python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
 cd /tmp/my-app
 docker compose up
-```
-
-## Canonical Ship Mode
-
-One command for the commercial flow (specs in -> app generated -> validated -> repaired if needed -> proof emitted):
-
-```bash
-python cli/autobuilder.py ship --spec specs --target /tmp/my-app --json
-```
-
-Example high-quality spec bundle:
-
-```bash
-python cli/autobuilder.py ship --spec specs/examples/commercial_workspace --target /tmp/commercial-app --json
 ```
 
 Then open:
@@ -517,3 +283,29 @@ The built-in benchmark cases are in benchmarks/cases.py and cover simple runs, r
 - docs/NEXUS_EXECUTION.md: Nexus mission-mode behavior and interpretation guide
 - docs/OPERATOR_WORKFLOW.md: step-by-step operator workflow
 - docs/SPEC_COMPILER.md: canonical spec bundle, IR contract, build mode behavior and limitations
+
+
+## Support Matrix
+
+### Categories
+
+| Category | Description |
+|---|---|
+| first_class | Full generation, validation, proof, and repair supported |
+| bounded_prototype | Generation and validation only; repair is best-effort |
+| structural_only | Structure scaffold only; no validation or repair |
+| future | Planned; not yet implemented |
+
+### Lanes
+
+| Lane | App Types |
+|---|---|
+| first_class_commercial | saas_web_app, workspace_app, internal_tool, api_service, workflow_system, copilot_chat_app |
+| first_class_mobile | mobile_app |
+| first_class_game | game_app |
+| first_class_realtime | realtime_system |
+| first_class_enterprise_agent | enterprise_agent_system |
+
+### Command Safety Guarantees
+
+All commands emit deterministic, repo-relative artifact paths. Mutation operations require explicit approval. Rollback metadata is written before any destructive operation.

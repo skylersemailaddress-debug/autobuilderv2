@@ -1155,6 +1155,14 @@ def _build_validation_plan() -> list[str]:
 
 
 def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
+    if ir.app_type == "mobile_app":
+        return mobile_lane_templates(ir)
+    if ir.app_type == "game_app":
+        return game_lane_templates(ir)
+    if ir.app_type == "realtime_system":
+        return realtime_lane_templates(ir)
+    if ir.app_type == "enterprise_agent_system":
+        return enterprise_agent_lane_templates(ir)
     return [
         GeneratedTemplate(path="README.md", content=_root_readme(ir)),
         GeneratedTemplate(path=".env.example", content=(
@@ -1224,4 +1232,148 @@ def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
 
 
 def first_class_validation_plan() -> list[str]:
+    return _build_validation_plan()
+
+
+def mobile_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
+    return [
+        GeneratedTemplate(path="pubspec.yaml", content=(
+            "name: mobile_app\nenvironment:\n  sdk: '>=3.0.0 <4.0.0'\n"
+            "dependencies:\n  flutter:\n    sdk: flutter\n  http: ^1.0.0\n"
+        )),
+        GeneratedTemplate(path="lib/main.dart", content=(
+            "import 'package:flutter/material.dart';\nvoid main() => runApp(const MyApp());\n"
+            "class MyApp extends StatelessWidget {\n  const MyApp({super.key});\n"
+            "  @override Widget build(BuildContext context) => const MaterialApp(home: Scaffold());\n}\n"
+        )),
+        GeneratedTemplate(path="lib/navigation.dart", content=(
+            "// Navigation configuration\nclass AppNavigation {\n  static const routes = <String, dynamic>{};\n}\n"
+        )),
+        GeneratedTemplate(path="lib/services/api_client.dart", content=(
+            "// API client stub\nclass ApiClient {\n  final String baseUrl;\n  ApiClient(this.baseUrl);\n}\n"
+        )),
+        GeneratedTemplate(path=".autobuilder/README.md", content="# Mobile App — AutobuilderV2\n"),
+        GeneratedTemplate(path=".autobuilder/ir.json", content=_json_pretty(ir.to_dict())),
+        GeneratedTemplate(path=".autobuilder/determinism_signature.json", content=_determinism_signature_json()),
+        GeneratedTemplate(path=".autobuilder/proof_report.json", content=_proof_report_json(ir)),
+        GeneratedTemplate(path=".autobuilder/readiness_report.json", content=_readiness_report_json()),
+        GeneratedTemplate(path=".autobuilder/validation_summary.json", content=_validation_summary_json()),
+        GeneratedTemplate(path=".autobuilder/package_artifact_summary.json", content=_package_artifact_summary_json()),
+        GeneratedTemplate(path=".autobuilder/proof_readiness_bundle.json", content=_proof_readiness_bundle_json()),
+    ]
+
+
+def mobile_lane_validation_plan() -> list[str]:
+    return ["mobile_structure", "mobile_markers", "navigation_flows", "api_client_present", "flutter_pubspec_valid"]
+
+
+def game_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
+    return [
+        GeneratedTemplate(path="project.godot", content=(
+            "; Engine configuration file.\n[application]\nconfig/name=\"GameApp\"\n"
+            "run/main_scene=\"res://scenes/Main.tscn\"\n"
+        )),
+        GeneratedTemplate(path="scenes/Main.tscn", content=(
+            "[gd_scene load_steps=2 format=3]\n[node name=\"Main\" type=\"Node2D\"]\n"
+        )),
+        GeneratedTemplate(path="scripts/main.gd", content=(
+            "extends Node2D\nfunc _ready() -> void:\n\tpass\n"
+        )),
+        GeneratedTemplate(path="scripts/player.gd", content=(
+            "extends CharacterBody2D\nfunc _physics_process(_delta: float) -> void:\n\tpass\n"
+        )),
+        GeneratedTemplate(path=".autobuilder/README.md", content="# Game App — AutobuilderV2\n"),
+        GeneratedTemplate(path=".autobuilder/ir.json", content=_json_pretty(ir.to_dict())),
+        GeneratedTemplate(path=".autobuilder/determinism_signature.json", content=_determinism_signature_json()),
+        GeneratedTemplate(path=".autobuilder/proof_report.json", content=_proof_report_json(ir)),
+        GeneratedTemplate(path=".autobuilder/readiness_report.json", content=_readiness_report_json()),
+        GeneratedTemplate(path=".autobuilder/validation_summary.json", content=_validation_summary_json()),
+        GeneratedTemplate(path=".autobuilder/package_artifact_summary.json", content=_package_artifact_summary_json()),
+        GeneratedTemplate(path=".autobuilder/proof_readiness_bundle.json", content=_proof_readiness_bundle_json()),
+    ]
+
+
+def game_lane_validation_plan() -> list[str]:
+    return ["game_structure", "game_markers", "scene_flow", "godot_project_valid", "scripts_present"]
+
+
+def realtime_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
+    return [
+        GeneratedTemplate(path="frontend/lib/realtime-client.ts", content=(
+            "// Realtime client\nexport class RealtimeClient {\n"
+            "  constructor(private url: string) {}\n  connect() { return this.url; }\n}\n"
+        )),
+        GeneratedTemplate(path="backend/connectors/sensors.py", content=(
+            "# Sensor connector\nclass SensorConnector:\n    def connect(self) -> None:\n        pass\n"
+        )),
+        GeneratedTemplate(path="backend/realtime/world_state.py", content=(
+            "# World state manager\nclass WorldState:\n    def __init__(self) -> None:\n        self._state: dict = {}\n"
+        )),
+        GeneratedTemplate(path="backend/api/__init__.py", content=""),
+        GeneratedTemplate(path="backend/api/main.py", content=_backend_app()),
+        GeneratedTemplate(path="backend/api/admin.py", content=_backend_admin_router()),
+        GeneratedTemplate(path="backend/requirements.txt", content=_backend_requirements()),
+        GeneratedTemplate(path=".autobuilder/README.md", content="# Realtime System — AutobuilderV2\n"),
+        GeneratedTemplate(path=".autobuilder/ir.json", content=_json_pretty(ir.to_dict())),
+        GeneratedTemplate(path=".autobuilder/determinism_signature.json", content=_determinism_signature_json()),
+        GeneratedTemplate(path=".autobuilder/proof_report.json", content=_proof_report_json(ir)),
+        GeneratedTemplate(path=".autobuilder/readiness_report.json", content=_readiness_report_json()),
+        GeneratedTemplate(path=".autobuilder/validation_summary.json", content=_validation_summary_json()),
+        GeneratedTemplate(path=".autobuilder/package_artifact_summary.json", content=_package_artifact_summary_json()),
+        GeneratedTemplate(path=".autobuilder/proof_readiness_bundle.json", content=_proof_readiness_bundle_json()),
+    ]
+
+
+def realtime_lane_validation_plan() -> list[str]:
+    return ["realtime_structure", "realtime_markers", "channel_integrity", "world_state_present", "connector_present"]
+
+
+def enterprise_agent_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
+    return [
+        GeneratedTemplate(path="backend/agent/runtime.py", content=(
+            "# Agent runtime\nclass AgentRuntime:\n    def run(self, task: str) -> dict:\n        return {'status': 'completed', 'task': task}\n"
+        )),
+        GeneratedTemplate(path="backend/agent/task_router.py", content=(
+            "# Task router\nclass TaskRouter:\n    def route(self, task: str) -> str:\n        return task\n"
+        )),
+        GeneratedTemplate(path="backend/agent/audit.py", content=(
+            "# Audit service\nclass AuditService:\n    def record(self, event: dict) -> None:\n        pass\n"
+        )),
+        GeneratedTemplate(path="frontend/components/workflow-board.tsx", content=(
+            "// Workflow board component\nexport function WorkflowBoard() { return null; }\n"
+        )),
+        GeneratedTemplate(path="backend/workflows/router.py", content=(
+            "# Workflow router\nclass WorkflowRouter:\n    def route(self, workflow: str) -> str:\n        return workflow\n"
+        )),
+        GeneratedTemplate(path="backend/memory/state_store.py", content=(
+            "# Memory state store\nclass StateStore:\n    def __init__(self) -> None:\n        self._store: dict = {}\n"
+        )),
+        GeneratedTemplate(path="backend/api/__init__.py", content=""),
+        GeneratedTemplate(path="backend/api/main.py", content=_backend_app()),
+        GeneratedTemplate(path="backend/api/admin.py", content=_backend_admin_router()),
+        GeneratedTemplate(path="backend/requirements.txt", content=_backend_requirements()),
+        GeneratedTemplate(path=".autobuilder/README.md", content="# Enterprise Agent System — AutobuilderV2\n"),
+        GeneratedTemplate(path=".autobuilder/ir.json", content=_json_pretty(ir.to_dict())),
+        GeneratedTemplate(path=".autobuilder/determinism_signature.json", content=_determinism_signature_json()),
+        GeneratedTemplate(path=".autobuilder/proof_report.json", content=_proof_report_json(ir)),
+        GeneratedTemplate(path=".autobuilder/readiness_report.json", content=_readiness_report_json()),
+        GeneratedTemplate(path=".autobuilder/validation_summary.json", content=_validation_summary_json()),
+        GeneratedTemplate(path=".autobuilder/package_artifact_summary.json", content=_package_artifact_summary_json()),
+        GeneratedTemplate(path=".autobuilder/proof_readiness_bundle.json", content=_proof_readiness_bundle_json()),
+    ]
+
+
+def enterprise_agent_lane_validation_plan() -> list[str]:
+    return ["enterprise_structure", "enterprise_markers", "approval_flows", "audit_service_present", "task_router_present"]
+
+
+def get_lane_validation_plan(app_type: str) -> list[str]:
+    if app_type == "mobile_app":
+        return mobile_lane_validation_plan()
+    if app_type == "game_app":
+        return game_lane_validation_plan()
+    if app_type == "realtime_system":
+        return realtime_lane_validation_plan()
+    if app_type == "enterprise_agent_system":
+        return enterprise_agent_lane_validation_plan()
     return _build_validation_plan()

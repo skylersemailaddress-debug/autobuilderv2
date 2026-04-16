@@ -23,3 +23,6 @@ def test_quality_report_contains_required_sections():
     assert report["approval_usage"]["approval_required"] is False
     assert report["benchmark_context"]["pass_rate"] == 1.0
     assert report["selected_memories"]["count"] == 2
+    assert "reliability_summary" in report
+    assert "confidence_derivation" in report
+    assert "operator_summary" in report

@@ -149,7 +149,7 @@ def run_chat_first_workflow(
             }
 
     repair_actions = ship_result.get("repair_actions_taken", {})
-    if repair_actions.get("repairs_applied", 0) > 0:
+    if isinstance(repair_actions, dict) and repair_actions.get("repairs_applied", 0) > 0:
         snapshot.fixes.append(repair_actions)
 
     memory_path = memory_store.save(snapshot)

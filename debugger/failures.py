@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional
 
 
 @dataclass
@@ -10,3 +10,6 @@ class FailureRecord:
     message: str
     task_id: Optional[str] = None
     recoverable: bool = True
+    replayable: bool = True
+    replay_case: Optional[Dict[str, object]] = None
+    benchmark_case: Optional[Dict[str, object]] = None

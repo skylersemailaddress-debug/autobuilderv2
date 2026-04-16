@@ -1,6 +1,9 @@
 import uuid
 import io
+import json
 from contextlib import redirect_stdout
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Dict, Iterable, List
 
 from benchmarks.cases import BENCHMARK_CASES, BenchmarkCase
@@ -11,19 +14,230 @@ from state.json_store import JsonRunStore
 
 def _case_passed(case: BenchmarkCase, result: Dict) -> bool:
     expected = case.expected_outcome
-    if "final_status" in expected and result["final_status"] != expected["final_status"]:
+    if "final_status" in expected and result.get("final_status") != expected["final_status"]:
         return False
-    if "approval_required" in expected and result["approval_required"] != expected["approval_required"]:
+    if "approval_required" in expected and result.get("approval_required") != expected["approval_required"]:
         return False
-    if "minimum_repair_count" in expected and result["repair_count"] < expected["minimum_repair_count"]:
+    if "minimum_repair_count" in expected and result.get("repair_count", 0) < expected["minimum_repair_count"]:
         return False
-    if "nexus_mode" in expected and result["nexus_mode"] != expected["nexus_mode"]:
+    if "nexus_mode" in expected and result.get("nexus_mode") != expected["nexus_mode"]:
         return False
-    if "repo_mode" in expected and result["repo_mode"] != expected["repo_mode"]:
+    if "repo_mode" in expected and result.get("repo_mode") != expected["repo_mode"]:
         return False
-    if "resumed" in expected and result["resumed"] != expected["resumed"]:
+    if "resumed" in expected and result.get("resumed") != expected["resumed"]:
+        return False
+    if "build_status" in expected and result.get("build_status") != expected["build_status"]:
+        return False
+    if "proof_status_prefix" in expected and not str(result.get("proof_status", "")).startswith(expected["proof_status_prefix"]):
+        return False
+    if "packaging_status" in expected and result.get("packaging_status") != expected["packaging_status"]:
+        return False
+    if "validation_status" in expected and result.get("validation_status") != expected["validation_status"]:
+        return False
+    if "error_contains" in expected and expected["error_contains"] not in str(result.get("error", "")):
+        return False
+    if "unsupported_handled" in expected and result.get("unsupported_handled") != expected["unsupported_handled"]:
+        return False
+    if "status" in expected and result.get("extension_status") != expected["status"]:
+        return False
+    if "registered" in expected and bool(result.get("registered_tool_ids")) != expected["registered"]:
         return False
     return True
+
+
+def _mission_case_result(case: BenchmarkCase, store: JsonRunStore, run_id: str) -> Dict:
+    with io.StringIO() as capture, redirect_stdout(capture):
+        record, _ = perform_run(
+            run_id=run_id,
+            goal=case.goal,
+            nexus_mode_enabled=case.nexus_mode_enabled,
+        )
+
+    resumed = False
+    if case.requires_resume and record.get("awaiting_approval"):
+        if case.auto_approve_on_resume:
+            approval_request = record.get("approval_request")
+            if approval_request:
+                approval_request["status"] = "approved"
+                record["approval_request"] = approval_request
+                store.save(run_id, record)
+        with io.StringIO() as capture, redirect_stdout(capture):
+            resumed_record, _ = resume_saved_run(run_id)
+        if resumed_record is not None:
+            record = resumed_record
+            resumed = True
+
+    summary = record.get("summary", {})
+    final_status = record.get("status", summary.get("final_status"))
+    approval_required = summary.get(
+        "approval_required",
+        record.get("policy", {}).get("approval_required", False),
+    )
+    return {
+        "case": case.name,
+        "run_id": run_id,
+        "success": False,
+        "final_status": final_status,
+        "repair_count": record.get("repair_count", 0),
+        "confidence": record.get("confidence", 0.0),
+        "event_count": len(record.get("events", [])),
+        "approval_required": approval_required,
+        "nexus_mode": record.get("nexus_mode", False),
+        "repo_mode": summary.get("repo_mode", bool(record.get("repo_context"))),
+        "resumed": resumed,
+        "expected_resumable": case.requires_resume,
+        "failure_reason": None,
+        "reliability_summary": summary.get("reliability_summary", {}),
+        "reproducible": bool(summary.get("reliability_summary", {}).get("components", {}).get("reproducibility", 0) >= 1.0),
+        "proof_status": None,
+        "unsupported_handled": False,
+        "replayable_failures": len(record.get("failures", [])),
+    }
+
+
+def _ship_case_result(case: BenchmarkCase) -> Dict:
+    from cli.autobuilder import run_ship_workflow
+
+    with TemporaryDirectory(prefix=f"benchmark_{case.name}_") as tmp_dir:
+        target = Path(tmp_dir) / "ship_target"
+        result = run_ship_workflow(spec_path=case.spec_path or "specs", target_path=str(target))
+        return {
+            "case": case.name,
+            "run_id": f"benchmark_{case.name}",
+            "success": False,
+            "final_status": "complete",
+            "repair_count": int(result.get("repair_actions_taken", {}).get("repairs_applied", 0)),
+            "confidence": float(result.get("confidence", 0.0)),
+            "event_count": 0,
+            "approval_required": False,
+            "nexus_mode": False,
+            "repo_mode": False,
+            "resumed": False,
+            "expected_resumable": False,
+            "failure_reason": None,
+            "build_status": result.get("build_status"),
+            "proof_status": result.get("proof_result", {}).get("status"),
+            "packaging_status": result.get("packaged_app_artifact_summary", {}).get("packaging_status"),
+            "reliability_summary": result.get("reliability_summary", {}),
+            "reproducible": bool(result.get("reliability_summary", {}).get("components", {}).get("reproducibility", 0) >= 1.0),
+            "unsupported_handled": False,
+            "replayable_failures": 0,
+        }
+
+
+def _repair_flow_case_result(case: BenchmarkCase) -> Dict:
+    from cli.autobuilder import run_build_workflow, run_generated_app_validation_workflow
+
+    with TemporaryDirectory(prefix=f"benchmark_{case.name}_") as tmp_dir:
+        target = Path(tmp_dir) / "repair_target"
+        run_build_workflow("specs", str(target))
+        (target / "docs" / "READINESS.md").unlink()
+        result = run_generated_app_validation_workflow(str(target), repair=True)
+        return {
+            "case": case.name,
+            "run_id": f"benchmark_{case.name}",
+            "success": False,
+            "final_status": "complete",
+            "repair_count": int(result.get("repair_report", {}).get("repairs_applied", 0)),
+            "confidence": 1.0 if result.get("validation_status") == "passed" else 0.0,
+            "event_count": 0,
+            "approval_required": False,
+            "nexus_mode": False,
+            "repo_mode": False,
+            "resumed": False,
+            "expected_resumable": False,
+            "failure_reason": None,
+            "validation_status": result.get("validation_status"),
+            "reliability_summary": {},
+            "reproducible": True,
+            "unsupported_handled": False,
+            "replayable_failures": len(result.get("unrepaired_blockers", [])),
+        }
+
+
+def _unsupported_build_case_result(case: BenchmarkCase) -> Dict:
+    from cli.autobuilder import run_build_workflow
+
+    with TemporaryDirectory(prefix=f"benchmark_{case.name}_") as tmp_dir:
+        spec_root = Path(tmp_dir) / "bad_specs"
+        spec_root.mkdir()
+        (spec_root / "product.yaml").write_text('{"name":"Broken App","app_type":"unknown_app"}\n', encoding="utf-8")
+        (spec_root / "architecture.yaml").write_text('{"entities":[],"workflows":[],"api_routes":[],"runtime_services":[],"permissions":[]}\n', encoding="utf-8")
+        (spec_root / "ui.yaml").write_text('{"pages":[]}\n', encoding="utf-8")
+        (spec_root / "acceptance.yaml").write_text('{"criteria":["works"]}\n', encoding="utf-8")
+        (spec_root / "stack.yaml").write_text('{"frontend":"react_next","backend":"fastapi","database":"postgres","deployment":"docker_compose","deployment_target":"container"}\n', encoding="utf-8")
+        error = ""
+        try:
+            run_build_workflow(str(spec_root), str(Path(tmp_dir) / "generated"))
+        except Exception as exc:  # noqa: BLE001 - explicit benchmark capture
+            error = str(exc)
+        return {
+            "case": case.name,
+            "run_id": f"benchmark_{case.name}",
+            "success": False,
+            "final_status": "rejected",
+            "repair_count": 0,
+            "confidence": 1.0 if "Unsupported" in error else 0.0,
+            "event_count": 0,
+            "approval_required": False,
+            "nexus_mode": False,
+            "repo_mode": False,
+            "resumed": False,
+            "expected_resumable": False,
+            "failure_reason": None,
+            "error": error,
+            "unsupported_handled": "Unsupported" in error,
+            "reliability_summary": {
+                "score": 1.0 if "Unsupported" in error else 0.0,
+                "components": {"unsupported_feature_handling": 1.0 if "Unsupported" in error else 0.0},
+            },
+            "reproducible": True,
+            "replayable_failures": 1 if error else 0,
+        }
+
+
+def _self_extension_case_result(case: BenchmarkCase) -> Dict:
+    from universal_capability.self_extension import synthesize_missing_capabilities
+
+    with TemporaryDirectory(prefix=f"benchmark_{case.name}_") as tmp_dir:
+        root = Path(tmp_dir)
+        result = synthesize_missing_capabilities(
+            lane_id="first_class_commercial",
+            requested_capabilities=case.requested_capabilities or [],
+            sandbox_root=str(root / "sandbox"),
+            registry_path=str(root / "registry.json"),
+            quarantine_path=str(root / "quarantine.json"),
+            require_approval_for_core=True,
+            approved=case.approve_core,
+            failure_intelligence_root=str(root / "intelligence"),
+        )
+        return {
+            "case": case.name,
+            "run_id": f"benchmark_{case.name}",
+            "success": False,
+            "final_status": result.get("status"),
+            "repair_count": 0,
+            "confidence": 1.0 if result.get("status") in {"extended", "no_gap"} else 0.0,
+            "event_count": 0,
+            "approval_required": False,
+            "nexus_mode": False,
+            "repo_mode": False,
+            "resumed": False,
+            "expected_resumable": False,
+            "failure_reason": None,
+            "extension_status": result.get("status"),
+            "registered_tool_ids": result.get("registered_tool_ids", []),
+            "reliability_summary": {
+                "score": 1.0 if result.get("status") in {"extended", "no_gap"} else 0.5,
+                "components": {
+                    "unsupported_feature_handling": 1.0,
+                    "reproducibility": 1.0 if result.get("failure_intelligence") or result.get("registered_tool_ids") else 0.5,
+                },
+            },
+            "reproducible": True,
+            "unsupported_handled": False,
+            "replayable_failures": len(result.get("failure_intelligence", [])),
+        }
 
 
 def run_benchmark_cases(cases: Iterable[BenchmarkCase] = BENCHMARK_CASES) -> List[Dict]:
@@ -31,51 +245,23 @@ def run_benchmark_cases(cases: Iterable[BenchmarkCase] = BENCHMARK_CASES) -> Lis
     store = JsonRunStore()
     for case in cases:
         run_id = f"benchmark_{case.name}_{uuid.uuid4().hex[:12]}"
-        with io.StringIO() as capture, redirect_stdout(capture):
-            record, _ = perform_run(
-                run_id=run_id,
-                goal=case.goal,
-                nexus_mode_enabled=case.nexus_mode_enabled,
-            )
-
-        resumed = False
-        if case.requires_resume and record.get("awaiting_approval"):
-            if case.auto_approve_on_resume:
-                approval_request = record.get("approval_request")
-                if approval_request:
-                    approval_request["status"] = "approved"
-                    record["approval_request"] = approval_request
-                    store.save(run_id, record)
-            with io.StringIO() as capture, redirect_stdout(capture):
-                resumed_record, _ = resume_saved_run(run_id)
-            if resumed_record is not None:
-                record = resumed_record
-                resumed = True
-
-        summary = record.get("summary", {})
-        final_status = record.get("status", summary.get("final_status"))
-        approval_required = summary.get(
-            "approval_required",
-            record.get("policy", {}).get("approval_required", False),
-        )
-        result = {
-            "case": case.name,
-            "run_id": run_id,
-            "success": False,
-            "final_status": final_status,
-            "repair_count": record.get("repair_count", 0),
-            "confidence": record.get("confidence", 0.0),
-            "event_count": len(record.get("events", [])),
-            "approval_required": approval_required,
-            "nexus_mode": record.get("nexus_mode", False),
-            "repo_mode": summary.get("repo_mode", bool(record.get("repo_context"))),
-            "resumed": resumed,
-            "expected_resumable": case.requires_resume,
-            "failure_reason": None,
-        }
+        if case.kind == "ship":
+            result = _ship_case_result(case)
+        elif case.kind == "repair_flow":
+            result = _repair_flow_case_result(case)
+        elif case.kind == "unsupported_build":
+            result = _unsupported_build_case_result(case)
+        elif case.kind == "self_extend":
+            result = _self_extension_case_result(case)
+        else:
+            result = _mission_case_result(case, store, run_id)
         result["success"] = _case_passed(case, result)
         if not result["success"]:
-            result["failure_reason"] = f"expected={case.expected_outcome}, got={{{'final_status': result['final_status'], 'approval_required': result['approval_required'], 'repair_count': result['repair_count'], 'nexus_mode': result['nexus_mode'], 'repo_mode': result['repo_mode'], 'resumed': result['resumed']}}}"
+            result["failure_reason"] = json.dumps(
+                {"expected": case.expected_outcome, "got": result},
+                sort_keys=True,
+                default=str,
+            )
         results.append(result)
 
     return results

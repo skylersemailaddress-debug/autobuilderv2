@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from quality.reliability import build_reliability_summary
+
 
 def _write_json(path: Path, payload: dict[str, object]) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -29,6 +31,37 @@ def emit_generated_app_proof_artifacts(
     else:
         proof_status = "not_certified"
 
+    proof_components = {
+        "determinism": 1.0 if determinism.get("verified", False) else 0.0,
+        "repair_success": 1.0 if not blockers else 0.0,
+        "proof_completeness": 1.0,
+        "validation_completeness": 1.0 if validation_status == "passed" else 0.0,
+        "rollback_availability": 1.0,
+        "unsupported_feature_handling": 1.0 if not validation_report.get("unsupported_features") else 0.0,
+        "reproducibility": 1.0 if determinism.get("verified", False) else 0.5,
+    }
+    reliability_summary = build_reliability_summary(
+        "build",
+        proof_components,
+        proven=[
+            f"validation status: {validation_status}",
+            f"proof status: {proof_status}",
+        ]
+        + (["determinism signature verified"] if determinism.get("verified", False) else []),
+        repaired=[str(item) for item in repaired],
+        remaining_risks=[str(item) for item in blockers],
+        unsupported=[str(item) for item in validation_report.get("unsupported_features", [])],
+        reproducibility_notes=[
+            "build signature sha256 recorded" if determinism.get("build_signature_sha256") else "build signature unavailable",
+            "proof signature sha256 recorded" if determinism.get("proof_signature_sha256") else "proof signature unavailable",
+        ],
+        evidence={
+            "validation_status": validation_status,
+            "proof_status": proof_status,
+            "failed_count": validation_report.get("failed_count", 0),
+        },
+    )
+
     proof_report = {
         "proof_status": proof_status,
         "build_status": build_status,
@@ -36,11 +69,14 @@ def emit_generated_app_proof_artifacts(
         "failed_checks": validation_report.get("failed_checks", []),
         "repaired_issues": repaired,
         "unrepaired_blockers": blockers,
+        "reliability_summary": reliability_summary,
+        "unsupported_features": validation_report.get("unsupported_features", []),
     }
     readiness_report = {
         "readiness_status": "ready" if proof_status.startswith("certified") else "not_ready",
         "readiness_reasons": [] if proof_status.startswith("certified") else ["generated app validation not certified"],
         "validation_status": validation_status,
+        "reliability_summary": reliability_summary,
     }
     validation_summary = {
         "validation_status": validation_status,
@@ -49,6 +85,7 @@ def emit_generated_app_proof_artifacts(
         "failed_count": validation_report.get("failed_count", 0),
         "total_checks": validation_report.get("total_checks", 0),
         "failed_checks": validation_report.get("failed_checks", []),
+        "unsupported_features": validation_report.get("unsupported_features", []),
     }
     determinism_signature = {
         "build_signature_sha256": determinism.get("build_signature_sha256", ""),
@@ -75,4 +112,12 @@ def emit_generated_app_proof_artifacts(
         "artifact_paths": paths,
         "repaired_issues": repaired,
         "unrepaired_blockers": blockers,
+        "reliability_summary": reliability_summary,
+        "proof_bundle": {
+            "proof_status": proof_status,
+            "readiness_status": readiness_report["readiness_status"],
+            "validation_summary": validation_summary,
+            "determinism_signature": determinism_signature,
+            "reliability_summary": reliability_summary,
+        },
     }

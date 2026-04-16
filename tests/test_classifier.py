@@ -16,6 +16,9 @@ class TestFailureClassifier:
         assert result.severity == "high"
         assert result.task_id == "test-1"
         assert result.recoverable is True
+        assert result.replayable is True
+        assert result.replay_case is not None
+        assert result.benchmark_case is not None
         assert "Test task" in result.message
 
     def test_classify_task_missing_artifact(self):
@@ -45,6 +48,7 @@ class TestFailureClassifier:
         assert result.failure_type == "validation_failure"
         assert result.severity == "medium"
         assert "2 tasks incomplete" in result.message
+        assert result.replay_case["expected_outcome"] == "repair_then_validate"
 
     def test_classify_task_list_with_policy_block(self):
         classifier = FailureClassifier()
