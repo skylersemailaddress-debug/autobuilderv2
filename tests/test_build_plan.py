@@ -32,10 +32,18 @@ def test_prepare_build_plan_is_archetype_and_stack_aware():
     assert "docs/ENTERPRISE_POLISH.md" in plan.planned_modules
     assert "docs/READINESS.md" in plan.planned_modules
     assert "docs/PROOF_OF_RUN.md" in plan.planned_modules
+    assert "docs/DEPLOYMENT.md" in plan.planned_modules
+    assert "docs/STARTUP_VALIDATION.md" in plan.planned_modules
+    assert "release/README.md" in plan.planned_modules
+    assert "release/deploy/DEPLOYMENT_NOTES.md" in plan.planned_modules
+    assert "release/runbook/OPERATOR_RUNBOOK.md" in plan.planned_modules
+    assert "release/proof/PROOF_BUNDLE.md" in plan.planned_modules
     assert ".autobuilder/proof_report.json" in plan.planned_modules
     assert ".autobuilder/readiness_report.json" in plan.planned_modules
     assert ".autobuilder/validation_summary.json" in plan.planned_modules
     assert ".autobuilder/determinism_signature.json" in plan.planned_modules
+    assert ".autobuilder/package_artifact_summary.json" in plan.planned_modules
+    assert ".autobuilder/proof_readiness_bundle.json" in plan.planned_modules
     assert "signup_to_activation" in plan.planned_validation_surface
     assert "frontend_build" in plan.planned_validation_surface
     assert "required_repo_structure_present" in plan.planned_validation_surface
@@ -44,6 +52,7 @@ def test_prepare_build_plan_is_archetype_and_stack_aware():
     assert "env_config_essentials_present" in plan.planned_validation_surface
     assert "docker_deployment_essentials_present" in plan.planned_validation_surface
     assert "proof_readiness_artifacts_present" in plan.planned_validation_surface
+    assert "packaging_deployment_bundle_present" in plan.planned_validation_surface
     assert "enterprise_polish_surface_presence" in plan.planned_validation_surface
     assert plan.planned_repo_structure == sorted(plan.planned_repo_structure)
     assert plan.planned_modules == sorted(plan.planned_modules)

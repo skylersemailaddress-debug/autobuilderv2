@@ -867,6 +867,144 @@ def _determinism_signature_json() -> str:
   )
 
 
+def _package_artifact_summary_json() -> str:
+  return _json_pretty(
+    {
+      "packaging_status": "pending",
+      "release_bundle_paths": [
+        "release/README.md",
+        "release/deploy/DEPLOYMENT_NOTES.md",
+        "release/runbook/OPERATOR_RUNBOOK.md",
+        "release/proof/PROOF_BUNDLE.md",
+      ],
+      "notes": ["populate after build/ship packaging summarization"],
+    }
+  )
+
+
+def _proof_readiness_bundle_json() -> str:
+  return _json_pretty(
+    {
+      "bundle_status": "pending",
+      "proof_report": ".autobuilder/proof_report.json",
+      "readiness_report": ".autobuilder/readiness_report.json",
+      "validation_summary": ".autobuilder/validation_summary.json",
+      "determinism_signature": ".autobuilder/determinism_signature.json",
+    }
+  )
+
+
+def _deployment_notes_doc() -> str:
+  return '''# Deployment Notes
+
+Supported deployment assumptions for this generated app:
+
+- frontend: Next.js app served by `next dev` locally
+- backend: FastAPI served by `uvicorn`
+- database: Postgres 16
+- orchestration: Docker Compose
+
+## Local boot
+
+```bash
+docker compose up
+```
+
+## Startup assumptions
+
+- frontend available at `http://localhost:3000`
+- backend available at `http://localhost:8000`
+- postgres available at `localhost:5432`
+'''
+
+
+def _startup_validation_doc() -> str:
+  return '''# Startup and Validation
+
+## Startup
+
+```bash
+docker compose up
+```
+
+## Validation
+
+```bash
+python cli/autobuilder.py validate-app --target <generated_repo> --repair --json
+python cli/autobuilder.py proof-app --target <generated_repo> --repair --json
+```
+
+## Expected proof artifacts
+
+- `.autobuilder/proof_report.json`
+- `.autobuilder/readiness_report.json`
+- `.autobuilder/validation_summary.json`
+- `.autobuilder/determinism_signature.json`
+'''
+
+
+def _release_bundle_readme() -> str:
+  return '''# Release Bundle
+
+This folder contains handoff packaging assets for commercial deployment.
+
+- `deploy/DEPLOYMENT_NOTES.md`: deployment assumptions and startup behavior
+- `runbook/OPERATOR_RUNBOOK.md`: operator procedures
+- `proof/PROOF_BUNDLE.md`: proof/readiness bundle index
+
+Use alongside root README startup and validation instructions.
+'''
+
+
+def _release_deployment_notes() -> str:
+  return '''# Deployment Assumptions
+
+First-class stack:
+
+- React/Next frontend
+- FastAPI backend
+- Postgres database
+- Docker Compose deployment
+
+## Startup contract
+
+1. Configure `.env.example` and `backend/.env.example` values.
+2. Run `docker compose up`.
+3. Validate `GET /health`, `GET /ready`, and UI shell load.
+'''
+
+
+def _operator_runbook_doc() -> str:
+  return '''# Operator Runbook
+
+## Startup
+
+1. Run `docker compose up`.
+2. Verify backend `/health` and `/ready`.
+3. Verify frontend workspace shell and operator surfaces.
+
+## Validation
+
+1. Run generated-app validation with repair.
+2. Run proof-app certification.
+3. Archive proof/readiness artifacts for handoff.
+'''
+
+
+def _release_proof_bundle_doc() -> str:
+  return '''# Proof and Readiness Bundle
+
+Bundle this section with release handoff:
+
+- `.autobuilder/proof_report.json`
+- `.autobuilder/readiness_report.json`
+- `.autobuilder/validation_summary.json`
+- `.autobuilder/determinism_signature.json`
+- `.autobuilder/package_artifact_summary.json`
+- `.autobuilder/proof_readiness_bundle.json`
+'''
+
+
 def _docker_compose() -> str:
     return '''services:
   frontend:
@@ -981,6 +1119,7 @@ def _build_validation_plan() -> list[str]:
     "env_config_essentials_present",
     "docker_deployment_essentials_present",
     "proof_readiness_artifacts_present",
+    "packaging_deployment_bundle_present",
     "enterprise_polish_surface_presence",
         "backend_pytest_endpoints",
         "frontend_shell_structure_check",
@@ -1047,11 +1186,19 @@ def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
         GeneratedTemplate(path="docs/ENTERPRISE_POLISH.md", content=_enterprise_polish_doc()),
         GeneratedTemplate(path="docs/READINESS.md", content=_readiness_doc()),
         GeneratedTemplate(path="docs/PROOF_OF_RUN.md", content=_proof_of_run_doc()),
+        GeneratedTemplate(path="docs/DEPLOYMENT.md", content=_deployment_notes_doc()),
+        GeneratedTemplate(path="docs/STARTUP_VALIDATION.md", content=_startup_validation_doc()),
+        GeneratedTemplate(path="release/README.md", content=_release_bundle_readme()),
+        GeneratedTemplate(path="release/deploy/DEPLOYMENT_NOTES.md", content=_release_deployment_notes()),
+        GeneratedTemplate(path="release/runbook/OPERATOR_RUNBOOK.md", content=_operator_runbook_doc()),
+        GeneratedTemplate(path="release/proof/PROOF_BUNDLE.md", content=_release_proof_bundle_doc()),
         GeneratedTemplate(path=".autobuilder/README.md", content=_generated_readme()),
         GeneratedTemplate(path=".autobuilder/proof_report.json", content=_proof_report_json(ir)),
         GeneratedTemplate(path=".autobuilder/readiness_report.json", content=_readiness_report_json()),
         GeneratedTemplate(path=".autobuilder/validation_summary.json", content=_validation_summary_json()),
         GeneratedTemplate(path=".autobuilder/determinism_signature.json", content=_determinism_signature_json()),
+        GeneratedTemplate(path=".autobuilder/package_artifact_summary.json", content=_package_artifact_summary_json()),
+        GeneratedTemplate(path=".autobuilder/proof_readiness_bundle.json", content=_proof_readiness_bundle_json()),
     ]
 
 

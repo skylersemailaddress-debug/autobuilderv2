@@ -14,6 +14,7 @@ This tranche adds a deterministic compiler spine and commercial generation surfa
 6. Enforce enterprise generated-app validation gates before build succeeds.
 7. Attempt bounded generated-app repairs for common stack defects.
 8. Emit proof certification artifacts for generated-app trust signals.
+9. Emit packaging and deployment-readiness bundle artifacts for product handoff.
 
 ## Canonical Spec Bundle
 
@@ -126,6 +127,14 @@ Build output now generates:
 - `docs/ENTERPRISE_POLISH.md`
 - `docs/READINESS.md`
 - `docs/PROOF_OF_RUN.md`
+- `docs/DEPLOYMENT.md`
+- `docs/STARTUP_VALIDATION.md`
+- `release/README.md`
+- `release/deploy/DEPLOYMENT_NOTES.md`
+- `release/runbook/OPERATOR_RUNBOOK.md`
+- `release/proof/PROOF_BUNDLE.md`
+- `.autobuilder/package_artifact_summary.json`
+- `.autobuilder/proof_readiness_bundle.json`
 
 Structured build plan output includes:
 
@@ -143,6 +152,9 @@ Structured build result output includes:
 - `build_status`, `validation_status`, `proof_status`
 - `repair_report`, `repaired_issues`, `unrepaired_blockers`
 - `proof_artifacts`
+- `packaging_summary`
+- `deployment_readiness_summary`
+- `proof_summary`
 - `execution.operations_applied` with deterministic hashes
 
 Structured ship result output includes:
@@ -155,6 +167,9 @@ Structured ship result output includes:
 - `repair_actions_taken`
 - `proof_result`
 - `readiness_result`
+- `packaged_app_artifact_summary`
+- `deployment_readiness_summary`
+- `proof_summary`
 - `final_target_path`
 
 ## Template Packs
@@ -226,6 +241,8 @@ Proof artifacts written under `.autobuilder/`:
 - `readiness_report.json`
 - `validation_summary.json`
 - `determinism_signature.json`
+- `package_artifact_summary.json`
+- `proof_readiness_bundle.json`
 
 ## Support Tiers
 

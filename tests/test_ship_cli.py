@@ -42,6 +42,9 @@ def test_ship_command_succeeds_with_machine_readable_report(tmp_path: Path) -> N
     assert payload["validation_result"]["status"] == "passed"
     assert str(payload["proof_result"]["status"]).startswith("certified")
     assert payload["readiness_result"]["status"] == "ready"
+    assert payload["packaged_app_artifact_summary"]["packaging_status"] == "ready"
+    assert payload["deployment_readiness_summary"]["status"] == "ready"
+    assert payload["proof_summary"]["bundle_status"] == "complete"
     assert payload["final_target_path"] == str(target_repo.resolve())
 
 
@@ -126,6 +129,9 @@ def test_ship_command_output_structure_is_stable(tmp_path: Path) -> None:
         "repair_actions_taken",
         "proof_result",
         "readiness_result",
+        "packaged_app_artifact_summary",
+        "deployment_readiness_summary",
+        "proof_summary",
         "final_target_path",
         "determinism",
     }

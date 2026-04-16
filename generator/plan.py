@@ -57,6 +57,10 @@ def prepare_build_plan(ir: AppIR, target_repo: str | Path) -> BuildPlan:
         "frontend/tests/",
         "db/",
         "docs/",
+        "release/",
+        "release/deploy/",
+        "release/runbook/",
+        "release/proof/",
     ]
     planned_repo_structure = sorted(set(planned_repo_structure))
 

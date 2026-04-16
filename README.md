@@ -168,6 +168,15 @@ For the first-class stack (`react_next` + `fastapi` + `postgres` + `docker_compo
 	- `docs/PROOF_OF_RUN.md`
 	- `.autobuilder/proof_report.json`
 	- `.autobuilder/readiness_report.json`
+- Packaging/deployment handoff assets:
+	- `docs/DEPLOYMENT.md`
+	- `docs/STARTUP_VALIDATION.md`
+	- `release/README.md`
+	- `release/deploy/DEPLOYMENT_NOTES.md`
+	- `release/runbook/OPERATOR_RUNBOOK.md`
+	- `release/proof/PROOF_BUNDLE.md`
+	- `.autobuilder/package_artifact_summary.json`
+	- `.autobuilder/proof_readiness_bundle.json`
 
 Build JSON output includes:
 
@@ -177,6 +186,7 @@ Build JSON output includes:
 - `build_status`, `validation_status`, `proof_status`
 - `repaired_issues` and `unrepaired_blockers`
 - `repair_report` and `proof_artifacts`
+- `packaging_summary`, `deployment_readiness_summary`, `proof_summary`
 - `plan` and `execution` details
 
 Ship JSON output includes:
@@ -189,6 +199,9 @@ Ship JSON output includes:
 - `repair_actions_taken`
 - `proof_result`
 - `readiness_result`
+- `packaged_app_artifact_summary`
+- `deployment_readiness_summary`
+- `proof_summary`
 - `final_target_path`
 
 Generated-app validation mode checks:
@@ -207,6 +220,29 @@ Generated-app proof artifacts:
 - `.autobuilder/readiness_report.json`
 - `.autobuilder/validation_summary.json`
 - `.autobuilder/determinism_signature.json`
+- `.autobuilder/package_artifact_summary.json`
+- `.autobuilder/proof_readiness_bundle.json`
+
+## Packaging and Deployment Workflow
+
+For a commercial handoff package in one command:
+
+```bash
+python cli/autobuilder.py ship --spec specs --target /tmp/my-app --json
+```
+
+Deployment assumptions in this tranche:
+
+- local deployment model: Docker Compose
+- frontend startup: Next.js service on `3000`
+- backend startup: FastAPI/Uvicorn service on `8000`
+- database startup: Postgres 16 on `5432`
+
+Handoff packaging bundle is emitted under:
+
+- `release/`
+- `.autobuilder/package_artifact_summary.json`
+- `.autobuilder/proof_readiness_bundle.json`
 
 ## Using a generated app
 

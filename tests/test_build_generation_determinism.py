@@ -40,6 +40,9 @@ def test_build_workflow_emits_file_summary_and_validation_plan(tmp_path: Path):
     assert ".autobuilder/proof_report.json" in result["files_created_summary"]["paths"]
     assert ".autobuilder/validation_summary.json" in result["files_created_summary"]["paths"]
     assert ".autobuilder/determinism_signature.json" in result["files_created_summary"]["paths"]
+    assert ".autobuilder/package_artifact_summary.json" in result["files_created_summary"]["paths"]
+    assert ".autobuilder/proof_readiness_bundle.json" in result["files_created_summary"]["paths"]
+    assert "release/deploy/DEPLOYMENT_NOTES.md" in result["files_created_summary"]["paths"]
     assert "backend_pytest_endpoints" in result["validation_plan"]
     assert "frontend_shell_essentials_present" in result["validation_plan"]
     assert result["build_status"] == "ok"
@@ -48,6 +51,9 @@ def test_build_workflow_emits_file_summary_and_validation_plan(tmp_path: Path):
     assert result["generated_app_validation"]["all_passed"] is True
     assert result["generated_app_validation"]["failed_count"] == 0
     assert result["repair_report"]["unrepaired_blockers"] == []
+    assert result["packaging_summary"]["packaging_status"] == "ready"
+    assert result["deployment_readiness_summary"]["status"] == "ready"
+    assert result["proof_summary"]["bundle_status"] == "complete"
     assert result["determinism"]["verified"] is True
     assert result["determinism"]["repeat_build_match_required"] is True
     assert len(result["execution"]["output_hash"]) == 64

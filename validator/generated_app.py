@@ -13,6 +13,10 @@ REPO_STRUCTURE_PATHS = [
     "backend/tests",
     "db",
     "docs",
+    "release",
+    "release/deploy",
+    "release/runbook",
+    "release/proof",
     "docker-compose.yml",
     "README.md",
 ]
@@ -83,8 +87,19 @@ PROOF_READINESS_FILES = [
     ".autobuilder/readiness_report.json",
     ".autobuilder/validation_summary.json",
     ".autobuilder/determinism_signature.json",
+    ".autobuilder/package_artifact_summary.json",
+    ".autobuilder/proof_readiness_bundle.json",
     ".autobuilder/generation_summary.json",
 ]
+
+PACKAGING_DEPLOYMENT_FILES = {
+    "release/README.md": ["Release Bundle", "startup", "validation"],
+    "release/deploy/DEPLOYMENT_NOTES.md": ["Docker Compose", "Deployment Assumptions"],
+    "release/runbook/OPERATOR_RUNBOOK.md": ["Operator Runbook", "Startup", "Validation"],
+    "release/proof/PROOF_BUNDLE.md": ["Proof and Readiness Bundle", "proof_report.json", "readiness_report.json"],
+    "docs/DEPLOYMENT.md": ["Deployment Notes", "docker compose", "backend", "frontend"],
+    "docs/STARTUP_VALIDATION.md": ["Startup and Validation", "docker compose up", "validate-app", "proof-app"],
+}
 
 ENTERPRISE_POLISH_SURFACE_FILES = {
     "frontend/app/settings/page.tsx": ['data-testid="settings-surface"'],
@@ -178,6 +193,10 @@ def validate_generated_app(target_repo: str | Path) -> dict[str, object]:
         _check(
             "proof_readiness_artifacts_present",
             _exists_checks(target, PROOF_READINESS_FILES),
+        ),
+        _check(
+            "packaging_deployment_bundle_present",
+            _contains_checks(target, PACKAGING_DEPLOYMENT_FILES),
         ),
         _check(
             "enterprise_polish_surface_presence",

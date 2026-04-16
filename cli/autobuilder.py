@@ -33,6 +33,95 @@ def _read_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _write_json(path: Path, payload: dict[str, object]) -> str:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return str(path)
+
+
+def _emit_packaging_bundle(
+    target_repo: str,
+    files_created_summary: dict[str, object],
+    validation_status: str,
+    proof_artifacts: dict[str, object],
+    determinism: dict[str, object],
+) -> dict[str, object]:
+    target = Path(target_repo)
+
+    release_bundle_paths = [
+        "release/README.md",
+        "release/deploy/DEPLOYMENT_NOTES.md",
+        "release/runbook/OPERATOR_RUNBOOK.md",
+        "release/proof/PROOF_BUNDLE.md",
+    ]
+    release_bundle_missing = [rel for rel in release_bundle_paths if not (target / rel).exists()]
+
+    deployment_docs = [
+        "README.md",
+        "docs/DEPLOYMENT.md",
+        "docs/STARTUP_VALIDATION.md",
+        "docker-compose.yml",
+    ]
+    deployment_docs_missing = [rel for rel in deployment_docs if not (target / rel).exists()]
+
+    env_files = [".env.example", "backend/.env.example"]
+    env_files_missing = [rel for rel in env_files if not (target / rel).exists()]
+
+    proof_bundle_paths = [
+        ".autobuilder/proof_report.json",
+        ".autobuilder/readiness_report.json",
+        ".autobuilder/validation_summary.json",
+        ".autobuilder/determinism_signature.json",
+    ]
+    proof_bundle_missing = [rel for rel in proof_bundle_paths if not (target / rel).exists()]
+
+    packaging_status = (
+        "ready"
+        if not release_bundle_missing and not deployment_docs_missing and not env_files_missing and not proof_bundle_missing
+        else "incomplete"
+    )
+
+    package_summary = {
+        "packaging_status": packaging_status,
+        "files_generated_count": files_created_summary.get("count", 0),
+        "release_bundle_paths": release_bundle_paths,
+        "release_bundle_missing": release_bundle_missing,
+        "deployment_docs": deployment_docs,
+        "deployment_docs_missing": deployment_docs_missing,
+        "env_files": env_files,
+        "env_files_missing": env_files_missing,
+    }
+
+    proof_bundle = {
+        "bundle_status": "complete" if not proof_bundle_missing else "incomplete",
+        "proof_bundle_paths": proof_bundle_paths,
+        "proof_bundle_missing": proof_bundle_missing,
+        "proof_status": proof_artifacts.get("proof_status", "not_certified"),
+        "readiness_status": proof_artifacts.get("readiness_status", "not_ready"),
+        "validation_status": validation_status,
+        "determinism_verified": determinism.get("verified", False),
+    }
+
+    _write_json(target / ".autobuilder" / "package_artifact_summary.json", package_summary)
+    _write_json(target / ".autobuilder" / "proof_readiness_bundle.json", proof_bundle)
+
+    return {
+        "packaging_summary": package_summary,
+        "deployment_readiness_summary": {
+            "status": "ready" if not deployment_docs_missing and not env_files_missing else "not_ready",
+            "deployment_docs_missing": deployment_docs_missing,
+            "env_files_missing": env_files_missing,
+            "docker_compose_present": (target / "docker-compose.yml").exists(),
+        },
+        "proof_summary": {
+            "status": proof_artifacts.get("proof_status", "not_certified"),
+            "readiness_status": proof_artifacts.get("readiness_status", "not_ready"),
+            "bundle_status": proof_bundle["bundle_status"],
+            "proof_bundle_missing": proof_bundle_missing,
+        },
+    }
+
+
 def _assert_ship_artifacts(target_repo: str, proof_artifacts: dict[str, object]) -> dict[str, object]:
     paths = proof_artifacts.get("artifact_paths", {})
     required = {
@@ -40,6 +129,8 @@ def _assert_ship_artifacts(target_repo: str, proof_artifacts: dict[str, object])
         "readiness_report": ".autobuilder/readiness_report.json",
         "validation_summary": ".autobuilder/validation_summary.json",
         "determinism_signature": ".autobuilder/determinism_signature.json",
+        "package_summary": ".autobuilder/package_artifact_summary.json",
+        "proof_bundle": ".autobuilder/proof_readiness_bundle.json",
     }
 
     missing: list[str] = []
@@ -54,6 +145,8 @@ def _assert_ship_artifacts(target_repo: str, proof_artifacts: dict[str, object])
     proof_payload = _read_json(Path(str(paths["proof_report"])))
     validation_payload = _read_json(Path(str(paths["validation_summary"])))
     determinism_payload = _read_json(Path(str(paths["determinism_signature"])))
+    package_payload = _read_json(Path(str(paths["package_summary"])))
+    bundle_payload = _read_json(Path(str(paths["proof_bundle"])))
 
     if str(proof_payload.get("proof_status", "")) not in {"certified", "certified_with_repairs"}:
         raise RuntimeError("Proof certification failed")
@@ -63,11 +156,17 @@ def _assert_ship_artifacts(target_repo: str, proof_artifacts: dict[str, object])
         raise RuntimeError("Validation summary is not passed")
     if bool(determinism_payload.get("verified", False)) is not True:
         raise RuntimeError("Determinism signature is not verified")
+    if str(package_payload.get("packaging_status", "incomplete")) != "ready":
+        raise RuntimeError("Packaging summary is not ready")
+    if str(bundle_payload.get("bundle_status", "incomplete")) != "complete":
+        raise RuntimeError("Proof/readiness bundle is incomplete")
 
     return {
         "target_repo": target_repo,
         "readiness_status": readiness_payload.get("readiness_status", "not_ready"),
         "proof_status": proof_payload.get("proof_status", "not_certified"),
+        "packaging_status": package_payload.get("packaging_status", "incomplete"),
+        "proof_bundle_status": bundle_payload.get("bundle_status", "incomplete"),
     }
 
 
@@ -261,6 +360,21 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         repair_report=repair_report,
     )
 
+    packaging_bundle = _emit_packaging_bundle(
+        target_repo=plan.target_repo,
+        files_created_summary={"count": len(files_created), "paths": files_created},
+        validation_status=str(generated_app_validation.get("validation_status", "failed")),
+        proof_artifacts=proof_artifacts,
+        determinism=determinism,
+    )
+    proof_artifacts.setdefault("artifact_paths", {})
+    proof_artifacts["artifact_paths"]["package_summary"] = str(
+        Path(plan.target_repo) / ".autobuilder" / "package_artifact_summary.json"
+    )
+    proof_artifacts["artifact_paths"]["proof_bundle"] = str(
+        Path(plan.target_repo) / ".autobuilder" / "proof_readiness_bundle.json"
+    )
+
     unrepaired_blockers = list(repair_report.get("unrepaired_blockers", []))
     if unrepaired_blockers:
         raise RuntimeError(
@@ -291,6 +405,9 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         "repaired_issues": repair_report.get("repaired_issues", []),
         "unrepaired_blockers": repair_report.get("unrepaired_blockers", []),
         "proof_artifacts": proof_artifacts,
+        "packaging_summary": packaging_bundle["packaging_summary"],
+        "deployment_readiness_summary": packaging_bundle["deployment_readiness_summary"],
+        "proof_summary": packaging_bundle["proof_summary"],
         "determinism": determinism,
     }
 
@@ -345,6 +462,9 @@ def run_ship_workflow(spec_path: str, target_path: str) -> dict:
         "readiness_result": {
             "status": proof_artifact_summary.get("readiness_status", "not_ready"),
         },
+        "packaged_app_artifact_summary": build_result.get("packaging_summary", {}),
+        "deployment_readiness_summary": build_result.get("deployment_readiness_summary", {}),
+        "proof_summary": build_result.get("proof_summary", {}),
         "final_target_path": target_repo,
         "determinism": build_result.get("determinism", {}),
     }

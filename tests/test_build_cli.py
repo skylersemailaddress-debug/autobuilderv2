@@ -52,6 +52,9 @@ def test_autobuilder_build_command_emits_machine_readable_summary(tmp_path: Path
     assert payload["generated_app_validation"]["failed_count"] == 0
     assert payload["repair_report"]["unrepaired_blockers"] == []
     assert payload["unrepaired_blockers"] == []
+    assert payload["packaging_summary"]["packaging_status"] == "ready"
+    assert payload["deployment_readiness_summary"]["status"] == "ready"
+    assert payload["proof_summary"]["bundle_status"] == "complete"
     assert payload["determinism"]["verified"] is True
     assert payload["determinism"]["repeat_build_match_required"] is True
     assert (target_repo / ".autobuilder" / "ir.json").exists()
@@ -60,6 +63,8 @@ def test_autobuilder_build_command_emits_machine_readable_summary(tmp_path: Path
     assert (target_repo / ".autobuilder" / "readiness_report.json").exists()
     assert (target_repo / ".autobuilder" / "validation_summary.json").exists()
     assert (target_repo / ".autobuilder" / "determinism_signature.json").exists()
+    assert (target_repo / ".autobuilder" / "package_artifact_summary.json").exists()
+    assert (target_repo / ".autobuilder" / "proof_readiness_bundle.json").exists()
 
 
 def test_autobuilder_build_command_reports_resolution_errors(tmp_path: Path):

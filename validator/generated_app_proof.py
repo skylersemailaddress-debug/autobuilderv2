@@ -64,6 +64,8 @@ def emit_generated_app_proof_artifacts(
         "determinism_signature": _write_json(
             autobuilder_dir / "determinism_signature.json", determinism_signature
         ),
+        "package_summary": str(autobuilder_dir / "package_artifact_summary.json"),
+        "proof_bundle": str(autobuilder_dir / "proof_readiness_bundle.json"),
     }
 
     return {
