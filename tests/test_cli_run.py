@@ -56,5 +56,12 @@ def test_cli_run_script():
     assert data["summary"]["final_status"] == "complete"
     assert data["summary"]["event_count"] == len(data["events"])
     assert isinstance(data.get("artifacts"), list)
+    assert isinstance(data.get("checkpoints"), list)
+    assert data.get("confidence") is not None
+    assert isinstance(data.get("memory_keys"), list)
+    assert "goal" in data["memory_keys"]
+    assert "summary" in data["memory_keys"]
+    assert data["summary"].get("checkpoint_count") == len(data["checkpoints"])
+    assert data["summary"].get("artifact_count") == len(data["artifacts"])
 
     saved_path.unlink()

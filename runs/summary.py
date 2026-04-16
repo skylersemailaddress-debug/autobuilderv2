@@ -15,4 +15,7 @@ def build_run_summary(record: Dict) -> Dict:
         "total_tasks": len(tasks),
         "completed_tasks": completed_tasks,
         "event_count": len(events),
+        "confidence": record.get("confidence", 0.0),
+        "checkpoint_count": len(record.get("checkpoints", [])),
+        "artifact_count": len(record.get("artifacts", [])),
     }

@@ -1,4 +1,5 @@
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from datetime import datetime, timezone
 import uuid
@@ -12,11 +13,15 @@ from orchestrator.run_state_machine import RunStateMachine, RunState
 from orchestrator.policy import RetryPolicy
 from planner.planner import Planner
 from execution.executor import Executor
+from execution.artifacts import Artifact
 from debugger.repair import RepairEngine
+from memory.store import MemoryStore
 from observability.events import create_event, event_to_dict
 from runs.summary import build_run_summary
+from state.checkpoints import create_checkpoint
 from state.run_state import RunStateStore
 from state.json_store import JsonRunStore
+from validator.confidence import calculate_confidence
 from validator.validator import Validator
 
 DEFAULT_GOAL = "Build an autonomous execution plan"
@@ -44,10 +49,16 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
     validator = Validator()
     retry_policy = RetryPolicy(max_repairs=1)
     json_store = JsonRunStore(base_dir=ROOT_DIR / "runs")
+    memory_store = MemoryStore()
+
+    memory_store.add_memory("goal", {"goal": goal})
+    checkpoints = [
+        asdict(create_checkpoint("start", {"run_id": run_id})),
+    ]
 
     history = [run_sm.state.value]
     state_store.save(run_id, run_sm.state.value)
-    artifacts = [{"state": run_sm.state.value, "timestamp": created_at}]
+    artifacts = []
     validation_result = None
     repair_used = False
     repair_count = 0
@@ -57,17 +68,30 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
 
     tasks = planner.create_plan(goal)
     events.append(serialize_event(create_event("plan_created", {"goal": goal, "task_count": len(tasks)})))
+    checkpoints.append(asdict(create_checkpoint("plan_created", {"task_count": len(tasks), "goal": goal})))
 
     events.append(serialize_event(create_event("execution_started", {"task_count": len(tasks)})))
     tasks = executor.run_tasks(tasks)
     events.append(serialize_event(create_event("execution_completed", {"task_count": len(tasks)})))
 
+    artifacts = [
+        asdict(
+            Artifact(
+                artifact_id=task.task_id,
+                artifact_type="task_output",
+                content=task.result,
+                created_at=datetime.now(timezone.utc).isoformat(),
+            )
+        )
+        for task in tasks
+        if task.result is not None
+    ]
+    checkpoints.append(asdict(create_checkpoint("execution_completed", {"task_count": len(tasks)})))
+
     # Intentionally leave one task incomplete to exercise the repair loop.
     if tasks:
         tasks[0].status = "pending"
         tasks[0].result = None
-
-    artifacts.extend([task.result for task in tasks if task.result is not None])
 
     while run_sm.state not in (RunState.COMPLETE, RunState.FAILED):
         if run_sm.state == RunState.VALIDATE:
@@ -110,6 +134,9 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         events.append(serialize_event(create_event("run_completed", {"status": "failed"})))
 
     status = run_sm.state.value
+    checkpoints.append(asdict(create_checkpoint("run_completed", {"status": status})))
+
+    confidence = calculate_confidence(tasks, validation_result, repair_count)
     record = {
         "run_id": run_id,
         "created_at": created_at,
@@ -118,6 +145,8 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         "state_history": history,
         "tasks": [serialize_task(task) for task in tasks],
         "artifacts": artifacts,
+        "checkpoints": checkpoints,
+        "confidence": confidence,
         "validation_result": validation_result,
         "validation": validation_result,
         "repair_used": repair_used,
@@ -125,6 +154,8 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         "events": events,
     }
     record["summary"] = build_run_summary(record)
+    memory_store.add_memory("summary", record["summary"])
+    record["memory_keys"] = memory_store.list_keys()
     saved_path = json_store.save(run_id, record)
 
     print(f"run_id={run_id}")
