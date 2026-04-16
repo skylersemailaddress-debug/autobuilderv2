@@ -1,13 +1,15 @@
 from typing import Dict, List, Optional
 
 
-def build_planning_context(goal: str, durable_memory: Dict[str, dict], recent_summary: Optional[Dict] = None) -> Dict:
-    """Build planning context from goal, durable memory, and recent run summary."""
+def build_planning_context(goal: str, durable_memory: Dict[str, dict], recent_summary: Optional[Dict] = None, repo_context: Optional[Dict] = None) -> Dict:
+    """Build planning context from goal, durable memory, recent run summary, and repository metadata."""
     context = {
         "goal": goal,
         "memory_entries": durable_memory,
         "recent_summary": recent_summary,
+        "repo_context": repo_context,
         "memory_insights": [],
+        "repo_insights": [],
     }
     
     # Extract insights from memory
@@ -28,5 +30,20 @@ def build_planning_context(goal: str, durable_memory: Dict[str, dict], recent_su
             context["memory_insights"].append("Recent run required repairs")
         if recent_summary.get("confidence", 1.0) < 0.9:
             context["memory_insights"].append("Recent run had reduced confidence")
+
+    # Add insights from repository metadata
+    if repo_context:
+        if repo_context.get("framework_hints"):
+            context["repo_insights"].append(
+                f"Detected frameworks: {', '.join(repo_context['framework_hints'])}"
+            )
+        if repo_context.get("config_files"):
+            context["repo_insights"].append(
+                f"Key config files: {', '.join(repo_context['config_files'])}"
+            )
+        if repo_context.get("test_folders"):
+            context["repo_insights"].append(
+                f"Existing test folders: {', '.join(repo_context['test_folders'])}"
+            )
     
     return context

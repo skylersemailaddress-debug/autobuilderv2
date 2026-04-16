@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT_DIR))
 from orchestrator.run_state_machine import RunStateMachine, RunState
 from orchestrator.policy import RetryPolicy
 from planner.planner import Planner
+from planner.repo_context import inspect_repo_context
 from execution.executor import Executor
 from execution.artifacts import Artifact
 from debugger.repair import RepairEngine
@@ -80,10 +81,13 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
     # Query durable memory for relevant context
     memory_hits = durable_memory_store.search_memories(goal)
     memory_context = {hit["key"]: hit["value"] for hit in memory_hits}
+
+    # Inspect repository for planning context
+    repo_context = inspect_repo_context(ROOT_DIR)
     
     # Build planning context
     recent_summary = memory_context.get("summary")
-    planning_context = build_planning_context(goal, memory_context, recent_summary)
+    planning_context = build_planning_context(goal, memory_context, recent_summary, repo_context)
     
     # Create plan with context
     plan_result = planner.create_plan(goal, planning_context)
@@ -189,6 +193,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         "confidence": confidence,
         "policy": policy,
         "memory_context": memory_context,
+        "repo_context": repo_context,
         "memory_used": plan_metadata["memory_used"],
         "memory_hits": len(memory_hits),
         "plan_metadata": plan_metadata,

@@ -7,6 +7,13 @@ def build_run_summary(record: Dict) -> Dict:
     failures = record.get("failures", [])
     completed_tasks = sum(1 for task in tasks if task.get("status") == "complete")
 
+    repo_context = record.get("repo_context", {})
+    repo_signals = {
+        "framework_hints": repo_context.get("framework_hints", []),
+        "config_files": repo_context.get("config_files", []),
+        "test_folders": repo_context.get("test_folders", []),
+    }
+
     return {
         "run_id": record.get("run_id"),
         "goal": record.get("goal"),
@@ -26,4 +33,6 @@ def build_run_summary(record: Dict) -> Dict:
         "failure_count": len(failures),
         "failure_types": list(set(f.get("failure_type", "unknown") for f in failures)),
         "critical_failures": sum(1 for f in failures if f.get("severity") == "critical"),
+        "repo_mode": bool(repo_context),
+        "repo_signals": repo_signals,
     }
