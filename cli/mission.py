@@ -17,6 +17,7 @@ from cli.run import perform_run
 from execution.lineage import build_artifact_lineage, summarize_artifact_lineage
 from mutation.change_set import ChangeSet
 from mutation.safety import DANGEROUS, MutationSafetyPolicy
+from quality.report import build_mission_quality_report
 from runs.summary import build_run_summary
 from state.json_store import JsonRunStore
 from state.restore import latest_restore_payload
@@ -79,6 +80,7 @@ def build_mission_result(record: Dict, saved_path: str) -> Dict:
         record.get("artifacts", []),
         record.get("checkpoints", []),
     )
+    quality_report = record.get("quality_report")
 
     if mutation_risk == DANGEROUS:
         approval_required = True
@@ -97,6 +99,7 @@ def build_mission_result(record: Dict, saved_path: str) -> Dict:
         "checkpoint_required": checkpoint_required,
         "restore_payload": restore_payload,
         "artifact_lineage_summary": lineage_summary,
+        "quality_report": quality_report,
         "saved_path": saved_path,
     }
     if awaiting_approval:
@@ -140,6 +143,10 @@ def run_mission(goal: str) -> Dict:
     restore_payload = record.get("restore_payload") or {}
     record["restore_available"] = bool(restore_payload.get("restore_possible"))
     record["summary"] = build_run_summary(record)
+    record["quality_report"] = build_mission_quality_report(
+        record,
+        benchmark_summary=record.get("benchmark_summary"),
+    )
 
     store = JsonRunStore(base_dir=ROOT_DIR / "runs")
     store.save(run_id, record)
@@ -186,6 +193,10 @@ def resume_mission(run_id: str, approve: bool = False) -> Dict:
     resumed_restore_payload = resumed_record.get("restore_payload") or {}
     resumed_record["restore_available"] = bool(resumed_restore_payload.get("restore_possible"))
     resumed_record["summary"] = build_run_summary(resumed_record)
+    resumed_record["quality_report"] = build_mission_quality_report(
+        resumed_record,
+        benchmark_summary=resumed_record.get("benchmark_summary"),
+    )
     store.save(run_id, resumed_record)
 
     result = build_mission_result(resumed_record, normalized_saved_path)

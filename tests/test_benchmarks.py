@@ -7,15 +7,19 @@ from benchmarks.runner import run_benchmark_cases
 
 def test_benchmark_cases_exist():
     case_names = {case.name for case in BENCHMARK_CASES}
-    assert "simple_run" in case_names
-    assert "repair_run" in case_names
-    assert "approval_run" in case_names
-    assert "nexus_run" in case_names
+    assert "simple_low_risk_mission" in case_names
+    assert "repair_required_mission" in case_names
+    assert "approval_required_dangerous_mission" in case_names
+    assert "repo_targeted_mission" in case_names
+    assert "nexus_mission_mode_run" in case_names
+    assert "interrupted_resumable_mission" in case_names
 
 
 def test_runner_returns_structured_results():
     selected_cases = [
-        case for case in BENCHMARK_CASES if case.name in {"simple_run", "approval_run", "nexus_run"}
+        case
+        for case in BENCHMARK_CASES
+        if case.name in {"simple_low_risk_mission", "approval_required_dangerous_mission", "nexus_mission_mode_run"}
     ]
     results = run_benchmark_cases(selected_cases)
 
@@ -29,6 +33,10 @@ def test_runner_returns_structured_results():
         assert "confidence" in result
         assert "event_count" in result
         assert "approval_required" in result
+        assert "repo_mode" in result
+        assert "resumed" in result
+        assert "expected_resumable" in result
+        assert "failure_reason" in result
         assert isinstance(result["event_count"], int)
 
         run_path = Path(__file__).resolve().parents[1] / "runs" / f"{result['run_id']}.json"
@@ -39,7 +47,7 @@ def test_runner_returns_structured_results():
 def test_report_output_shape():
     results = [
         {
-            "case": "simple_run",
+            "case": "simple_low_risk_mission",
             "run_id": "benchmark_simple",
             "success": True,
             "final_status": "complete",
@@ -48,9 +56,13 @@ def test_report_output_shape():
             "event_count": 10,
             "approval_required": False,
             "nexus_mode": False,
+            "repo_mode": True,
+            "resumed": False,
+            "expected_resumable": False,
+            "failure_reason": None,
         },
         {
-            "case": "approval_run",
+            "case": "approval_required_dangerous_mission",
             "run_id": "benchmark_approval",
             "success": False,
             "final_status": "awaiting_approval",
@@ -59,6 +71,10 @@ def test_report_output_shape():
             "event_count": 3,
             "approval_required": True,
             "nexus_mode": False,
+            "repo_mode": True,
+            "resumed": False,
+            "expected_resumable": False,
+            "failure_reason": "awaiting approval",
         },
     ]
 
@@ -68,3 +84,7 @@ def test_report_output_shape():
     assert report["failed_cases"] == 1
     assert "average_confidence" in report
     assert report["cases"] == results
+    assert "aggregate_scores" in report
+    assert "per_case_scores" in report
+    assert "failure_reasons" in report
+    assert "regression" in report

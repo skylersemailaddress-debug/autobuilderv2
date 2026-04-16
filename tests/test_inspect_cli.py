@@ -25,6 +25,9 @@ def test_inspect_run_exposes_expected_fields():
     assert "event_count" in payload
     assert "summary" in payload
     assert "failure_info" in payload
+    assert "memory_policy_summary" in payload
+    assert "selected_memory_usage" in payload
+    assert "quality_report" in payload
 
     Path(saved_path).unlink()
 
@@ -68,6 +71,11 @@ def test_inspect_includes_mutation_and_lineage_info_from_mission_run():
     assert payload["checkpoint_restore"]["restore_possible"] is True
     assert "artifact_lineage_summary" in payload
     assert "artifact_lineage_count" in payload["artifact_lineage_summary"]
+    assert "quality_report" in payload
+    assert payload["quality_report"] is not None
+    assert "benchmark_summary" in payload
+    assert "memory_policy_summary" in payload
+    assert "selected_memory_usage" in payload
 
     Path(mission_result["saved_path"]).unlink()
     Path(mission_result["mission_result_path"]).unlink()

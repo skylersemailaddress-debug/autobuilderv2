@@ -22,6 +22,7 @@ from debugger.failures import FailureRecord
 from control_plane.control import ControlDecision
 from memory.store import MemoryStore
 from memory.json_memory import JsonMemoryStore
+from memory.policy import MemoryRetrievalPolicy
 from observability.events import create_event, event_to_dict
 from runs.summary import build_run_summary
 from state.checkpoints import create_checkpoint
@@ -68,6 +69,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
     json_store = JsonRunStore(base_dir=ROOT_DIR / "runs")
     memory_store = MemoryStore()
     durable_memory_store = JsonMemoryStore(str(ROOT_DIR / "memory" / f"{run_id}.json"))
+    memory_policy = MemoryRetrievalPolicy(max_memories=3)
     action_policy = ActionPolicy()
     failure_classifier = FailureClassifier()
 
@@ -89,14 +91,23 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
 
     # Query durable memory for relevant context
     memory_hits = durable_memory_store.search_memories(goal)
-    memory_context = {hit["key"]: hit["value"] for hit in memory_hits}
+    selected_hits, memory_policy_summary = memory_policy.select_memories(goal, memory_hits)
+    memory_context = {hit["key"]: hit["value"] for hit in selected_hits}
+    selected_memory_keys = [hit["key"] for hit in selected_hits]
 
     # Inspect repository for planning context
     repo_context = inspect_repo_context(ROOT_DIR)
     
     # Build planning context
     recent_summary = memory_context.get("summary")
-    planning_context = build_planning_context(goal, memory_context, recent_summary, repo_context)
+    planning_context = build_planning_context(
+        goal,
+        memory_context,
+        recent_summary,
+        repo_context,
+        selected_memory_keys=selected_memory_keys,
+        memory_policy_summary=memory_policy_summary,
+    )
     
     # Create plan with context
     plan_result = planner.create_plan(goal, planning_context)
@@ -144,6 +155,8 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
             "plan_artifact": plan_artifact,
             "memory_used": plan_metadata["memory_used"],
             "memory_hits": len(memory_hits),
+            "selected_memory_keys": selected_memory_keys,
+            "memory_policy_summary": memory_policy_summary,
             "plan_metadata": plan_metadata,
             "validation_result": None,
             "validation": None,
@@ -276,6 +289,8 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
         "plan_artifact": plan_artifact,
         "memory_used": plan_metadata["memory_used"],
         "memory_hits": len(memory_hits),
+        "selected_memory_keys": selected_memory_keys,
+        "memory_policy_summary": memory_policy_summary,
         "plan_metadata": plan_metadata,
         "validation_result": validation_result,
         "validation": validation_result,

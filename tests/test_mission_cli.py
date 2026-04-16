@@ -38,6 +38,8 @@ def test_one_button_mission_low_risk_goal():
     assert payload["checkpoint_required"] is False
     assert isinstance(payload["change_sets"], list)
     assert payload["change_sets"]
+    assert "quality_report" in payload
+    assert payload["quality_report"] is not None
     assert Path(payload["saved_path"]).exists()
     assert Path(payload["mission_result_path"]).exists()
 
@@ -61,6 +63,7 @@ def test_mission_result_contains_expected_fields():
     }
     assert expected_fields.issubset(result.keys())
     assert isinstance(result["summary"], dict)
+    assert "quality_report" in result
 
     _cleanup_result_files(result)
 
@@ -77,6 +80,7 @@ def test_high_risk_goal_enters_approval_pause_cleanly():
     assert result["change_sets"][0]["requires_checkpoint"] is True
     assert "resume_hint" in result
     assert "restore_hint" in result
+    assert "quality_report" in result
 
     _cleanup_result_files(result)
 

@@ -1,13 +1,22 @@
 from typing import Dict, List, Optional
 
 
-def build_planning_context(goal: str, durable_memory: Dict[str, dict], recent_summary: Optional[Dict] = None, repo_context: Optional[Dict] = None) -> Dict:
+def build_planning_context(
+    goal: str,
+    durable_memory: Dict[str, dict],
+    recent_summary: Optional[Dict] = None,
+    repo_context: Optional[Dict] = None,
+    selected_memory_keys: Optional[List[str]] = None,
+    memory_policy_summary: Optional[Dict] = None,
+) -> Dict:
     """Build planning context from goal, durable memory, recent run summary, and repository metadata."""
     context = {
         "goal": goal,
         "memory_entries": durable_memory,
         "recent_summary": recent_summary,
         "repo_context": repo_context,
+        "selected_memory_keys": selected_memory_keys or list(durable_memory.keys()),
+        "memory_policy_summary": memory_policy_summary or {},
         "memory_insights": [],
         "repo_insights": [],
     }

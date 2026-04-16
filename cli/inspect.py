@@ -59,6 +59,14 @@ else:
             },
             "checkpoint_restore": restore_payload,
             "artifact_lineage_summary": artifact_lineage_summary,
+            "benchmark_summary": record.get("benchmark_summary"),
+            "quality_report": record.get("quality_report"),
+            "memory_policy_summary": record.get("memory_policy_summary", {}),
+            "selected_memory_usage": {
+                "keys": record.get("selected_memory_keys", []),
+                "count": len(record.get("selected_memory_keys", [])),
+                "memory_context_keys": list(record.get("memory_context", {}).keys()),
+            },
         }
 
         if failures:
@@ -110,6 +118,10 @@ else:
             print(f"mutation_risk_summary={json.dumps(payload['mutation_risk_summary'])}")
             print(f"checkpoint_restore={json.dumps(payload['checkpoint_restore'])}")
             print(f"artifact_lineage_summary={json.dumps(payload['artifact_lineage_summary'])}")
+            print(f"benchmark_summary={json.dumps(payload['benchmark_summary'])}")
+            print(f"quality_report={json.dumps(payload['quality_report'])}")
+            print(f"memory_policy_summary={json.dumps(payload['memory_policy_summary'])}")
+            print(f"selected_memory_usage={json.dumps(payload['selected_memory_usage'])}")
             if "failure_info" in payload:
                 print(f"failure_info={json.dumps(payload['failure_info'])}")
 
