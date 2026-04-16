@@ -5,11 +5,12 @@ from pathlib import Path
 
 from archetypes.catalog import resolve_archetype
 from generator.template_packs import GeneratedTemplate
+from platform_hardening.proof_enrichment import enrich_proof_with_platform_hardening
+from platform_hardening.repair_runtime import repair_with_lane_policy
 from platform_plugins.contracts import PluginMetadata
 from platform_plugins.registry import register_plugin
 from stack_registry.registry import resolve_stack_bundle
 from validator.generated_app_proof import emit_generated_app_proof_artifacts
-from validator.generated_app_repair import repair_generated_app
 
 
 def _json_pretty(payload: dict[str, object]) -> str:
@@ -471,7 +472,7 @@ class MobileRepairPlugin:
         plugin_id="first_class_mobile.repair",
         plugin_type="repair",
         lane_id="first_class_mobile",
-        capabilities=["bounded_repair_policy"],
+        capabilities=["bounded_repair_policy", "failure_classification"],
         supported_archetypes=["mobile_app"],
         supported_stacks={
             "frontend": ["flutter_mobile"],
@@ -483,7 +484,13 @@ class MobileRepairPlugin:
     )
 
     def repair_generated_app(self, target_repo, validation_report, expected_templates, max_repairs):
-        return repair_generated_app(target_repo, validation_report, expected_templates, max_repairs)
+        return repair_with_lane_policy(
+            lane_id=self.metadata.lane_id,
+            target_repo=target_repo,
+            validation_report=validation_report,
+            expected_templates=expected_templates,
+            max_repairs=max_repairs,
+        )
 
 
 class MobilePackagingPlugin:
@@ -491,7 +498,16 @@ class MobilePackagingPlugin:
         plugin_id="first_class_mobile.packaging",
         plugin_type="packaging",
         lane_id="first_class_mobile",
-        capabilities=["proof_artifacts", "packaging_targets"],
+        capabilities=[
+            "proof_artifacts",
+            "packaging_targets",
+            "runtime_verification",
+            "pack_composition",
+            "security_governance_contracts",
+            "commerce_pack_contracts",
+            "failure_corpus_logging",
+            "deterministic_replay_harness",
+        ],
         supported_archetypes=["mobile_app"],
         supported_stacks={
             "frontend": ["flutter_mobile"],
@@ -503,7 +519,21 @@ class MobilePackagingPlugin:
     )
 
     def emit_proof_artifacts(self, target_repo, build_status, validation_report, determinism, repair_report):
-        return emit_generated_app_proof_artifacts(target_repo, build_status, validation_report, determinism, repair_report)
+        base = emit_generated_app_proof_artifacts(
+            target_repo,
+            build_status,
+            validation_report,
+            determinism,
+            repair_report,
+        )
+        return enrich_proof_with_platform_hardening(
+            lane_id=self.metadata.lane_id,
+            target_repo=target_repo,
+            determinism=determinism,
+            validation_report=validation_report,
+            repair_report=repair_report,
+            proof_artifacts=base,
+        )
 
 
 class GameArchetypePlugin:
@@ -598,7 +628,7 @@ class GameRepairPlugin:
         plugin_id="first_class_game.repair",
         plugin_type="repair",
         lane_id="first_class_game",
-        capabilities=["bounded_repair_policy"],
+        capabilities=["bounded_repair_policy", "failure_classification"],
         supported_archetypes=["game_app"],
         supported_stacks={
             "frontend": ["godot_game"],
@@ -610,7 +640,13 @@ class GameRepairPlugin:
     )
 
     def repair_generated_app(self, target_repo, validation_report, expected_templates, max_repairs):
-        return repair_generated_app(target_repo, validation_report, expected_templates, max_repairs)
+        return repair_with_lane_policy(
+            lane_id=self.metadata.lane_id,
+            target_repo=target_repo,
+            validation_report=validation_report,
+            expected_templates=expected_templates,
+            max_repairs=max_repairs,
+        )
 
 
 class GamePackagingPlugin:
@@ -618,7 +654,16 @@ class GamePackagingPlugin:
         plugin_id="first_class_game.packaging",
         plugin_type="packaging",
         lane_id="first_class_game",
-        capabilities=["proof_artifacts", "packaging_targets"],
+        capabilities=[
+            "proof_artifacts",
+            "packaging_targets",
+            "runtime_verification",
+            "pack_composition",
+            "security_governance_contracts",
+            "commerce_pack_contracts",
+            "failure_corpus_logging",
+            "deterministic_replay_harness",
+        ],
         supported_archetypes=["game_app"],
         supported_stacks={
             "frontend": ["godot_game"],
@@ -630,7 +675,21 @@ class GamePackagingPlugin:
     )
 
     def emit_proof_artifacts(self, target_repo, build_status, validation_report, determinism, repair_report):
-        return emit_generated_app_proof_artifacts(target_repo, build_status, validation_report, determinism, repair_report)
+        base = emit_generated_app_proof_artifacts(
+            target_repo,
+            build_status,
+            validation_report,
+            determinism,
+            repair_report,
+        )
+        return enrich_proof_with_platform_hardening(
+            lane_id=self.metadata.lane_id,
+            target_repo=target_repo,
+            determinism=determinism,
+            validation_report=validation_report,
+            repair_report=repair_report,
+            proof_artifacts=base,
+        )
 
 
 register_plugin(MobileArchetypePlugin())

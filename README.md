@@ -24,6 +24,15 @@ AutobuilderV2 now runs this lane through a plugin platform with deterministic pl
 - repair policy
 - packaging/proof targets
 
+Platform hardening layers now also run through deterministic lane contracts:
+
+- stack-specific failure classification and bounded repair policy resolution
+- stack-specific runtime/startup verification and machine-readable runtime proof outputs
+- reusable power-pack composition (domain/workflow/ui/validation/repair/deployment/asset/research)
+- security and governance contracts (auth/authz, RBAC/ABAC-ready, secrets policy, audit, approvals)
+- commerce/billing contracts (subscriptions, entitlements, webhooks, invoices/trials/plans)
+- failure corpus logging and deterministic replay harness artifacts
+
 ## Quick Start
 
 ### Local Bootstrap
@@ -223,6 +232,7 @@ Build JSON output includes:
 - `repaired_issues` and `unrepaired_blockers`
 - `repair_report` and `proof_artifacts`
 - `packaging_summary`, `deployment_readiness_summary`, `proof_summary`
+- stack-specific runtime verification and hardening contract artifact paths in `proof_artifacts`
 - `plan` and `execution` details
 
 Ship JSON output includes:

@@ -15,6 +15,7 @@ This tranche adds a deterministic compiler spine and commercial generation surfa
 7. Attempt bounded generated-app repairs for common stack defects.
 8. Emit proof certification artifacts for generated-app trust signals.
 9. Emit packaging and deployment-readiness bundle artifacts for product handoff.
+10. Emit stack-specific runtime verification, security/governance, commerce, pack composition, failure corpus, and replay harness artifacts.
 
 The compiler/build lane is now plugin-driven with deterministic resolution across plugin categories:
 
@@ -24,6 +25,10 @@ The compiler/build lane is now plugin-driven with deterministic resolution acros
 - validation plugins
 - repair policy plugins
 - packaging target plugins
+- runtime verification and repair-policy hardening modules
+- platform power-pack composition modules
+- security/governance contract modules
+- commerce/billing contract modules
 
 Current production lane is the `first_class_commercial` plugin set.
 
@@ -168,6 +173,12 @@ Structured build result output includes:
 - `deployment_readiness_summary`
 - `proof_summary`
 - `execution.operations_applied` with deterministic hashes
+- `proof_artifacts.artifact_paths.runtime_verification`
+- `proof_artifacts.artifact_paths.security_governance_contract`
+- `proof_artifacts.artifact_paths.commerce_pack_contract`
+- `proof_artifacts.artifact_paths.pack_composition`
+- `proof_artifacts.artifact_paths.failure_corpus`
+- `proof_artifacts.artifact_paths.replay_harness`
 
 Structured ship result output includes:
 
@@ -183,6 +194,17 @@ Structured ship result output includes:
 - `deployment_readiness_summary`
 - `proof_summary`
 - `final_target_path`
+
+## Hardening Artifacts
+
+Build/proof flow now emits deterministic hardening artifacts under `.autobuilder/`:
+
+- `runtime_verification.json`
+- `security_governance_contract.json`
+- `commerce_pack_contract.json`
+- `pack_composition.json`
+- `failure_corpus.jsonl`
+- `replay_harness.json`
 
 ## Template Packs
 
