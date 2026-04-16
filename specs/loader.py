@@ -26,6 +26,7 @@ class NormalizedSpecBundle:
     api_routes: list[dict[str, Any]]
     runtime_services: list[dict[str, Any]]
     permissions: list[dict[str, Any]]
+    stack_selection: dict[str, str]
     deployment_target: str
     acceptance_criteria: list[str]
 
@@ -44,7 +45,7 @@ REQUIRED_SECTION_KEYS: dict[str, tuple[str, ...]] = {
     "architecture.yaml": ("entities", "workflows", "api_routes", "runtime_services", "permissions"),
     "ui.yaml": ("pages",),
     "acceptance.yaml": ("criteria",),
-    "stack.yaml": ("deployment_target",),
+    "stack.yaml": ("frontend", "backend", "database", "deployment", "deployment_target"),
 }
 
 
@@ -102,6 +103,12 @@ def _normalize_str_list(value: Any, field_name: str) -> list[str]:
     return normalized
 
 
+def _normalize_non_empty_str(value: Any, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise SpecValidationError(f"{field_name} must be a non-empty string")
+    return value.strip()
+
+
 def load_spec_bundle(spec_root: str | Path) -> NormalizedSpecBundle:
     root = Path(spec_root).resolve()
     missing_files = [name for name in REQUIRED_FILES if not (root / name).is_file()]
@@ -124,14 +131,18 @@ def load_spec_bundle(spec_root: str | Path) -> NormalizedSpecBundle:
 
     app_identity = str(product["name"]).strip()
     app_type = str(product["app_type"]).strip()
-    deployment_target = str(stack["deployment_target"]).strip()
+    deployment_target = _normalize_non_empty_str(stack["deployment_target"], "stack.deployment_target")
+    stack_selection = {
+        "frontend": _normalize_non_empty_str(stack["frontend"], "stack.frontend"),
+        "backend": _normalize_non_empty_str(stack["backend"], "stack.backend"),
+        "database": _normalize_non_empty_str(stack["database"], "stack.database"),
+        "deployment": _normalize_non_empty_str(stack["deployment"], "stack.deployment"),
+    }
 
     if not app_identity:
         raise SpecValidationError("product.yaml name must be non-empty")
     if not app_type:
         raise SpecValidationError("product.yaml app_type must be non-empty")
-    if not deployment_target:
-        raise SpecValidationError("stack.yaml deployment_target must be non-empty")
 
     entities = _normalize_dict_list(architecture["entities"], "architecture.entities")
     workflows = _normalize_dict_list(architecture["workflows"], "architecture.workflows")
@@ -158,6 +169,7 @@ def load_spec_bundle(spec_root: str | Path) -> NormalizedSpecBundle:
         api_routes=api_routes,
         runtime_services=runtime_services,
         permissions=permissions,
+        stack_selection=stack_selection,
         deployment_target=deployment_target,
         acceptance_criteria=acceptance_criteria,
     )

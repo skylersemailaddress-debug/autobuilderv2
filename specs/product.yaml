@@ -1,5 +1,5 @@
 {
   "name": "Autobuilder Demo App",
-  "app_type": "web_app",
+  "app_type": "saas_web_app",
   "description": "Canonical starter spec bundle for AutobuilderV2 build mode."
 }

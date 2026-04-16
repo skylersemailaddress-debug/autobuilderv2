@@ -6,11 +6,11 @@ from specs.loader import SpecValidationError, load_spec_bundle
 
 
 REQUIRED_FILES = {
-    "product.yaml": '{"name": "Sample App", "app_type": "web_app"}\n',
+    "product.yaml": '{"name": "Sample App", "app_type": "api_service"}\n',
     "architecture.yaml": '{"entities": [], "workflows": [], "api_routes": [], "runtime_services": [], "permissions": []}\n',
     "ui.yaml": '{"pages": []}\n',
     "acceptance.yaml": '{"criteria": ["works"]}\n',
-    "stack.yaml": '{"deployment_target": "container"}\n',
+    "stack.yaml": '{"frontend": "react_next", "backend": "fastapi", "database": "postgres", "deployment": "docker_compose", "deployment_target": "container"}\n',
 }
 
 
@@ -24,7 +24,13 @@ def test_load_spec_bundle_success_from_canonical_specs():
     bundle = load_spec_bundle(project_root / "specs")
 
     assert bundle.app_identity == "Autobuilder Demo App"
-    assert bundle.app_type == "web_app"
+    assert bundle.app_type == "saas_web_app"
+    assert bundle.stack_selection == {
+        "frontend": "react_next",
+        "backend": "fastapi",
+        "database": "postgres",
+        "deployment": "docker_compose",
+    }
     assert bundle.deployment_target == "container"
     assert len(bundle.acceptance_criteria) >= 1
 

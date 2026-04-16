@@ -1,4 +1,8 @@
 {
+  "frontend": "react_next",
+  "backend": "fastapi",
+  "database": "postgres",
+  "deployment": "docker_compose",
   "language": "python",
   "framework": "fastapi",
   "deployment_target": "container"

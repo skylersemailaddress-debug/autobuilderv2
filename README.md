@@ -13,6 +13,8 @@ AutobuilderV2 is a **stateful autonomous execution kernel** for goal-driven soft
 
 Perfect for autonomous workflows, CI/CD pipelines, local development, and enterprise governance scenarios requiring deterministic validation.
 
+AutobuilderV2 now also includes a commercial app-planning spine for spec-driven application builds across a controlled set of first-class archetypes and stacks.
+
 ## Quick Start
 
 ### Local Bootstrap
@@ -80,6 +82,31 @@ Output archive is in `dist/` directory, ready to distribute or deploy.
 - Readiness evaluation: deterministic readiness checks and final readiness reports
 - Inspection CLI: operator-readable run inspection output from saved records
 - Nexus0.5 mission mode: enabled with mission-specific run metadata and controls
+- Commercial planning: app archetype resolution and controlled stack selection for spec-driven builds
+- Build planning: machine-readable build plans with planned structure, modules, and validation surface
+
+## Commercial Build Support
+
+Supported app archetypes:
+
+- `internal_tool`
+- `workspace_app`
+- `saas_web_app`
+- `api_service`
+- `workflow_system`
+- `copilot_chat_app`
+
+First-class stack support in this tranche:
+
+- frontend: `react_next`
+- backend: `fastapi`
+- database: `postgres`
+- deployment: `docker_compose`
+
+Support tiers:
+
+- `first_class`: implemented and validated in this tranche
+- `future`: registry placeholder only, not generated or validated yet
 
 ## Canonical interface
 

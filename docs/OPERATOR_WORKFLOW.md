@@ -139,6 +139,8 @@ python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
 Build mode performs:
 
 - Canonical spec loading and validation
+- Archetype resolution from `product.app_type`
+- Controlled stack resolution from `stack.yaml`
 - Spec normalization and IR compilation
 - Build plan preparation and scoped target-repo mutations
 - Machine-readable summary output of plan and execution

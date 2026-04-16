@@ -16,7 +16,11 @@ def test_apply_build_plan_writes_expected_files(tmp_path: Path):
 
     assert result.target_repo == str(target.resolve())
     assert (target / ".autobuilder" / "ir.json").exists()
+    assert (target / ".autobuilder" / "build_plan.json").exists()
     assert (target / "app" / "README.md").exists()
+    assert (target / "api" / "README.md").exists()
+    assert (target / "db" / "README.md").exists()
+    assert (target / "validation" / "README.md").exists()
     assert (target / "README.md").exists()
 
     ops = result.operations_applied

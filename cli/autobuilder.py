@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
+from archetypes.catalog import ArchetypeResolutionError
 from benchmarks.cases import BENCHMARK_CASES
 from benchmarks.report import build_benchmark_report
 from benchmarks.runner import run_benchmark_cases
@@ -17,6 +18,7 @@ from generator.plan import prepare_build_plan
 from ir.compiler import compile_specs_to_ir
 from readiness.checks import run_readiness_checks
 from readiness.report import build_readiness_report
+from stack_registry.registry import StackRegistryResolutionError
 from specs.loader import SpecValidationError, load_spec_bundle
 
 
@@ -167,7 +169,7 @@ def main() -> int:
     if args.command == "build":
         try:
             result = run_build_workflow(args.spec, args.target)
-        except SpecValidationError as exc:
+        except (SpecValidationError, ArchetypeResolutionError, StackRegistryResolutionError) as exc:
             _print({"status": "error", "error": str(exc)}, args.json)
             return 2
         _print(result, args.json)
