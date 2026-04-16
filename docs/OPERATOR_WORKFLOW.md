@@ -2,12 +2,20 @@
 
 This runbook describes day-to-day operation of AutobuilderV2 for Nexus0.5-oriented work.
 
+## Canonical top-level command
+
+Use the top-level CLI for all normal operations:
+
+```bash
+python cli/autobuilder.py --help
+```
+
 ## One-button mission flow
 
 1. Start mission mode in one command:
 
 ```bash
-python cli/mission.py "Build an autonomous execution plan" --json
+python cli/autobuilder.py mission "Build an autonomous execution plan" --json
 ```
 
 2. Capture `run_id`, `saved_path`, and `mission_result_path` from output.
@@ -15,13 +23,20 @@ python cli/mission.py "Build an autonomous execution plan" --json
 4. Inspect mission state at any time:
 
 ```bash
-python cli/inspect.py <run_id> --json
+python cli/autobuilder.py inspect <run_id> --json
 ```
 
 5. Resume after approval:
 
 ```bash
-python cli/mission.py --resume <run_id> --approve --json
+python cli/autobuilder.py resume <run_id> --approve --json
+```
+
+6. Run benchmark and readiness gates:
+
+```bash
+python cli/autobuilder.py benchmark --json
+python cli/autobuilder.py readiness --with-benchmarks --json
 ```
 
 ## 1. Start a run
@@ -55,7 +70,7 @@ python cli/run.py --nexus
 1. Resume with:
 
 ```bash
-python cli/resume.py <run_id>
+python cli/autobuilder.py resume <run_id>
 ```
 
 2. Confirm expected behavior:
@@ -69,13 +84,13 @@ python cli/resume.py <run_id>
 1. Quick operator output:
 
 ```bash
-python cli/inspect.py <run_id>
+python cli/autobuilder.py inspect <run_id>
 ```
 
 2. Structured output for tooling:
 
 ```bash
-python cli/inspect.py <run_id> --json
+python cli/autobuilder.py inspect <run_id> --json
 ```
 
 3. Review the core fields:
@@ -98,10 +113,12 @@ report = build_benchmark_report(results)
 ```
 
 2. Confirm all expected cases are present:
-   - `simple_run`
-   - `repair_run`
-   - `approval_run`
-   - `nexus_run`
+   - `simple_low_risk_mission`
+   - `repair_required_mission`
+   - `approval_required_dangerous_mission`
+   - `repo_targeted_mission`
+   - `nexus_mission_mode_run`
+   - `interrupted_resumable_mission`
 3. Use report-level metrics (`passed_cases`, `failed_cases`, `average_confidence`) for regression tracking.
 
 ## 6. Evaluate readiness for Nexus0.5 work

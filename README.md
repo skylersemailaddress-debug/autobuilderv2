@@ -1,6 +1,6 @@
 # AutobuilderV2
 
-AutobuilderV2 is a stateful autonomous execution kernel for goal-driven software work. It plans tasks, executes work, validates outcomes, performs bounded repair, and records durable run state with operator controls for approvals, resume, and inspection.
+AutobuilderV2 is a stateful autonomous execution kernel for goal-driven software work. It plans tasks, executes work, validates outcomes, performs bounded repair, and records durable run state with operator controls for approvals, resume, inspection, benchmarks, and readiness evaluation.
 
 ## Current capabilities
 
@@ -12,10 +12,66 @@ AutobuilderV2 is a stateful autonomous execution kernel for goal-driven software
 - Repo-targeted planning: repository context is inspected and fed into planning
 - Approvals/policy: high-risk goals can pause in awaiting approval state
 - Benchmarks: benchmark case runner and report utilities for regression checks
+- Readiness evaluation: deterministic readiness checks and final readiness reports
 - Inspection CLI: operator-readable run inspection output from saved records
 - Nexus0.5 mission mode: enabled with mission-specific run metadata and controls
 
-## How to run
+## Canonical interface
+
+Use the top-level Autobuilder CLI as the canonical interface:
+
+```bash
+python cli/autobuilder.py --help
+```
+
+Supported commands:
+
+- `mission`
+- `resume`
+- `inspect`
+- `benchmark`
+- `readiness`
+- `proof`
+
+## One clear operator path
+
+Start a mission:
+
+```bash
+python cli/autobuilder.py mission "Build an autonomous execution plan" --json
+```
+
+Run pauses needing approval can be resumed with:
+
+```bash
+python cli/autobuilder.py resume <run_id> --approve --json
+```
+
+Inspect any run:
+
+```bash
+python cli/autobuilder.py inspect <run_id> --json
+```
+
+Run benchmark harness:
+
+```bash
+python cli/autobuilder.py benchmark --json
+```
+
+Generate readiness report:
+
+```bash
+python cli/autobuilder.py readiness --with-benchmarks --json
+```
+
+Run end-to-end proof workflow:
+
+```bash
+python cli/autobuilder.py proof --json
+```
+
+## Direct module CLIs (advanced)
 
 Run default autonomous flow:
 
@@ -71,7 +127,7 @@ python cli/resume.py <run_id>
 
 If a run is paused for approval, update the saved record approval status to `approved` (or `denied`) before resuming.
 
-## Benchmark harness
+## Benchmark harness (Python API)
 
 Execute benchmark cases and build a summary report from Python:
 

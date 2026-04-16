@@ -1,4 +1,6 @@
 import uuid
+import io
+from contextlib import redirect_stdout
 from typing import Dict, Iterable, List
 
 from benchmarks.cases import BENCHMARK_CASES, BenchmarkCase
@@ -29,11 +31,12 @@ def run_benchmark_cases(cases: Iterable[BenchmarkCase] = BENCHMARK_CASES) -> Lis
     store = JsonRunStore()
     for case in cases:
         run_id = f"benchmark_{case.name}_{uuid.uuid4().hex[:12]}"
-        record, _ = perform_run(
-            run_id=run_id,
-            goal=case.goal,
-            nexus_mode_enabled=case.nexus_mode_enabled,
-        )
+        with io.StringIO() as capture, redirect_stdout(capture):
+            record, _ = perform_run(
+                run_id=run_id,
+                goal=case.goal,
+                nexus_mode_enabled=case.nexus_mode_enabled,
+            )
 
         resumed = False
         if case.requires_resume and record.get("awaiting_approval"):
@@ -43,7 +46,8 @@ def run_benchmark_cases(cases: Iterable[BenchmarkCase] = BENCHMARK_CASES) -> Lis
                     approval_request["status"] = "approved"
                     record["approval_request"] = approval_request
                     store.save(run_id, record)
-            resumed_record, _ = resume_saved_run(run_id)
+            with io.StringIO() as capture, redirect_stdout(capture):
+                resumed_record, _ = resume_saved_run(run_id)
             if resumed_record is not None:
                 record = resumed_record
                 resumed = True
