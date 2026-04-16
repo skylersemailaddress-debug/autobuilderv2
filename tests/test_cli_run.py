@@ -63,5 +63,14 @@ def test_cli_run_script():
     assert "summary" in data["memory_keys"]
     assert data["summary"].get("checkpoint_count") == len(data["checkpoints"])
     assert data["summary"].get("artifact_count") == len(data["artifacts"])
+    assert isinstance(data.get("policy"), dict)
+    assert "risk_level" in data["policy"]
+    assert "approval_required" in data["policy"]
+    assert isinstance(data.get("resume"), dict)
+    assert data["resume"]["run_id"] == data["run_id"]
+    assert isinstance(data.get("durable_memory_keys"), list)
+    assert "summary" in data["durable_memory_keys"]
+    assert data["summary"].get("risk_level") == data["policy"]["risk_level"]
+    assert data["summary"].get("approval_required") == data["policy"]["approval_required"]
 
     saved_path.unlink()

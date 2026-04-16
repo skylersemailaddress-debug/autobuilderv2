@@ -18,4 +18,6 @@ def build_run_summary(record: Dict) -> Dict:
         "confidence": record.get("confidence", 0.0),
         "checkpoint_count": len(record.get("checkpoints", [])),
         "artifact_count": len(record.get("artifacts", [])),
+        "risk_level": record.get("policy", {}).get("risk_level", "unknown"),
+        "approval_required": record.get("policy", {}).get("approval_required", False),
     }

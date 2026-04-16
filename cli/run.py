@@ -16,13 +16,17 @@ from execution.executor import Executor
 from execution.artifacts import Artifact
 from debugger.repair import RepairEngine
 from memory.store import MemoryStore
+from memory.json_memory import JsonMemoryStore
 from observability.events import create_event, event_to_dict
 from runs.summary import build_run_summary
 from state.checkpoints import create_checkpoint
 from state.run_state import RunStateStore
 from state.json_store import JsonRunStore
+from state.resume import resume_run
 from validator.confidence import calculate_confidence
 from validator.validator import Validator
+from control_plane.approvals import require_approval
+from policies.action_policy import ActionPolicy
 
 DEFAULT_GOAL = "Build an autonomous execution plan"
 
@@ -50,6 +54,8 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
     retry_policy = RetryPolicy(max_repairs=1)
     json_store = JsonRunStore(base_dir=ROOT_DIR / "runs")
     memory_store = MemoryStore()
+    durable_memory_store = JsonMemoryStore(str(ROOT_DIR / "memory" / f"{run_id}.json"))
+    action_policy = ActionPolicy()
 
     memory_store.add_memory("goal", {"goal": goal})
     checkpoints = [
@@ -69,6 +75,13 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
     tasks = planner.create_plan(goal)
     events.append(serialize_event(create_event("plan_created", {"goal": goal, "task_count": len(tasks)})))
     checkpoints.append(asdict(create_checkpoint("plan_created", {"task_count": len(tasks), "goal": goal})))
+
+    # Classify action and create approval if needed
+    policy = action_policy.classify_action(goal, [serialize_task(task) for task in tasks])
+    approval_request = None
+    if policy["approval_required"]:
+        approval_request = require_approval("run_execution", f"High-risk action: {goal}")
+
 
     events.append(serialize_event(create_event("execution_started", {"task_count": len(tasks)})))
     tasks = executor.run_tasks(tasks)
@@ -147,15 +160,28 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         "artifacts": artifacts,
         "checkpoints": checkpoints,
         "confidence": confidence,
+        "policy": policy,
         "validation_result": validation_result,
         "validation": validation_result,
         "repair_used": repair_used,
         "repair_count": repair_count,
         "events": events,
     }
+    
+    if approval_request:
+        record["approval_request"] = asdict(approval_request)
+    
     record["summary"] = build_run_summary(record)
     memory_store.add_memory("summary", record["summary"])
     record["memory_keys"] = memory_store.list_keys()
+    
+    # Persist summary to durable memory
+    durable_memory_store.add_memory("summary", record["summary"])
+    record["durable_memory_keys"] = durable_memory_store.list_keys()
+    
+    # Add resume payload
+    record["resume"] = resume_run(record)
+    
     saved_path = json_store.save(run_id, record)
 
     print(f"run_id={run_id}")
