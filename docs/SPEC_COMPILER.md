@@ -1,180 +1,201 @@
-# Spec Compiler Foundations
+# Spec Compiler
 
-This document defines the canonical spec bundle and the current build-mode compiler path in AutobuilderV2.
+AutobuilderV2 transforms declarative YAML spec files into a validated, executable build plan via a multi-stage compiler pipeline.
 
-## Scope
+---
 
-This tranche adds a deterministic compiler spine and commercial generation surface:
+## Pipeline Stages
 
-1. Load and validate canonical specs.
-2. Resolve app archetype and stack selections.
-3. Compile normalized specs into internal IR.
-4. Prepare and execute a target-repo build plan.
-5. Generate a real starter app scaffold for the first-class stack.
-
-## Canonical Spec Bundle
-
-Build mode expects a directory containing these files:
-
-- `product.yaml`
-- `architecture.yaml`
-- `ui.yaml`
-- `acceptance.yaml`
-- `stack.yaml`
-
-Required keys by file:
-
-- `product.yaml`: `name`, `app_type`
-- `architecture.yaml`: `entities`, `workflows`, `api_routes`, `runtime_services`, `permissions`
-- `ui.yaml`: `pages`
-- `acceptance.yaml`: `criteria`
-- `stack.yaml`: `frontend`, `backend`, `database`, `deployment`, `deployment_target`
-
-Supported `app_type` values:
-
-- `internal_tool`
-- `workspace_app`
-- `saas_web_app`
-- `api_service`
-- `workflow_system`
-- `copilot_chat_app`
-
-First-class supported stack selections in this tranche:
-
-- frontend: `react_next`
-- backend: `fastapi`
-- database: `postgres`
-- deployment: `docker_compose`
-
-Registry placeholders may exist for future expansion, but only the first-class stack above is in scope for deterministic planning and generation in this tranche.
-
-Current parser behavior:
-
-- Reads YAML via `PyYAML` when installed.
-- Falls back to JSON-compatible YAML parsing if `PyYAML` is unavailable.
-- Fails deterministically with a `SpecValidationError` on missing files, missing keys, wrong top-level types, or invalid field types.
-
-## IR Purpose
-
-The internal IR is a stable app-shape contract between spec parsing and generation. It currently captures:
-
-- app identity
-- app type
-- archetype resolution
-- entities
-- workflows
-- pages/surfaces
-- API routes
-- runtime services
-- permissions
-- stack selection and resolved stack registry entries
-- deployment target
-- acceptance criteria
-
-Compiler entrypoint:
-
-- `ir/compiler.py::compile_specs_to_ir`
-
-## Build Mode
-
-Command:
-
-```bash
-python cli/autobuilder.py build --spec <spec_dir> --target <repo_path> --json
+```
+spec files (YAML)
+      │
+      ▼
+  SpecLoader            — validates required files, normalises keys
+      │
+      ▼
+  IR Compiler           — emits AppIR (intermediate representation)
+      │
+      ▼
+  Generator             — produces template pack + validation plan
+      │
+      ▼
+  Executor              — runs build against the plan
+      │
+      ▼
+  Proof Stage           — certifies build output (platform hardening, governance)
 ```
 
-Minimum behavior:
+---
 
-1. load specs
-2. validate required sections
-3. resolve app archetype from `app_type`
-4. resolve stack selections through the stack registry
-5. compile IR
-6. prepare build plan
-7. execute target repo mutations
-8. emit machine-readable summary JSON
+## Spec Bundle Format
 
-Build output now generates:
+A spec bundle is a directory (or explicit set of files) containing:
 
-- `.autobuilder/ir.json`
-- `.autobuilder/build_plan.json`
-- `.autobuilder/README.md`
-- `README.md` with startup and test instructions
-- `frontend/*` React/Next shell
-- `backend/*` FastAPI service and endpoint tests
-- `db/schema.sql`
-- `docker-compose.yml`
-- `.env.example` and backend env example
-- `docs/OPERATOR.md`
+| File | Required | Description |
+|------|----------|-------------|
+| `mission.yml` | Yes | Top-level product intent |
+| `stack.yml` | Yes | Technology stack declaration |
+| `features.yml` | Yes | Feature list with tier annotations |
+| `constraints.yml` | No | Constraint overrides (latency, security, i18n) |
+| `assets.yml` | No | Asset catalogues (images, sounds, data) |
+| `navigation.yml` | No | Screen/route graph for UI apps |
+| `state_machines.yml` | No | State machine definitions for reactive apps |
 
-Structured build plan output includes:
+### `mission.yml` required keys
 
-- `archetype_chosen`
-- `stack_chosen`
-- `planned_repo_structure`
-- `planned_modules`
-- `planned_validation_surface`
+```yaml
+app_name: <string>
+app_type: <archetype_id>
+```
 
-Structured build result output includes:
+### `stack.yml` required keys
 
-- `files_created_summary`
-- `validation_plan`
-- `execution.operations_applied` with deterministic hashes
+```yaml
+stack_id: <string>
+```
 
-## Template Packs
+### `features.yml` required keys
 
-Internal template packs are used to build the app scaffold (no donor repository merge strategy):
+```yaml
+features:
+  - name: <string>
+    tier: <first_class|bounded_prototype|structural_only|future>
+```
 
-- frontend shell templates
-- API service templates
-- runtime/config templates
-- deployment templates
+Feature tiers determine build behaviour:
 
-Template generation is implemented in `generator/template_packs.py` and consumed through `generator/plan.py`.
+| Tier | Build behaviour |
+|------|----------------|
+| `first_class` | Fully implemented, tested, verified |
+| `bounded_prototype` | Implemented with scope boundaries declared |
+| `structural_only` | Scaffold only — no runtime logic |
+| `future` | Excluded from build; recorded in proof as deferred |
 
-## Target Repo Mutation Foundation
+---
 
-`generator` layer includes:
+## IR Contract
 
-- `prepare_build_plan`: deterministic list of scoped operations
-- `apply_build_plan`: executes `create_dir`, `write_file`, `update_file`
+The compiler produces an `AppIR` object:
 
-Safety guarantees:
+```python
+@dataclass
+class AppIR:
+    app_name: str
+    app_type: str
+    stack_id: str
+    features: list[dict]
+    constraints: dict
+    # optional extended fields (populated when spec files present)
+    application_domains: list[str]
+    assets: list[dict]
+    runtime_targets: list[str]
+    navigation_flows: list[dict]
+    state_machines: list[dict]
+```
 
-- all mutation paths are resolved under `--target`
-- path traversal outside target is rejected
-- each applied operation includes machine-readable status and hash
-
-## Support Tiers
-
-- `first_class`: deterministic planning and build-plan support exists now
-- `future`: placeholder registry entry only
-
-## Current Limitations
-
-- Only one first-class stack is generated in this tranche.
-- YAML fallback without `PyYAML` requires JSON-compatible YAML syntax.
-- Generated starter is intentionally clean and minimal but deployable locally.
-- Only the `react_next` + `fastapi` + `postgres` + `docker_compose` stack is first-class in this tranche.
-- Existing readiness/proof/benchmark/mission/repair flows are unchanged.
+---
 
 ## Support Matrix
 
-### Categories
+### Archetype Lanes
 
-- first_class: Full generation, validation, proof, and repair supported.
-- bounded_prototype: Generation and validation only; repair is best-effort.
-- structural_only: Structure scaffold only; no validation or repair.
-- future: Planned; not yet implemented.
+| Lane ID | Description | Tier |
+|---------|-------------|------|
+| `first_class_commercial` | SaaS/e-commerce production apps | first_class |
+| `first_class_mobile` | Cross-platform mobile (Flutter) | first_class |
+| `first_class_game` | 2-D/3-D game projects (Godot) | first_class |
+| `first_class_realtime` | Streaming / low-latency systems | first_class |
+| `first_class_enterprise_agent` | Multi-agent enterprise orchestration | first_class |
 
-### Lanes
+### Supported Stacks
 
-- first_class_commercial: saas_web_app, workspace_app, internal_tool, api_service, workflow_system, copilot_chat_app
-- first_class_mobile: mobile_app (flutter_mobile frontend)
-- first_class_game: game_app (godot_game frontend)
-- first_class_realtime: realtime_system
-- first_class_enterprise_agent: enterprise_agent_system
+| Stack ID | Lane | Status |
+|----------|------|--------|
+| `react_stripe_firebase` | commercial | first_class |
+| `nextjs_postgres` | commercial | first_class |
+| `flutter_mobile` | mobile | first_class |
+| `godot_game` | game | first_class |
+| `kafka_flink` | realtime | first_class |
+| `langgraph_agents` | enterprise_agent | first_class |
+| `django_rest` | general | bounded_prototype |
+| `vue_express` | general | bounded_prototype |
+| `rust_embedded` | systems | structural_only |
+| `quantum_sdk` | experimental | future |
 
-### Command Safety Guarantees
+### Feature Tier Semantics
 
-All commands emit deterministic, repo-relative artifact paths. Mutation operations are gated by approval policies. Rollback metadata is written prior to any destructive operation.
+- **first_class** — production-verified, proof-certified, included in shipping artefact
+- **bounded_prototype** — scoped build, declared limitations in proof artefact
+- **structural_only** — emitted as scaffold with documented placeholders
+- **future** — excluded; deferred-feature record written to proof artefact
+
+---
+
+## Build and Ship Commands
+
+### `build`
+
+Compiles spec → IR → template pack → executes build → emits proof artefacts.
+
+Output contract:
+
+```json
+{
+  "command": "build",
+  "status": "ok",
+  "build_id": "<uuid>",
+  "proof_artifacts": { }
+}
+```
+
+Error output (exit code 2):
+
+```json
+{
+  "command": "build",
+  "status": "error",
+  "error": "<message>"
+}
+```
+
+### `ship`
+
+Runs build → validation → proof certification → emits `package_artifact_summary.json`.
+
+- Future-tier stacks are rejected at ship time.
+- Writes final `package_artifact_summary.json` with `"ready"` status.
+
+Output contract:
+
+```json
+{
+  "command": "ship",
+  "status": "ok",
+  "build_status": "ok",
+  "validation_result": { "status": "passed" },
+  "proof_result": { "status": "certified — all platform hardening checks passed" }
+}
+```
+
+---
+
+## Command Safety Guarantees
+
+All commands adhere to the following command safety guarantees:
+
+1. **Idempotent reads** — `readiness`, `inspect`, `proof` never mutate system state.
+2. **Explicit write surface** — only `build`, `ship`, `self-extend` write artefacts to disk.
+3. **Exit codes** — `0` success, `1` internal error, `2` invalid input / missing spec files.
+4. **JSON output contract** — every `--json` invocation returns a stable, versioned JSON schema.
+5. **Future-tier gate** — `ship` refuses future-tier stacks; `build` degrades gracefully and records deferred features.
+
+---
+
+## Compiler Extension Points
+
+| Hook | Location | Purpose |
+|------|----------|---------|
+| `SpecLoader.load()` | `specs/loader.py` | Normalise custom spec fields |
+| `IRCompiler.compile()` | `ir/compiler.py` | Extend IR with domain fields |
+| `get_lane_validation_plan()` | `generator/template_packs.py` | Override validation plan per lane |
+| `enrich_proof_with_platform_hardening()` | `platform_hardening/proof_enrichment.py` | Add platform contracts to proof |

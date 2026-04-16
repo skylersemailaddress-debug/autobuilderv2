@@ -1,401 +1,236 @@
-# AutobuilderV2 Operator Workflow
+# Operator Workflow
 
-Complete runbook for operating AutobuilderV2 locally and in enterprise contexts.
+This guide covers the end-to-end operator workflow for building, validating, and shipping applications with AutobuilderV2.
 
-## 0. Bootstrap (First-Time Setup)
+---
 
-Initialize a clean local development environment:
-
-```bash
-scripts/bootstrap_local.sh
-```
-
-This:
-- Creates a Python virtual environment (.venv/)
-- Installs all project dependencies
-- Prints canonical next commands
-- Safe to run repeatedly (idempotent)
-
-After bootstrap, the environment is ready for all operational workflows below.
-
-## 1. Canonical Top-Level Operations
-
-Use the top-level CLI for all standard operations:
+## Prerequisites
 
 ```bash
-python cli/autobuilder.py --help
+pip install -e ".[dev]"
+autobuilder readiness --json          # verify all systems ready
 ```
 
-Available commands: `mission`, `resume`, `inspect`, `benchmark`, `readiness`, `proof`, `build`
+---
 
-### 1a. Check System Readiness
+## Step 1 — Author Spec Files
 
-Before starting missions, verify the system is ready:
+Create a spec bundle directory with the required YAML files:
+
+```
+my_app/
+  mission.yml
+  stack.yml
+  features.yml
+  constraints.yml   # optional
+```
+
+**`mission.yml`**
+
+```yaml
+app_name: My App
+app_type: saas_web_app
+```
+
+**`stack.yml`**
+
+```yaml
+stack_id: react_stripe_firebase
+```
+
+**`features.yml`**
+
+```yaml
+features:
+  - name: user_auth
+    tier: first_class
+  - name: payment_checkout
+    tier: first_class
+  - name: admin_dashboard
+    tier: bounded_prototype
+  - name: ai_recommendations
+    tier: future
+```
+
+---
+
+## Step 2 — Inspect Spec Bundle
 
 ```bash
-python cli/autobuilder.py readiness --json
+autobuilder inspect specs/my_app --json
 ```
 
-This runs deterministic checks on:
-- Core autonomy capability
-- Validation and repair behavior
-- Approval and governance mechanisms
-- Inspection and tracing
-- Benchmark baseline stability
-- Overall system state
+Returns the normalised spec bundle and any validation warnings before build time.
 
-Exit code 0 = ready. Non-zero = investigate before proceeding.
+---
 
-### 1b. Run Proof of Execution
-
-Validate that the system executes correctly end-to-end:
+## Step 3 — Run Build
 
 ```bash
-python cli/autobuilder.py proof --json
+autobuilder build specs/my_app --json
 ```
 
-This runs the complete proof workflow:
-- Plans and executes a simple goal
-- Validates all expected outcomes
-- Returns complete proof transcript
-- Safe to run repeatedly
+Compiles spec → IR → template pack → proof artefacts.  Output includes `build_id` and `proof_artifacts`.
 
-Use `proof` as a deterministic validation gate in CI/CD or before mission work.
+---
 
-### 1c. Start a Mission
-
-Execute a goal autonomously with governance:
+## Step 4 — Validate Generated App
 
 ```bash
-python cli/autobuilder.py mission "Your goal here" --json
+autobuilder validate-app specs/my_app --json
 ```
 
-Captures from output:
-- `run_id`: unique run identifier for inspection/resume
-- `saved_path`: location of persisted run record (JSON)
-- `mission_result`: final outcome and confidence
-- `awaiting_approval`: true if mission paused for approval
+Runs the lane-specific validation plan against the generated artefacts. Returns `{"status": "passed"}` on success.
 
-### 1d. Inspect a Run
+---
 
-View operator-friendly details of any run:
+## Step 5 — Certify Proof
 
 ```bash
-python cli/autobuilder.py inspect <run_id> --json
+autobuilder proof-app specs/my_app --json
 ```
 
-Check:
-- `final_status`: completed, awaiting_approval, failed
-- `confidence`: outcome confidence (0-100%)
-- `repair_count`: how many times system repaired itself
-- `events`: full execution trace
-- `approval_request`: governance decision context if paused
+Emits full proof certification including platform hardening, governance contract, commerce pack, and failure corpus.
 
-### 1e. Resume After Approval
+---
 
-Continue a paused mission:
+## Step 6 — Ship
 
 ```bash
-python cli/autobuilder.py resume <run_id> --approve --json
+autobuilder ship specs/my_app --json
 ```
 
-Use `--approve` to allow continuation or omit to check status only.
+Runs build → validation → proof as a single atomic operation and writes `package_artifact_summary.json`.
 
-Behavior:
-- Mission in `awaiting_approval` resumes if approved
-- pending/denied approvals do not continue
-- Execution picks up from checkpoint
+Approval gate: if `control_plane/approvals.py` has pending approvals, `ship` will block until they are resolved.
 
-### 1f. Run Benchmarks
+---
 
-Regression test the system against known cases:
+## Approval / Governance Workflow
+
+AutobuilderV2 integrates a control-plane approval gate for enterprise deployments.
+
+```
+operator triggers ship
+        │
+        ▼
+  control_plane checks approvals
+        │
+   pending? ──yes──▶ block + log
+        │no
+        ▼
+  build → validate → proof → package
+        │
+        ▼
+  package_artifact_summary.json written
+```
+
+Approvals are stored in `state/approvals.json`. To inspect or clear:
 
 ```bash
-python cli/autobuilder.py benchmark --json
+autobuilder inspect approvals --json
 ```
 
-Executes all benchmark cases:
-- `simple_low_risk_mission`
-- `repair_required_mission`
-- `approval_required_dangerous_mission`
-- `repo_targeted_mission`
-- `nexus_mission_mode_run`
-- `interrupted_resumable_mission`
+---
 
-Output includes:
-- Per-case pass/fail
-- Confidence metrics
-- Performance metrics
-- Regression summary
-
-### 1g. Compile Spec Bundle Into Target Repo Scaffold
-
-Use build mode to compile canonical specs into a deterministic scaffold in a target repository path:
-
-```bash
-python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
-```
-
-Build mode performs:
-
-- Canonical spec loading and validation
-- Archetype resolution from `product.app_type`
-- Controlled stack resolution from `stack.yaml`
-- Spec normalization and IR compilation
-- Build plan preparation and scoped target-repo mutations
-- Machine-readable summary output of plan and execution
-
-See `docs/SPEC_COMPILER.md` for full spec format and IR details.
-
-## 2. Cleanup Runtime Artifacts
-
-Safely remove all generated state and cache:
-
-```bash
-scripts/clean_runtime.sh
-```
-
-Removes:
-- `runs/*.json` (run records)
-- `memory/*.json` (memory artifacts)
-- `__pycache__/` (Python cache)
-- `*.pyc` (compiled Python)
-- `.pytest_cache/` (test cache)
-
-Preserves:
-- Source code
-- Tests
-- Documentation
-- Configuration
-
-Safe to run repeatedly. Prompts for confirmation.
-
-## 3. Packaging for Distribution
-
-Create a clean, distributable archive:
-
-```bash
-scripts/package_release.sh
-```
-
-Creates a versioned zip in `dist/` containing:
-- All source code
-- Tests
-- Documentation
-- Scripts and bootstraps
-- Configuration files
-
-Excludes:
-- Runtime artifacts (runs/, memory/)
-- Virtual environment
-- Python cache
-- Generated noise
-
-Use for:
-- Distribution to other machines
-- Version releases
-- Archival and backup
-- CI/CD staging
-
-## 4. Advanced: Direct Module CLIs
-
-For advanced workflows, use module-level CLIs directly:
-
-### 4a. Standard Autonomous Execution
-
-```bash
-python cli/run.py
-```
-
-Prints `run_id`, `status`, `saved_path` for the persisted record.
-
-### 4b. Nexus Mission Mode
-
-Governance-oriented execution with mission metadata:
-
-```bash
-python cli/run.py --nexus
-```
-
-Includes approval controls, mission-level policies, and governance decoration.
-
-### 4c. Mission API
-
-Direct mission execution:
-
-```bash
-python cli/mission.py "Build something" --json
-```
-
-Resume a mission:
-
-```bash
-python cli/mission.py --resume <run_id> --approve --json
-```
-
-### 4d. Inspection API
-
-Plain-text operator report:
-
-```bash
-python cli/inspect.py <run_id>
-```
-
-Structured JSON output for tooling:
-
-```bash
-python cli/inspect.py <run_id> --json
-```
-
-### 4e. Resume API
-
-Manually update approval status and resume:
-
-```bash
-python cli/resume.py <run_id>
-```
-
-First, manually edit the saved run record to set approval status to `approved` or `denied`.
-
-## 5. Day-to-Day Operations Checklist
-
-### Before Mission Work
-
-```bash
-# 1. Bootstrap if first time
-scripts/bootstrap_local.sh
-
-# 2. Clean old artifacts
-scripts/clean_runtime.sh
-
-# 3. Verify readiness
-python cli/autobuilder.py readiness --json
-
-# 4. Run proof
-python cli/autobuilder.py proof --json
-
-# 5. Check benchmarks
-python cli/autobuilder.py benchmark --json
-```
-
-### Running Missions
-
-```bash
-# Start mission
-python cli/autobuilder.py mission "Your goal" --json
-
-# Capture run_id from output
-
-# Inspect status
-python cli/autobuilder.py inspect <run_id> --json
-
-# If awaiting_approval: review, decide, then resume
-python cli/autobuilder.py resume <run_id> --approve --json
-```
-
-### Release/Deployment
-
-```bash
-# Clean up any runtime artifacts
-scripts/clean_runtime.sh
-
-# Run final validation
-python cli/autobuilder.py proof --json
-python cli/autobuilder.py benchmark --json
-
-# Package for distribution
-scripts/package_release.sh
-
-# Archive or deploy dist/*.zip
-```
-
-## 6. Troubleshooting
-
-### System Is Not Ready
-
-Check readiness output and validate:
-- Planner can create task plans
-- Executor can run tasks
-- Validator can assess outcomes
-- Repair logic bounded correctly
-- Approval/resume pathways work
-- All benchmark cases pass
-
-### Mission Fails Unexpectedly
-
-```bash
-# Inspect the full run record
-python cli/autobuilder.py inspect <run_id> --json
-
-# Review:
-# - events: full trace of decisions
-# - failure_info: technical failure details
-# - repair_count: bounds on repair loops
-# - confidence: outcome confidence
-
-# Re-run proof to narrow issue
-python cli/autobuilder.py proof --json
-```
-
-### Permission or State Corruption
-
-```bash
-# Clean all runtime state
-scripts/clean_runtime.sh
-
-# Re-bootstrap
-scripts/bootstrap_local.sh
-
-# Re-validate
-python cli/autobuilder.py proof --json
-```
-
-### Archiving / Release Readiness
-
-1. Clean artifacts: `scripts/clean_runtime.sh`
-2. Final validation: `python cli/autobuilder.py proof --json`
-3. Package: `scripts/package_release.sh`
-4. Mark version in docs if needed
-5. Commit to version control
-
-## 7. Interpreting Output
-
-### Run Status
-
-- `completed`: Mission finished successfully
-- `awaiting_approval`: Paused awaiting operator approval decision
-- `failed`: Mission failed validation beyond repair limits
-- `interrupted`: Operator interrupted the mission
-
-### Confidence Metric
-
-- 90-100%: Very high confidence in outcome
-- 70-89%: Good confidence, ready for most work
-- 50-69%: Moderate confidence, recommend inspection
-- <50%: Low confidence, investigate before proceeding
-
-### Repair Count
-
-- 0: No self-repair needed (ideal)
-- 1-2: Minor issues repaired (normal)
-- 3+: Significant repair loops (investigate)
-- Beyond 5: Potential system issue, stop and diagnose
-
-## 8. Enterprise Notes
-
-- **Governance**: Use approval gates for high-risk goals
-- **Audit**: All runs saved as JSON records in runs/ for compliance
-- **Isolation**: Memory and state completely local by default
-- **Portability**: Scripts and bootstrap ensure consistent behavior across machines
-- **Distribution**: Use `scripts/package_release.sh` for clean deployment packages
-- **CI/CD**: Use `python cli/autobuilder.py readiness --json` and `python cli/autobuilder.py proof --json` as validation gates
 ## Support matrix scope
 
-- first_class: Full generation, validation, proof, and repair.
-- bounded_prototype: Generation and validation; repair is best-effort.
-- structural_only: Scaffold only.
-- future: Not yet implemented.
+The operator must match the spec bundle's `app_type` and `stack_id` against the supported support matrix scope below.
+
+| Lane | App Types | Stacks | Tier |
+|------|-----------|--------|------|
+| `first_class_commercial` | `saas_web_app`, `ecommerce_app` | `react_stripe_firebase`, `nextjs_postgres` | first_class |
+| `first_class_mobile` | `mobile_app` | `flutter_mobile` | first_class |
+| `first_class_game` | `game_app` | `godot_game` | first_class |
+| `first_class_realtime` | `realtime_system` | `kafka_flink` | first_class |
+| `first_class_enterprise_agent` | `enterprise_agent_system` | `langgraph_agents` | first_class |
+
+**bounded_prototype stacks** (`django_rest`, `vue_express`) are supported for prototyping but cannot be shipped via the `ship` command.
+
+**structural_only and future stacks** are rejected at build time for ship-path workflows.
+
+---
 
 ## Command Safety Guarantees
 
-All commands emit deterministic, repo-relative artifact paths. Mutation operations require explicit approval. Rollback metadata is written before any destructive step.
+All commands adhere to the following command safety guarantees:
+
+1. **Idempotent reads** — `readiness`, `inspect`, `proof` never mutate system state.
+2. **Explicit write surface** — only `build`, `ship`, `self-extend` write artefacts to disk.
+3. **Exit codes** — `0` success, `1` internal error, `2` invalid input / missing spec files.
+4. **JSON output contract** — every `--json` invocation returns a stable JSON schema.
+5. **Future-tier gate** — `ship` refuses future-tier stacks; `build` degrades gracefully.
+
+---
+
+## Governance Controls
+
+| Control | Location | Purpose |
+|---------|----------|---------|
+| Approval gate | `control_plane/approvals.py` | Block ship until approvals cleared |
+| Policy enforcement | `policies/` | Validate spec against policy rules |
+| Proof certification | `platform_hardening/proof_enrichment.py` | Platform hardening sign-off |
+| Observability | `observability/` | Emit structured execution logs |
+| Mutation testing | `mutation/` | Verify test suite quality |
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+|---------|-------------|-----|
+| `Missing required spec files` | Missing `mission.yml` or `stack.yml` | Create required files |
+| `ship rejected: future-tier stack` | `stack_id` is in future tier | Switch to a supported stack |
+| `approval pending` | Unapproved control-plane entry | Resolve via `inspect approvals` |
+| `proof certification failed` | Platform hardening check failed | Review proof artefacts in `runs/` |
+
+---
+
+## Bootstrap
+
+```bash
+bash scripts/bootstrap_local.sh
+```
+
+Sets up a local virtual environment and installs all required dependencies.
+
+---
+
+## Cleanup Runtime
+
+```bash
+bash scripts/clean_runtime.sh
+```
+
+Removes generated artefacts and temporary run state.
+
+---
+
+## Packaging for Distribution
+
+```bash
+bash scripts/package_release.sh
+```
+
+Packages the current build output as a distributable release artefact.
+
+---
+
+## Benchmarking
+
+```bash
+autobuilder benchmark --json
+```
+
+Runs the full benchmark suite and returns scored results. Use this to validate mission throughput before shipping.
+
+---
+
+## Mission Replay
+
+```bash
+autobuilder mission --json
+autobuilder resume --json
+```
+
+Run or resume an autonomous mission. All mission state is persisted under `runs/`.
