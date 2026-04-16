@@ -2,6 +2,28 @@
 
 This runbook describes day-to-day operation of AutobuilderV2 for Nexus0.5-oriented work.
 
+## One-button mission flow
+
+1. Start mission mode in one command:
+
+```bash
+python cli/mission.py "Build an autonomous execution plan" --json
+```
+
+2. Capture `run_id`, `saved_path`, and `mission_result_path` from output.
+3. If mission pauses for approval, check `awaiting_approval=true` and use `resume_hint`.
+4. Inspect mission state at any time:
+
+```bash
+python cli/inspect.py <run_id> --json
+```
+
+5. Resume after approval:
+
+```bash
+python cli/mission.py --resume <run_id> --approve --json
+```
+
 ## 1. Start a run
 
 1. Choose execution mode.

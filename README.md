@@ -31,6 +31,29 @@ python cli/run.py --nexus
 
 Both commands print `run_id`, `status`, and `saved_path` for the persisted record in runs/.
 
+## One-button Nexus mission workflow
+
+Start a mission:
+
+```bash
+python cli/mission.py "Build an autonomous execution plan" --json
+```
+
+If approval is required, the mission result includes `resume_hint` and stays in `awaiting_approval` state.
+
+Inspect a mission run:
+
+```bash
+python cli/inspect.py <run_id>
+python cli/inspect.py <run_id> --json
+```
+
+Resume a mission after approval:
+
+```bash
+python cli/mission.py --resume <run_id> --approve --json
+```
+
 ## How to inspect and resume
 
 Inspect a saved run:
