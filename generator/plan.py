@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from generator.template_packs import first_class_validation_plan, generate_first_class_templates
 from ir.model import AppIR
 
 
@@ -39,83 +40,61 @@ class BuildPlan:
 def prepare_build_plan(ir: AppIR, target_repo: str | Path) -> BuildPlan:
     target = Path(target_repo).resolve()
     stack_entries = ir.stack_entries
+    templates = generate_first_class_templates(ir)
+
     planned_repo_structure = [
         ".autobuilder/",
-        "app/",
-        "api/",
+        "backend/",
+        "backend/api/",
+        "backend/tests/",
+        "frontend/",
+        "frontend/app/",
+        "frontend/public/",
+        "frontend/tests/",
         "db/",
-        "validation/",
+        "docs/",
     ]
-    planned_modules = [
-        "app/README.md",
-        ".autobuilder/ir.json",
-        ".autobuilder/build_plan.json",
-        "api/README.md",
-        "db/README.md",
-        "validation/README.md",
-    ]
-    planned_modules.extend(
+
+    stack_modules = [
         module
         for entry in stack_entries.values()
         for module in entry["required_files_modules"]
-        if module not in planned_modules
-    )
+    ]
+
+    planned_modules = [template.path for template in templates]
+    for module in stack_modules:
+        if module not in planned_modules:
+            planned_modules.append(module)
+    if ".autobuilder/ir.json" not in planned_modules:
+        planned_modules.append(".autobuilder/ir.json")
+    if ".autobuilder/build_plan.json" not in planned_modules:
+        planned_modules.append(".autobuilder/build_plan.json")
+    if ".autobuilder/generation_summary.json" not in planned_modules:
+        planned_modules.append(".autobuilder/generation_summary.json")
+
     planned_validation_surface = []
-    planned_validation_surface.extend(ir.archetype["expected_validation_concerns"])
+    for item in ir.archetype["expected_validation_concerns"]:
+        if item not in planned_validation_surface:
+            planned_validation_surface.append(item)
     for entry in stack_entries.values():
         for expectation in entry["validation_expectations"]:
             if expectation not in planned_validation_surface:
                 planned_validation_surface.append(expectation)
+    for check in first_class_validation_plan():
+        if check not in planned_validation_surface:
+            planned_validation_surface.append(check)
 
     operations: list[BuildOperation] = [
-        BuildOperation(op="create_dir", path=".autobuilder"),
-        BuildOperation(op="create_dir", path="app"),
-        BuildOperation(op="create_dir", path="api"),
-        BuildOperation(op="create_dir", path="db"),
-        BuildOperation(op="create_dir", path="validation"),
-        BuildOperation(
-            op="write_file",
-            path="app/README.md",
-            content=(
-                f"# {ir.app_identity}\n\n"
-                "Generated scaffold from AutobuilderV2 spec compiler build mode.\n"
-                f"App type: {ir.app_type}\n"
-                f"Archetype: {ir.archetype['name']}\n"
-                f"Deployment target: {ir.deployment_target}\n"
-            ),
-        ),
-        BuildOperation(
-            op="write_file",
-            path="api/README.md",
-            content=(
-                "# API Modules\n\n"
-                f"Backend stack: {ir.stack_selection['backend']}\n"
-                f"Expected backend shape: {', '.join(ir.archetype['expected_backend_shape'])}\n"
-            ),
-        ),
-        BuildOperation(
-            op="write_file",
-            path="db/README.md",
-            content=(
-                "# Database Modules\n\n"
-                f"Database stack: {ir.stack_selection['database']}\n"
-                "Schema and migration modules will be generated in later tranches.\n"
-            ),
-        ),
-        BuildOperation(
-            op="write_file",
-            path="validation/README.md",
-            content=(
-                "# Validation Surface\n\n"
-                + "\n".join(f"- {item}" for item in planned_validation_surface)
-                + "\n"
-            ),
-        ),
-        BuildOperation(
-            op="write_file",
-            path=".autobuilder/ir.json",
-            content=json.dumps(ir.to_dict(), indent=2),
-        ),
+        BuildOperation(op="create_dir", path=path.rstrip("/")) for path in planned_repo_structure
+    ]
+    operations.extend(
+        BuildOperation(op="write_file", path=template.path, content=template.content)
+        for template in templates
+    )
+    operations.append(
+        BuildOperation(op="write_file", path=".autobuilder/ir.json", content=json.dumps(ir.to_dict(), indent=2))
+    )
+    operations.append(
         BuildOperation(
             op="write_file",
             path=".autobuilder/build_plan.json",
@@ -129,39 +108,21 @@ def prepare_build_plan(ir: AppIR, target_repo: str | Path) -> BuildPlan:
                 },
                 indent=2,
             ),
-        ),
-    ]
-
-    root_readme = target / "README.md"
-    if root_readme.exists():
-        operations.append(
-            BuildOperation(
-                op="update_file",
-                path="README.md",
-                content=(
-                    "\n\n## Autobuilder Build Metadata\n"
-                    f"- app_identity: {ir.app_identity}\n"
-                    f"- archetype: {ir.archetype['name']}\n"
-                    f"- frontend: {ir.stack_selection['frontend']}\n"
-                    f"- backend: {ir.stack_selection['backend']}\n"
-                    f"- database: {ir.stack_selection['database']}\n"
-                    f"- deployment: {ir.stack_selection['deployment']}\n"
-                    f"- deployment_target: {ir.deployment_target}\n"
-                ),
-            )
         )
-    else:
-        operations.append(
-            BuildOperation(
-                op="write_file",
-                path="README.md",
-                content=(
-                    f"# {ir.app_identity}\n\n"
-                    "Scaffolded target repository prepared by AutobuilderV2 build mode.\n"
-                    f"Archetype: {ir.archetype['name']}\n"
-                ),
-            )
+    )
+    operations.append(
+        BuildOperation(
+            op="write_file",
+            path=".autobuilder/generation_summary.json",
+            content=json.dumps(
+                {
+                    "generated_files": sorted(planned_modules),
+                    "validation_plan": sorted(planned_validation_surface),
+                },
+                indent=2,
+            ),
         )
+    )
 
     return BuildPlan(
         target_repo=str(target),

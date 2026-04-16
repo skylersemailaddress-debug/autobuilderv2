@@ -70,6 +70,16 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
     plan = prepare_build_plan(ir, target_path)
     execution = apply_build_plan(plan)
 
+    files_created = sorted(
+        {
+            item["path"]
+            for item in execution.operations_applied
+            if item["op"] in {"write_file", "update_file"}
+        }
+    )
+
+    validation_plan = sorted(plan.planned_validation_surface)
+
     return {
         "status": "ok",
         "spec_root": specs.spec_root,
@@ -77,6 +87,11 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         "ir": ir.to_dict(),
         "plan": plan.to_dict(),
         "execution": execution.to_dict(),
+        "files_created_summary": {
+            "count": len(files_created),
+            "paths": files_created,
+        },
+        "validation_plan": validation_plan,
     }
 
 

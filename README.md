@@ -83,7 +83,7 @@ Output archive is in `dist/` directory, ready to distribute or deploy.
 - Inspection CLI: operator-readable run inspection output from saved records
 - Nexus0.5 mission mode: enabled with mission-specific run metadata and controls
 - Commercial planning: app archetype resolution and controlled stack selection for spec-driven builds
-- Build planning: machine-readable build plans with planned structure, modules, and validation surface
+- Build generation: deterministic commercial starter app generation with machine-readable summaries and validation plan
 
 ## Commercial Build Support
 
@@ -130,6 +130,45 @@ Build command options:
 
 - `--spec <path>`: canonical spec bundle directory (default: `specs`)
 - `--target <path>`: target repository path for scaffold output
+
+## What build now generates
+
+For the first-class stack (`react_next` + `fastapi` + `postgres` + `docker_compose`), build mode now generates a real starter application into the `--target` repository, including:
+
+- Frontend React/Next workspace shell with:
+	- one command/input surface
+	- one main content/work surface
+	- one status/response panel
+- Backend FastAPI service shell with:
+	- `/health`
+	- `/ready`
+	- `/version`
+	- `/api/workspace/execute`
+- Postgres-oriented runtime env scaffolding
+- Docker Compose local deployment scaffold
+- Root README with run instructions
+- Basic backend endpoint tests and frontend shell checks
+
+Build JSON output includes:
+
+- `files_created_summary` (deterministic file list and count)
+- `validation_plan` (deterministic validation checklist)
+- `plan` and `execution` details
+
+## Using a generated app
+
+After generating an app:
+
+```bash
+python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
+cd /tmp/my-app
+docker compose up
+```
+
+Then open:
+
+- Frontend: `http://localhost:3000`
+- API health: `http://localhost:8000/health`
 
 ## One clear operator path
 

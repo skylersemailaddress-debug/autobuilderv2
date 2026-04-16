@@ -13,7 +13,12 @@ def test_prepare_build_plan_is_archetype_and_stack_aware():
 
     assert plan.archetype_chosen["name"] == "saas_web_app"
     assert plan.stack_chosen["frontend"]["name"] == "react_next"
-    assert "api/" in plan.planned_repo_structure
+    assert "frontend/" in plan.planned_repo_structure
+    assert "backend/" in plan.planned_repo_structure
     assert ".autobuilder/build_plan.json" in plan.planned_modules
+    assert "frontend/app/page.tsx" in plan.planned_modules
+    assert "backend/api/main.py" in plan.planned_modules
+    assert "docker-compose.yml" in plan.planned_modules
     assert "signup_to_activation" in plan.planned_validation_surface
     assert "frontend_build" in plan.planned_validation_surface
+    assert "backend_pytest_endpoints" in plan.planned_validation_surface

@@ -4,14 +4,13 @@ This document defines the canonical spec bundle and the current build-mode compi
 
 ## Scope
 
-This tranche adds a deterministic compiler spine and commercial planning surface:
+This tranche adds a deterministic compiler spine and commercial generation surface:
 
 1. Load and validate canonical specs.
 2. Resolve app archetype and stack selections.
 3. Compile normalized specs into internal IR.
 4. Prepare and execute a target-repo build plan.
-
-It does not add full framework-specific code generation yet.
+5. Generate a real starter app scaffold for the first-class stack.
 
 ## Canonical Spec Bundle
 
@@ -47,7 +46,7 @@ First-class supported stack selections in this tranche:
 - database: `postgres`
 - deployment: `docker_compose`
 
-Registry placeholders may exist for future expansion, but only the first-class stack above is in scope for deterministic planning in this tranche.
+Registry placeholders may exist for future expansion, but only the first-class stack above is in scope for deterministic planning and generation in this tranche.
 
 Current parser behavior:
 
@@ -95,15 +94,18 @@ Minimum behavior:
 7. execute target repo mutations
 8. emit machine-readable summary JSON
 
-Build output currently scaffolds:
+Build output now generates:
 
 - `.autobuilder/ir.json`
 - `.autobuilder/build_plan.json`
-- `app/README.md`
-- `api/README.md`
-- `db/README.md`
-- `validation/README.md`
-- `README.md` create or append metadata
+- `.autobuilder/README.md`
+- `README.md` with startup and test instructions
+- `frontend/*` React/Next shell
+- `backend/*` FastAPI service and endpoint tests
+- `db/schema.sql`
+- `docker-compose.yml`
+- `.env.example` and backend env example
+- `docs/OPERATOR.md`
 
 Structured build plan output includes:
 
@@ -112,6 +114,23 @@ Structured build plan output includes:
 - `planned_repo_structure`
 - `planned_modules`
 - `planned_validation_surface`
+
+Structured build result output includes:
+
+- `files_created_summary`
+- `validation_plan`
+- `execution.operations_applied` with deterministic hashes
+
+## Template Packs
+
+Internal template packs are used to build the app scaffold (no donor repository merge strategy):
+
+- frontend shell templates
+- API service templates
+- runtime/config templates
+- deployment templates
+
+Template generation is implemented in `generator/template_packs.py` and consumed through `generator/plan.py`.
 
 ## Target Repo Mutation Foundation
 
@@ -133,8 +152,8 @@ Safety guarantees:
 
 ## Current Limitations
 
-- No full universal code generation templates yet.
+- Only one first-class stack is generated in this tranche.
 - YAML fallback without `PyYAML` requires JSON-compatible YAML syntax.
-- Build scaffold is intentionally minimal and deterministic.
+- Generated starter is intentionally clean and minimal but deployable locally.
 - Only the `react_next` + `fastapi` + `postgres` + `docker_compose` stack is first-class in this tranche.
 - Existing readiness/proof/benchmark/mission/repair flows are unchanged.
