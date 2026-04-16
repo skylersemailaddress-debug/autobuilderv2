@@ -34,12 +34,17 @@ def test_prepare_build_plan_is_archetype_and_stack_aware():
     assert "docs/PROOF_OF_RUN.md" in plan.planned_modules
     assert ".autobuilder/proof_report.json" in plan.planned_modules
     assert ".autobuilder/readiness_report.json" in plan.planned_modules
+    assert ".autobuilder/validation_summary.json" in plan.planned_modules
+    assert ".autobuilder/determinism_signature.json" in plan.planned_modules
     assert "signup_to_activation" in plan.planned_validation_surface
     assert "frontend_build" in plan.planned_validation_surface
-    assert "enterprise_ui_state_surfaces_present" in plan.planned_validation_surface
-    assert "enterprise_operator_placeholders_present" in plan.planned_validation_surface
-    assert "enterprise_backend_essentials_present" in plan.planned_validation_surface
-    assert "enterprise_proof_readiness_files_present" in plan.planned_validation_surface
+    assert "required_repo_structure_present" in plan.planned_validation_surface
+    assert "frontend_shell_essentials_present" in plan.planned_validation_surface
+    assert "backend_endpoint_essentials_present" in plan.planned_validation_surface
+    assert "env_config_essentials_present" in plan.planned_validation_surface
+    assert "docker_deployment_essentials_present" in plan.planned_validation_surface
+    assert "proof_readiness_artifacts_present" in plan.planned_validation_surface
+    assert "enterprise_polish_surface_presence" in plan.planned_validation_surface
     assert plan.planned_repo_structure == sorted(plan.planned_repo_structure)
     assert plan.planned_modules == sorted(plan.planned_modules)
     assert plan.planned_validation_surface == sorted(plan.planned_validation_surface)

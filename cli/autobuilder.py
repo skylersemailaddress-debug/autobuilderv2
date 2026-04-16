@@ -17,12 +17,16 @@ from cli.inspect import inspect_run
 from cli.mission import resume_mission, run_mission
 from generator.executor import apply_build_plan
 from generator.plan import prepare_build_plan
+from generator.template_packs import generate_first_class_templates
 from ir.compiler import compile_specs_to_ir
+from ir.model import AppIR
 from readiness.checks import run_readiness_checks
 from readiness.report import build_readiness_report
 from stack_registry.registry import StackRegistryResolutionError
 from specs.loader import SpecValidationError, load_spec_bundle
 from validator.generated_app import validate_generated_app
+from validator.generated_app_proof import emit_generated_app_proof_artifacts
+from validator.generated_app_repair import repair_generated_app
 
 
 def _print(data, as_json: bool) -> None:
@@ -74,19 +78,47 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
 
     def _build_once(
         target_repo: str,
-    ) -> tuple[object, object, object, list[str], list[str], dict[str, object]]:
+    ) -> tuple[
+        object,
+        object,
+        object,
+        list[str],
+        list[str],
+        dict[str, object],
+        dict[str, object],
+    ]:
         plan = prepare_build_plan(ir, target_repo)
         execution = apply_build_plan(plan)
+
         generated_app_validation = validate_generated_app(target_repo)
+        repair_report: dict[str, object] = {
+            "repair_status": "none",
+            "repaired_issues": [],
+            "unrepaired_blockers": [],
+            "repairs_applied": 0,
+            "max_repairs": 24,
+        }
         if generated_app_validation["all_passed"] is not True:
-            failed_checks = [
-                check["name"]
-                for check in generated_app_validation["checks"]
-                if check["passed"] is not True
-            ]
-            raise RuntimeError(
-                "Generated app enterprise validation failed: " + ", ".join(failed_checks)
+            repair_report = repair_generated_app(
+                target_repo=target_repo,
+                validation_report=generated_app_validation,
+                expected_templates=generate_first_class_templates(ir),
+                max_repairs=24,
             )
+            generated_app_validation = validate_generated_app(target_repo)
+
+        unrepaired_blockers = list(repair_report.get("unrepaired_blockers", []))
+        if generated_app_validation["all_passed"] is not True and not unrepaired_blockers:
+            for failed_check in generated_app_validation.get("failed_checks", []):
+                unrepaired_blockers.append(
+                    {
+                        "check": str(failed_check),
+                        "item": str(failed_check),
+                        "reason": "validation still failing after repair attempt",
+                    }
+                )
+            repair_report["unrepaired_blockers"] = unrepaired_blockers
+            repair_report["repair_status"] = "partial"
 
         files_created = sorted(
             {
@@ -103,6 +135,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
             files_created,
             validation_plan,
             generated_app_validation,
+            repair_report,
         )
 
     specs = load_spec_bundle(spec_path)
@@ -114,6 +147,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         files_created,
         validation_plan,
         generated_app_validation,
+        repair_report,
     ) = _build_once(target_path)
     primary_plan_payload = plan.to_dict()
     primary_plan_payload["target_repo"] = "__TARGET_REPO__"
@@ -126,6 +160,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         },
         "validation_plan": validation_plan,
         "generated_app_validation": generated_app_validation,
+        "repair_report": repair_report,
         "output_hash": execution.output_hash,
         "output_files": execution.output_files,
     }
@@ -139,6 +174,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
             repeat_files,
             repeat_validation,
             repeat_generated_app_validation,
+            repeat_repair_report,
         ) = _build_once(repeat_target)
         repeat_plan_payload = repeat_plan.to_dict()
         repeat_plan_payload["target_repo"] = "__TARGET_REPO__"
@@ -150,6 +186,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
             },
             "validation_plan": repeat_validation,
             "generated_app_validation": repeat_generated_app_validation,
+            "repair_report": repeat_repair_report,
             "output_hash": repeat_execution.output_hash,
             "output_files": repeat_execution.output_files,
         }
@@ -167,8 +204,36 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         }
     )
 
+    determinism = {
+        "verified": True,
+        "build_signature_sha256": primary_hash,
+        "proof_signature_sha256": proof_signature,
+        "repeat_build_match_required": True,
+    }
+
+    proof_artifacts = emit_generated_app_proof_artifacts(
+        target_repo=plan.target_repo,
+        build_status="ok",
+        validation_report=generated_app_validation,
+        determinism=determinism,
+        repair_report=repair_report,
+    )
+
+    unrepaired_blockers = list(repair_report.get("unrepaired_blockers", []))
+    if unrepaired_blockers:
+        raise RuntimeError(
+            "Generated app validation failed after repair: "
+            + ", ".join(str(item.get("check", "unknown")) for item in unrepaired_blockers)
+        )
+
+    validation_status = str(generated_app_validation.get("validation_status", "failed"))
+    build_status = "ok" if validation_status == "passed" else "failed"
+
     return {
         "status": "ok",
+        "build_status": build_status,
+        "validation_status": validation_status,
+        "proof_status": proof_artifacts["proof_status"],
         "spec_root": specs.spec_root,
         "target_repo": plan.target_repo,
         "ir": ir.to_dict(),
@@ -180,12 +245,85 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         },
         "validation_plan": validation_plan,
         "generated_app_validation": generated_app_validation,
-        "determinism": {
-            "verified": True,
-            "build_signature_sha256": primary_hash,
-            "proof_signature_sha256": proof_signature,
-            "repeat_build_match_required": True,
-        },
+        "repair_report": repair_report,
+        "repaired_issues": repair_report.get("repaired_issues", []),
+        "unrepaired_blockers": repair_report.get("unrepaired_blockers", []),
+        "proof_artifacts": proof_artifacts,
+        "determinism": determinism,
+    }
+
+
+def run_generated_app_validation_workflow(target_path: str, repair: bool = False) -> dict:
+    target = Path(target_path).resolve()
+    validation = validate_generated_app(target)
+
+    repair_report: dict[str, object] = {
+        "repair_status": "none",
+        "repaired_issues": [],
+        "unrepaired_blockers": [],
+        "repairs_applied": 0,
+        "max_repairs": 24,
+    }
+
+    repair_templates = None
+    ir_path = target / ".autobuilder" / "ir.json"
+    if ir_path.exists():
+        ir_payload = json.loads(ir_path.read_text(encoding="utf-8"))
+        repair_templates = generate_first_class_templates(AppIR(**ir_payload))
+
+    if repair and validation["all_passed"] is not True:
+        repair_report = repair_generated_app(
+            target_repo=target,
+            validation_report=validation,
+            expected_templates=repair_templates,
+            max_repairs=24,
+        )
+        validation = validate_generated_app(target)
+
+    validation_status = str(validation.get("validation_status", "failed"))
+    return {
+        "status": "ok",
+        "target_repo": str(target),
+        "validation_status": validation_status,
+        "build_status": "ok" if validation_status == "passed" else "failed",
+        "proof_status": "pending",
+        "generated_app_validation": validation,
+        "repair_report": repair_report,
+        "repaired_issues": repair_report.get("repaired_issues", []),
+        "unrepaired_blockers": repair_report.get("unrepaired_blockers", []),
+    }
+
+
+def run_generated_app_proof_workflow(target_path: str, repair: bool = True) -> dict:
+    validation_result = run_generated_app_validation_workflow(target_path=target_path, repair=repair)
+    target = validation_result["target_repo"]
+
+    determinism_payload = {
+        "verified": False,
+        "build_signature_sha256": "",
+        "proof_signature_sha256": "",
+        "repeat_build_match_required": True,
+    }
+    proof_artifacts = emit_generated_app_proof_artifacts(
+        target_repo=target,
+        build_status=validation_result["build_status"],
+        validation_report=validation_result["generated_app_validation"],
+        determinism=determinism_payload,
+        repair_report=validation_result["repair_report"],
+    )
+
+    return {
+        "status": "ok",
+        "target_repo": target,
+        "build_status": validation_result["build_status"],
+        "validation_status": validation_result["validation_status"],
+        "proof_status": proof_artifacts["proof_status"],
+        "generated_app_validation": validation_result["generated_app_validation"],
+        "repair_report": validation_result["repair_report"],
+        "repaired_issues": validation_result["repaired_issues"],
+        "unrepaired_blockers": validation_result["unrepaired_blockers"],
+        "proof_artifacts": proof_artifacts,
+        "determinism": determinism_payload,
     }
 
 
@@ -241,6 +379,32 @@ def main() -> int:
     )
     build_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output")
 
+    validate_app_parser = subparsers.add_parser(
+        "validate-app", help="Validate generated app essentials and optionally repair defects"
+    )
+    validate_app_parser.add_argument("--target", required=True, help="Target generated app path")
+    validate_app_parser.add_argument(
+        "--repair",
+        action="store_true",
+        help="Attempt bounded repairs for missing generated-app essentials",
+    )
+    validate_app_parser.add_argument(
+        "--json", action="store_true", help="Print machine-readable JSON output"
+    )
+
+    proof_app_parser = subparsers.add_parser(
+        "proof-app", help="Emit generated-app proof artifacts and certification status"
+    )
+    proof_app_parser.add_argument("--target", required=True, help="Target generated app path")
+    proof_app_parser.add_argument(
+        "--repair",
+        action="store_true",
+        help="Attempt bounded repairs before proof certification",
+    )
+    proof_app_parser.add_argument(
+        "--json", action="store_true", help="Print machine-readable JSON output"
+    )
+
     args = parser.parse_args()
 
     if args.command == "mission":
@@ -283,6 +447,16 @@ def main() -> int:
             return 2
         _print(result, args.json)
         return 0
+
+    if args.command == "validate-app":
+        result = run_generated_app_validation_workflow(target_path=args.target, repair=args.repair)
+        _print(result, args.json)
+        return 0 if result["validation_status"] == "passed" else 2
+
+    if args.command == "proof-app":
+        result = run_generated_app_proof_workflow(target_path=args.target, repair=args.repair)
+        _print(result, args.json)
+        return 0 if str(result["proof_status"]).startswith("certified") else 2
 
     parser.error("Unknown command")
     return 1

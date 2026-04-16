@@ -843,6 +843,30 @@ def _readiness_report_json() -> str:
   )
 
 
+def _validation_summary_json() -> str:
+  return _json_pretty(
+    {
+      "validation_status": "pending",
+      "all_passed": False,
+      "passed_count": 0,
+      "failed_count": 0,
+      "total_checks": 0,
+      "failed_checks": [],
+    }
+  )
+
+
+def _determinism_signature_json() -> str:
+  return _json_pretty(
+    {
+      "verified": False,
+      "build_signature_sha256": "",
+      "proof_signature_sha256": "",
+      "repeat_build_match_required": True,
+    }
+  )
+
+
 def _docker_compose() -> str:
     return '''services:
   frontend:
@@ -951,10 +975,13 @@ This directory records deterministic metadata about the generated starter app.
 
 def _build_validation_plan() -> list[str]:
     return [
-    "enterprise_ui_state_surfaces_present",
-    "enterprise_operator_placeholders_present",
-    "enterprise_backend_essentials_present",
-    "enterprise_proof_readiness_files_present",
+    "required_repo_structure_present",
+    "frontend_shell_essentials_present",
+    "backend_endpoint_essentials_present",
+    "env_config_essentials_present",
+    "docker_deployment_essentials_present",
+    "proof_readiness_artifacts_present",
+    "enterprise_polish_surface_presence",
         "backend_pytest_endpoints",
         "frontend_shell_structure_check",
         "docker_compose_service_boot",
@@ -1023,6 +1050,8 @@ def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
         GeneratedTemplate(path=".autobuilder/README.md", content=_generated_readme()),
         GeneratedTemplate(path=".autobuilder/proof_report.json", content=_proof_report_json(ir)),
         GeneratedTemplate(path=".autobuilder/readiness_report.json", content=_readiness_report_json()),
+        GeneratedTemplate(path=".autobuilder/validation_summary.json", content=_validation_summary_json()),
+        GeneratedTemplate(path=".autobuilder/determinism_signature.json", content=_determinism_signature_json()),
     ]
 
 

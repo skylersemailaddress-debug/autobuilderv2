@@ -41,6 +41,12 @@ python cli/autobuilder.py proof --json
 # Compile canonical specs into a target repository scaffold
 python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
 
+# Validate generated app structure/surfaces and auto-repair common defects
+python cli/autobuilder.py validate-app --target /tmp/my-app --repair --json
+
+# Emit generated-app proof certification artifacts
+python cli/autobuilder.py proof-app --target /tmp/my-app --repair --json
+
 # Start a mission (autonomous execution)
 python cli/autobuilder.py mission "Your goal here" --json
 
@@ -162,7 +168,27 @@ Build JSON output includes:
 - `files_created_summary` (deterministic file list and count)
 - `validation_plan` (deterministic validation checklist)
 - `generated_app_validation` (enterprise UX/backend/proof readiness checks)
+- `build_status`, `validation_status`, `proof_status`
+- `repaired_issues` and `unrepaired_blockers`
+- `repair_report` and `proof_artifacts`
 - `plan` and `execution` details
+
+Generated-app validation mode checks:
+
+- required repo structure
+- frontend shell essentials
+- backend endpoint essentials
+- env/config essentials
+- docker/deployment essentials
+- proof/readiness artifact presence
+- enterprise polish surface presence
+
+Generated-app proof artifacts:
+
+- `.autobuilder/proof_report.json`
+- `.autobuilder/readiness_report.json`
+- `.autobuilder/validation_summary.json`
+- `.autobuilder/determinism_signature.json`
 
 ## Using a generated app
 

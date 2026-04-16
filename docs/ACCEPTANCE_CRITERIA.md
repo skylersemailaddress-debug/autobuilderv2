@@ -15,6 +15,8 @@
 - Must generate health/readiness/version endpoints plus operator/admin/audit backend placeholders
 - Must emit proof/readiness artifact files for generated apps
 - Must fail build when generated-app enterprise validation checks do not pass
+- Must attempt bounded auto-repair for common generated-app defects in first-class stack output
+- Must emit machine-readable build/validation/proof status plus repaired/unrepaired issue details
 
 ## Launch Criteria
 - Repeatable success across multiple builds

@@ -40,6 +40,8 @@ def test_apply_build_plan_writes_expected_files(tmp_path: Path):
     assert (target / "docs" / "PROOF_OF_RUN.md").exists()
     assert (target / ".autobuilder" / "proof_report.json").exists()
     assert (target / ".autobuilder" / "readiness_report.json").exists()
+    assert (target / ".autobuilder" / "validation_summary.json").exists()
+    assert (target / ".autobuilder" / "determinism_signature.json").exists()
 
     frontend_page = (target / "frontend" / "app" / "page.tsx").read_text(encoding="utf-8")
     assert 'data-testid="workspace-shell"' in frontend_page

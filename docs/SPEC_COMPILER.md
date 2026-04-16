@@ -12,6 +12,8 @@ This tranche adds a deterministic compiler spine and commercial generation surfa
 4. Prepare and execute a target-repo build plan.
 5. Generate a real starter app scaffold for the first-class stack.
 6. Enforce enterprise generated-app validation gates before build succeeds.
+7. Attempt bounded generated-app repairs for common stack defects.
+8. Emit proof certification artifacts for generated-app trust signals.
 
 ## Canonical Spec Bundle
 
@@ -132,6 +134,9 @@ Structured build result output includes:
 - `files_created_summary`
 - `validation_plan`
 - `generated_app_validation`
+- `build_status`, `validation_status`, `proof_status`
+- `repair_report`, `repaired_issues`, `unrepaired_blockers`
+- `proof_artifacts`
 - `execution.operations_applied` with deterministic hashes
 
 ## Template Packs
@@ -169,6 +174,33 @@ Safety guarantees:
 - path traversal outside target is rejected
 - each applied operation includes machine-readable status and hash
 - generated app must pass enterprise validation checks before build returns success
+
+## Generated-App Validation/Repair/Proof Commands
+
+Validate generated app shape:
+
+```bash
+python cli/autobuilder.py validate-app --target <repo_path> --json
+```
+
+Validate and bounded-repair generated app:
+
+```bash
+python cli/autobuilder.py validate-app --target <repo_path> --repair --json
+```
+
+Emit generated-app proof artifacts and certification status:
+
+```bash
+python cli/autobuilder.py proof-app --target <repo_path> --repair --json
+```
+
+Proof artifacts written under `.autobuilder/`:
+
+- `proof_report.json`
+- `readiness_report.json`
+- `validation_summary.json`
+- `determinism_signature.json`
 
 ## Support Tiers
 
