@@ -27,6 +27,7 @@ from validator.confidence import calculate_confidence
 from validator.validator import Validator
 from control_plane.approvals import require_approval
 from policies.action_policy import ActionPolicy
+from planner.context import build_planning_context
 
 DEFAULT_GOAL = "Build an autonomous execution plan"
 
@@ -72,9 +73,24 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         serialize_event(create_event("run_started", {"run_id": run_id})),
     ]
 
-    tasks = planner.create_plan(goal)
-    events.append(serialize_event(create_event("plan_created", {"goal": goal, "task_count": len(tasks)})))
-    checkpoints.append(asdict(create_checkpoint("plan_created", {"task_count": len(tasks), "goal": goal})))
+    # Query durable memory for relevant context
+    memory_hits = durable_memory_store.search_memories(goal)
+    memory_context = {hit["key"]: hit["value"] for hit in memory_hits}
+    
+    # Build planning context
+    recent_summary = memory_context.get("summary")
+    planning_context = build_planning_context(goal, memory_context, recent_summary)
+    
+    # Create plan with context
+    plan_result = planner.create_plan(goal, planning_context)
+    tasks = plan_result["tasks"]
+    plan_metadata = plan_result["metadata"]
+    
+    events.append(serialize_event(create_event("plan_created", {"goal": goal, "task_count": len(tasks), "memory_used": plan_metadata["memory_used"]})))
+    checkpoints.append(asdict(create_checkpoint("plan_created", {"task_count": len(tasks), "goal": goal, "memory_used": plan_metadata["memory_used"]})))
+
+    # Classify action and create approval if needed
+    policy = action_policy.classify_action(goal, [serialize_task(task) for task in tasks])
 
     # Classify action and create approval if needed
     policy = action_policy.classify_action(goal, [serialize_task(task) for task in tasks])
@@ -161,6 +177,10 @@ def perform_run(run_id, goal=DEFAULT_GOAL):
         "checkpoints": checkpoints,
         "confidence": confidence,
         "policy": policy,
+        "memory_context": memory_context,
+        "memory_used": plan_metadata["memory_used"],
+        "memory_hits": len(memory_hits),
+        "plan_metadata": plan_metadata,
         "validation_result": validation_result,
         "validation": validation_result,
         "repair_used": repair_used,

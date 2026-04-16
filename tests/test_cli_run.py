@@ -72,5 +72,12 @@ def test_cli_run_script():
     assert "summary" in data["durable_memory_keys"]
     assert data["summary"].get("risk_level") == data["policy"]["risk_level"]
     assert data["summary"].get("approval_required") == data["policy"]["approval_required"]
+    assert isinstance(data.get("memory_context"), dict)
+    assert isinstance(data.get("memory_used"), bool)
+    assert isinstance(data.get("memory_hits"), int)
+    assert isinstance(data.get("plan_metadata"), dict)
+    assert data["plan_metadata"]["memory_used"] == data["memory_used"]
+    assert data["summary"].get("memory_used") == data["memory_used"]
+    assert data["summary"].get("memory_hits") == data["memory_hits"]
 
     saved_path.unlink()

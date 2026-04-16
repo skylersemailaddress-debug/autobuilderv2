@@ -26,6 +26,25 @@ class JsonMemoryStore:
         data = self._load_data()
         return list(data.keys())
 
+    def search_memories(self, query: str) -> list[dict]:
+        """Search memories using simple keyword matching."""
+        data = self._load_data()
+        results = []
+        query_lower = query.lower()
+        
+        for key, value in data.items():
+            if isinstance(value, dict):
+                # Search in string values
+                for field_value in value.values():
+                    if isinstance(field_value, str) and query_lower in field_value.lower():
+                        results.append({"key": key, "value": value})
+                        break
+                # Also search in the key itself
+                if query_lower in key.lower():
+                    results.append({"key": key, "value": value})
+        
+        return results
+
     def _load_data(self) -> Dict:
         try:
             return json.loads(self.file_path.read_text())
@@ -34,3 +53,5 @@ class JsonMemoryStore:
 
     def _save_data(self, data: Dict):
         self.file_path.write_text(json.dumps(data, indent=2))
+
+
