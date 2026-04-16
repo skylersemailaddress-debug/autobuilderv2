@@ -1,141 +1,372 @@
-# Operator Workflow
+# AutobuilderV2 Operator Workflow
 
-This runbook describes day-to-day operation of AutobuilderV2 for Nexus0.5-oriented work.
+Complete runbook for operating AutobuilderV2 locally and in enterprise contexts.
 
-## Canonical top-level command
+## 0. Bootstrap (First-Time Setup)
 
-Use the top-level CLI for all normal operations:
+Initialize a clean local development environment:
+
+```bash
+scripts/bootstrap_local.sh
+```
+
+This:
+- Creates a Python virtual environment (.venv/)
+- Installs all project dependencies
+- Prints canonical next commands
+- Safe to run repeatedly (idempotent)
+
+After bootstrap, the environment is ready for all operational workflows below.
+
+## 1. Canonical Top-Level Operations
+
+Use the top-level CLI for all standard operations:
 
 ```bash
 python cli/autobuilder.py --help
 ```
 
-## One-button mission flow
+Available commands: `mission`, `resume`, `inspect`, `benchmark`, `readiness`, `proof`
 
-1. Start mission mode in one command:
+### 1a. Check System Readiness
+
+Before starting missions, verify the system is ready:
 
 ```bash
-python cli/autobuilder.py mission "Build an autonomous execution plan" --json
+python cli/autobuilder.py readiness --json
 ```
 
-2. Capture `run_id`, `saved_path`, and `mission_result_path` from output.
-3. If mission pauses for approval, check `awaiting_approval=true` and use `resume_hint`.
-4. Inspect mission state at any time:
+This runs deterministic checks on:
+- Core autonomy capability
+- Validation and repair behavior
+- Approval and governance mechanisms
+- Inspection and tracing
+- Benchmark baseline stability
+- Overall system state
+
+Exit code 0 = ready. Non-zero = investigate before proceeding.
+
+### 1b. Run Proof of Execution
+
+Validate that the system executes correctly end-to-end:
+
+```bash
+python cli/autobuilder.py proof --json
+```
+
+This runs the complete proof workflow:
+- Plans and executes a simple goal
+- Validates all expected outcomes
+- Returns complete proof transcript
+- Safe to run repeatedly
+
+Use `proof` as a deterministic validation gate in CI/CD or before mission work.
+
+### 1c. Start a Mission
+
+Execute a goal autonomously with governance:
+
+```bash
+python cli/autobuilder.py mission "Your goal here" --json
+```
+
+Captures from output:
+- `run_id`: unique run identifier for inspection/resume
+- `saved_path`: location of persisted run record (JSON)
+- `mission_result`: final outcome and confidence
+- `awaiting_approval`: true if mission paused for approval
+
+### 1d. Inspect a Run
+
+View operator-friendly details of any run:
 
 ```bash
 python cli/autobuilder.py inspect <run_id> --json
 ```
 
-5. Resume after approval:
+Check:
+- `final_status`: completed, awaiting_approval, failed
+- `confidence`: outcome confidence (0-100%)
+- `repair_count`: how many times system repaired itself
+- `events`: full execution trace
+- `approval_request`: governance decision context if paused
+
+### 1e. Resume After Approval
+
+Continue a paused mission:
 
 ```bash
 python cli/autobuilder.py resume <run_id> --approve --json
 ```
 
-6. Run benchmark and readiness gates:
+Use `--approve` to allow continuation or omit to check status only.
+
+Behavior:
+- Mission in `awaiting_approval` resumes if approved
+- pending/denied approvals do not continue
+- Execution picks up from checkpoint
+
+### 1f. Run Benchmarks
+
+Regression test the system against known cases:
 
 ```bash
 python cli/autobuilder.py benchmark --json
-python cli/autobuilder.py readiness --with-benchmarks --json
 ```
 
-## 1. Start a run
+Executes all benchmark cases:
+- `simple_low_risk_mission`
+- `repair_required_mission`
+- `approval_required_dangerous_mission`
+- `repo_targeted_mission`
+- `nexus_mission_mode_run`
+- `interrupted_resumable_mission`
 
-1. Choose execution mode.
-2. Run standard mode for baseline autonomy:
+Output includes:
+- Per-case pass/fail
+- Confidence metrics
+- Performance metrics
+- Regression summary
+
+## 2. Cleanup Runtime Artifacts
+
+Safely remove all generated state and cache:
+
+```bash
+scripts/clean_runtime.sh
+```
+
+Removes:
+- `runs/*.json` (run records)
+- `memory/*.json` (memory artifacts)
+- `__pycache__/` (Python cache)
+- `*.pyc` (compiled Python)
+- `.pytest_cache/` (test cache)
+
+Preserves:
+- Source code
+- Tests
+- Documentation
+- Configuration
+
+Safe to run repeatedly. Prompts for confirmation.
+
+## 3. Packaging for Distribution
+
+Create a clean, distributable archive:
+
+```bash
+scripts/package_release.sh
+```
+
+Creates a versioned zip in `dist/` containing:
+- All source code
+- Tests
+- Documentation
+- Scripts and bootstraps
+- Configuration files
+
+Excludes:
+- Runtime artifacts (runs/, memory/)
+- Virtual environment
+- Python cache
+- Generated noise
+
+Use for:
+- Distribution to other machines
+- Version releases
+- Archival and backup
+- CI/CD staging
+
+## 4. Advanced: Direct Module CLIs
+
+For advanced workflows, use module-level CLIs directly:
+
+### 4a. Standard Autonomous Execution
 
 ```bash
 python cli/run.py
 ```
 
-3. Run Nexus mission mode when governance metadata is required:
+Prints `run_id`, `status`, `saved_path` for the persisted record.
+
+### 4b. Nexus Mission Mode
+
+Governance-oriented execution with mission metadata:
 
 ```bash
 python cli/run.py --nexus
 ```
 
-4. Capture `run_id` and `saved_path` from command output.
+Includes approval controls, mission-level policies, and governance decoration.
 
-## 2. Handle approval pauses
+### 4c. Mission API
 
-1. Detect pause by checking `status=awaiting_approval` or `awaiting_approval=true` in the saved run record.
-2. Review `control_state.reason`, `policy`, and `approval_request` fields.
-3. Set approval request status to one of:
-   - `approved` to continue
-   - `denied` to stop
-4. Keep an audit note for why the approval decision was made.
-
-## 3. Resume runs
-
-1. Resume with:
+Direct mission execution:
 
 ```bash
-python cli/autobuilder.py resume <run_id>
+python cli/mission.py "Build something" --json
 ```
 
-2. Confirm expected behavior:
-   - approved pause resumes execution
-   - pending approval remains paused
-   - denied approval does not continue
-3. Re-open the saved JSON record and verify updated `status`, `events`, and `summary`.
-
-## 4. Inspect runs
-
-1. Quick operator output:
+Resume a mission:
 
 ```bash
-python cli/autobuilder.py inspect <run_id>
+python cli/mission.py --resume <run_id> --approve --json
 ```
 
-2. Structured output for tooling:
+### 4d. Inspection API
+
+Plain-text operator report:
 
 ```bash
+python cli/inspect.py <run_id>
+```
+
+Structured JSON output for tooling:
+
+```bash
+python cli/inspect.py <run_id> --json
+```
+
+### 4e. Resume API
+
+Manually update approval status and resume:
+
+```bash
+python cli/resume.py <run_id>
+```
+
+First, manually edit the saved run record to set approval status to `approved` or `denied`.
+
+## 5. Day-to-Day Operations Checklist
+
+### Before Mission Work
+
+```bash
+# 1. Bootstrap if first time
+scripts/bootstrap_local.sh
+
+# 2. Clean old artifacts
+scripts/clean_runtime.sh
+
+# 3. Verify readiness
+python cli/autobuilder.py readiness --json
+
+# 4. Run proof
+python cli/autobuilder.py proof --json
+
+# 5. Check benchmarks
+python cli/autobuilder.py benchmark --json
+```
+
+### Running Missions
+
+```bash
+# Start mission
+python cli/autobuilder.py mission "Your goal" --json
+
+# Capture run_id from output
+
+# Inspect status
 python cli/autobuilder.py inspect <run_id> --json
+
+# If awaiting_approval: review, decide, then resume
+python cli/autobuilder.py resume <run_id> --approve --json
 ```
 
-3. Review the core fields:
-   - run identity: `run_id`, `goal`
-   - outcome: `final_status`, `confidence`
-   - stabilization: `repair_count`, `failure_info`
-   - governance: `approval_required`
-   - trace density: `event_count`, `summary`
+### Release/Deployment
 
-## 5. Run benchmarks
+```bash
+# Clean up any runtime artifacts
+scripts/clean_runtime.sh
 
-1. Execute benchmark suite from Python:
+# Run final validation
+python cli/autobuilder.py proof --json
+python cli/autobuilder.py benchmark --json
 
-```python
-from benchmarks.runner import run_benchmark_cases
-from benchmarks.report import build_benchmark_report
+# Package for distribution
+scripts/package_release.sh
 
-results = run_benchmark_cases()
-report = build_benchmark_report(results)
+# Archive or deploy dist/*.zip
 ```
 
-2. Confirm all expected cases are present:
-   - `simple_low_risk_mission`
-   - `repair_required_mission`
-   - `approval_required_dangerous_mission`
-   - `repo_targeted_mission`
-   - `nexus_mission_mode_run`
-   - `interrupted_resumable_mission`
-3. Use report-level metrics (`passed_cases`, `failed_cases`, `average_confidence`) for regression tracking.
+## 6. Troubleshooting
 
-## 6. Evaluate readiness for Nexus0.5 work
+### System Is Not Ready
 
-Use this lightweight gate before Nexus-sensitive tasks:
+Check readiness output and validate:
+- Planner can create task plans
+- Executor can run tasks
+- Validator can assess outcomes
+- Repair logic bounded correctly
+- Approval/resume pathways work
+- All benchmark cases pass
 
-1. Functional outcome:
-   - target runs complete or intentionally pause for approval
-2. Stability:
-   - repairs are bounded and not escalating
-   - confidence is acceptable for task criticality
-3. Governance:
-   - approval pathways behave as expected
-   - pause/resume behavior is deterministic
-4. Regression baseline:
-   - benchmark report has no unexpected case failures
-5. Operator visibility:
-   - inspection output contains enough detail to explain run decisions and failure handling
+### Mission Fails Unexpectedly
 
-If any gate fails, treat the run as non-ready and investigate before Nexus0.5 delivery work.
+```bash
+# Inspect the full run record
+python cli/autobuilder.py inspect <run_id> --json
+
+# Review:
+# - events: full trace of decisions
+# - failure_info: technical failure details
+# - repair_count: bounds on repair loops
+# - confidence: outcome confidence
+
+# Re-run proof to narrow issue
+python cli/autobuilder.py proof --json
+```
+
+### Permission or State Corruption
+
+```bash
+# Clean all runtime state
+scripts/clean_runtime.sh
+
+# Re-bootstrap
+scripts/bootstrap_local.sh
+
+# Re-validate
+python cli/autobuilder.py proof --json
+```
+
+### Archiving / Release Readiness
+
+1. Clean artifacts: `scripts/clean_runtime.sh`
+2. Final validation: `python cli/autobuilder.py proof --json`
+3. Package: `scripts/package_release.sh`
+4. Mark version in docs if needed
+5. Commit to version control
+
+## 7. Interpreting Output
+
+### Run Status
+
+- `completed`: Mission finished successfully
+- `awaiting_approval`: Paused awaiting operator approval decision
+- `failed`: Mission failed validation beyond repair limits
+- `interrupted`: Operator interrupted the mission
+
+### Confidence Metric
+
+- 90-100%: Very high confidence in outcome
+- 70-89%: Good confidence, ready for most work
+- 50-69%: Moderate confidence, recommend inspection
+- <50%: Low confidence, investigate before proceeding
+
+### Repair Count
+
+- 0: No self-repair needed (ideal)
+- 1-2: Minor issues repaired (normal)
+- 3+: Significant repair loops (investigate)
+- Beyond 5: Potential system issue, stop and diagnose
+
+## 8. Enterprise Notes
+
+- **Governance**: Use approval gates for high-risk goals
+- **Audit**: All runs saved as JSON records in runs/ for compliance
+- **Isolation**: Memory and state completely local by default
+- **Portability**: Scripts and bootstrap ensure consistent behavior across machines
+- **Distribution**: Use `scripts/package_release.sh` for clean deployment packages
+- **CI/CD**: Use `python cli/autobuilder.py readiness --json` and `python cli/autobuilder.py proof --json` as validation gates

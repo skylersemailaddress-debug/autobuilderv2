@@ -1,6 +1,68 @@
 # AutobuilderV2
 
-AutobuilderV2 is a stateful autonomous execution kernel for goal-driven software work. It plans tasks, executes work, validates outcomes, performs bounded repair, and records durable run state with operator controls for approvals, resume, inspection, benchmarks, and readiness evaluation.
+## What is AutobuilderV2?
+
+AutobuilderV2 is a **stateful autonomous execution kernel** for goal-driven software work. It:
+
+- **Plans** tasks from high-level goals with repository context injection
+- **Executes** planned work autonomously with durable state recording
+- **Validates** outcomes deterministically with bounded self-repair
+- **Governs** using operator-controlled approval gates and policies
+- **Inspects** via operator-readable run records and status APIs
+- **Tracks** complete lineage and audit trails across runs
+
+Perfect for autonomous workflows, CI/CD pipelines, local development, and enterprise governance scenarios requiring deterministic validation.
+
+## Quick Start
+
+### Local Bootstrap
+
+Initialize a clean development environment (one-time setup):
+
+```bash
+scripts/bootstrap_local.sh
+```
+
+This creates a virtual environment, installs dependencies, and prints next steps.
+
+### Canonical Commands
+
+Run these commands once the environment is bootstrapped:
+
+```bash
+# Check if system is ready
+python cli/autobuilder.py readiness --json
+
+# Run proof-of-execution validation
+python cli/autobuilder.py proof --json
+
+# Start a mission (autonomous execution)
+python cli/autobuilder.py mission "Your goal here" --json
+
+# Inspect any run
+python cli/autobuilder.py inspect <run_id> --json
+
+# Run benchmark regression tests
+python cli/autobuilder.py benchmark --json
+```
+
+### Cleanup Runtime Artifacts
+
+Remove all generated runs, memory, and cache (preserves source/tests/docs):
+
+```bash
+scripts/clean_runtime.sh
+```
+
+### Package for Distribution
+
+Create a clean, distributable archive:
+
+```bash
+scripts/package_release.sh
+```
+
+Output archive is in `dist/` directory, ready to distribute or deploy.
 
 ## Current capabilities
 

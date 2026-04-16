@@ -1,7 +1,66 @@
+# Python build and cache
 __pycache__/
 *.py[cod]
 *.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
 .venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing
 .pytest_cache/
-memory/*.json
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+# IDE
+.vscode/
+.idea/
+.ds_store
+*.swp
+*.swo
+*~
+
+# Runtime artifacts and state
 runs/*.json
+memory/*.json
+runs/
+memory/
+
+# Temporary build artifacts
+*.zip
+*.tar.gz
+dist/
+build/
+*.egg-info/
+
+# Local configuration and secrets
+.env
+.env.local
