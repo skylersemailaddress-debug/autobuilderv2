@@ -16,6 +16,17 @@ This tranche adds a deterministic compiler spine and commercial generation surfa
 8. Emit proof certification artifacts for generated-app trust signals.
 9. Emit packaging and deployment-readiness bundle artifacts for product handoff.
 
+The compiler/build lane is now plugin-driven with deterministic resolution across plugin categories:
+
+- archetype plugins
+- stack plugins
+- generation backend plugins
+- validation plugins
+- repair policy plugins
+- packaging target plugins
+
+Current production lane is the `first_class_commercial` plugin set.
+
 ## Canonical Spec Bundle
 
 Build mode expects a directory containing these files:
@@ -248,6 +259,15 @@ Proof artifacts written under `.autobuilder/`:
 
 - `first_class`: deterministic planning and build-plan support exists now
 - `future`: placeholder registry entry only
+
+## Plugin Registry
+
+`platform_plugins/registry.py` provides:
+
+- automatic plugin registration/discovery
+- plugin inventory listing by type
+- deterministic plugin resolution for the same spec inputs
+- clean failure when no compatible plugin combination exists
 
 ## Current Limitations
 

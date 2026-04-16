@@ -17,33 +17,32 @@ from cli.inspect import inspect_run
 from cli.mission import resume_mission, run_mission
 from generator.executor import apply_build_plan
 from generator.plan import prepare_build_plan
-from generator.template_packs import generate_first_class_templates
 from ir.compiler import compile_specs_to_ir
 from ir.model import AppIR
+from platform_plugins.registry import PluginResolutionError, ResolvedPluginSet, get_plugin_registry
 from readiness.checks import run_readiness_checks
 from readiness.report import build_readiness_report
 from stack_registry.registry import StackRegistryResolutionError
 from specs.loader import SpecValidationError, load_spec_bundle
-from validator.generated_app import validate_generated_app
-from validator.generated_app_proof import emit_generated_app_proof_artifacts
-from validator.generated_app_repair import repair_generated_app
 
 
 def _read_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _assert_first_class_lane(ir: AppIR) -> None:
-    non_first_class: list[str] = []
+def _assert_first_class_lane(plugins: ResolvedPluginSet, ir: AppIR) -> None:
+    unsupported: list[str] = []
     for category, entry in sorted(ir.stack_entries.items()):
         support_tier = str(entry.get("support_tier", "unknown"))
         if support_tier != "first_class":
-            non_first_class.append(f"{category}:{entry.get('name', 'unknown')} ({support_tier})")
-    if non_first_class:
+            unsupported.append(f"{category}:{entry.get('name', 'unknown')} ({support_tier})")
+    if plugins.generation.metadata.lane_id != "first_class_commercial":
+        unsupported.append(f"lane:{plugins.generation.metadata.lane_id}")
+    if unsupported:
         raise RuntimeError(
             "Unsupported commercial lane stack selection. "
             "Only first_class stack entries are allowed in this tranche: "
-            + ", ".join(non_first_class)
+            + ", ".join(unsupported)
         )
 
 
@@ -232,6 +231,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         return hashlib.sha256(encoded).hexdigest()
 
     def _build_once(
+        plugins: ResolvedPluginSet,
         target_repo: str,
     ) -> tuple[
         object,
@@ -242,10 +242,17 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         dict[str, object],
         dict[str, object],
     ]:
-        plan = prepare_build_plan(ir, target_repo)
+        plugin_templates = plugins.generation.generate_templates(ir)
+        plugin_validation_plan = plugins.generation.validation_plan()
+        plan = prepare_build_plan(
+            ir,
+            target_repo,
+            templates=plugin_templates,
+            plugin_validation_plan=plugin_validation_plan,
+        )
         execution = apply_build_plan(plan)
 
-        generated_app_validation = validate_generated_app(target_repo)
+        generated_app_validation = plugins.validation.validate_generated_app(target_repo)
         repair_report: dict[str, object] = {
             "repair_status": "none",
             "repaired_issues": [],
@@ -254,13 +261,13 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
             "max_repairs": 24,
         }
         if generated_app_validation["all_passed"] is not True:
-            repair_report = repair_generated_app(
+            repair_report = plugins.repair.repair_generated_app(
                 target_repo=target_repo,
                 validation_report=generated_app_validation,
-                expected_templates=generate_first_class_templates(ir),
+                expected_templates=plugin_templates,
                 max_repairs=24,
             )
-            generated_app_validation = validate_generated_app(target_repo)
+            generated_app_validation = plugins.validation.validate_generated_app(target_repo)
 
         unrepaired_blockers = list(repair_report.get("unrepaired_blockers", []))
         if generated_app_validation["all_passed"] is not True and not unrepaired_blockers:
@@ -294,8 +301,9 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         )
 
     specs = load_spec_bundle(spec_path)
+    plugins = get_plugin_registry().resolve_plugins(specs.app_type, specs.stack_selection)
     ir = compile_specs_to_ir(specs)
-    _assert_first_class_lane(ir)
+    _assert_first_class_lane(plugins, ir)
     (
         plan,
         execution,
@@ -304,7 +312,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         validation_plan,
         generated_app_validation,
         repair_report,
-    ) = _build_once(target_path)
+    ) = _build_once(plugins, target_path)
     primary_plan_payload = plan.to_dict()
     primary_plan_payload["target_repo"] = "__TARGET_REPO__"
 
@@ -331,7 +339,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
             repeat_validation,
             repeat_generated_app_validation,
             repeat_repair_report,
-        ) = _build_once(repeat_target)
+        ) = _build_once(plugins, repeat_target)
         repeat_plan_payload = repeat_plan.to_dict()
         repeat_plan_payload["target_repo"] = "__TARGET_REPO__"
         repeat_signature = {
@@ -367,7 +375,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         "repeat_build_match_required": True,
     }
 
-    proof_artifacts = emit_generated_app_proof_artifacts(
+    proof_artifacts = plugins.packaging.emit_proof_artifacts(
         target_repo=plan.target_repo,
         build_status="ok",
         validation_report=generated_app_validation,
@@ -487,7 +495,30 @@ def run_ship_workflow(spec_path: str, target_path: str) -> dict:
 
 def run_generated_app_validation_workflow(target_path: str, repair: bool = False) -> dict:
     target = Path(target_path).resolve()
-    validation = validate_generated_app(target)
+    plugins: ResolvedPluginSet | None = None
+    validation: dict[str, object]
+
+    ir_path = target / ".autobuilder" / "ir.json"
+    if ir_path.exists():
+        ir_payload = json.loads(ir_path.read_text(encoding="utf-8"))
+        app_type = str(ir_payload.get("app_type", ""))
+        stack_selection = dict(ir_payload.get("stack_selection", {}))
+        if app_type and stack_selection:
+            plugins = get_plugin_registry().resolve_plugins(app_type, stack_selection)
+
+    if plugins is not None:
+        validation = plugins.validation.validate_generated_app(str(target))
+    else:
+        # Defensive fallback when invoked on repositories not generated by current flow.
+        validation = get_plugin_registry().resolve_plugins(
+            "saas_web_app",
+            {
+                "frontend": "react_next",
+                "backend": "fastapi",
+                "database": "postgres",
+                "deployment": "docker_compose",
+            },
+        ).validation.validate_generated_app(str(target))
 
     repair_report: dict[str, object] = {
         "repair_status": "none",
@@ -498,19 +529,32 @@ def run_generated_app_validation_workflow(target_path: str, repair: bool = False
     }
 
     repair_templates = None
-    ir_path = target / ".autobuilder" / "ir.json"
     if ir_path.exists():
         ir_payload = json.loads(ir_path.read_text(encoding="utf-8"))
-        repair_templates = generate_first_class_templates(AppIR(**ir_payload))
+        if plugins is None:
+            plugins = get_plugin_registry().resolve_plugins(
+                str(ir_payload.get("app_type", "")),
+                dict(ir_payload.get("stack_selection", {})),
+            )
+        repair_templates = plugins.generation.generate_templates(AppIR(**ir_payload))
 
     if repair and validation["all_passed"] is not True:
-        repair_report = repair_generated_app(
+        plugin_for_repair = plugins or get_plugin_registry().resolve_plugins(
+            "saas_web_app",
+            {
+                "frontend": "react_next",
+                "backend": "fastapi",
+                "database": "postgres",
+                "deployment": "docker_compose",
+            },
+        )
+        repair_report = plugin_for_repair.repair.repair_generated_app(
             target_repo=target,
             validation_report=validation,
             expected_templates=repair_templates,
             max_repairs=24,
         )
-        validation = validate_generated_app(target)
+        validation = plugin_for_repair.validation.validate_generated_app(str(target))
 
     validation_status = str(validation.get("validation_status", "failed"))
     return {
@@ -530,13 +574,31 @@ def run_generated_app_proof_workflow(target_path: str, repair: bool = True) -> d
     validation_result = run_generated_app_validation_workflow(target_path=target_path, repair=repair)
     target = validation_result["target_repo"]
 
+    ir_path = Path(target) / ".autobuilder" / "ir.json"
+    if ir_path.exists():
+        ir_payload = json.loads(ir_path.read_text(encoding="utf-8"))
+        plugins = get_plugin_registry().resolve_plugins(
+            str(ir_payload.get("app_type", "")),
+            dict(ir_payload.get("stack_selection", {})),
+        )
+    else:
+        plugins = get_plugin_registry().resolve_plugins(
+            "saas_web_app",
+            {
+                "frontend": "react_next",
+                "backend": "fastapi",
+                "database": "postgres",
+                "deployment": "docker_compose",
+            },
+        )
+
     determinism_payload = {
         "verified": False,
         "build_signature_sha256": "",
         "proof_signature_sha256": "",
         "repeat_build_match_required": True,
     }
-    proof_artifacts = emit_generated_app_proof_artifacts(
+    proof_artifacts = plugins.packaging.emit_proof_artifacts(
         target_repo=target,
         build_status=validation_result["build_status"],
         validation_report=validation_result["generated_app_validation"],
@@ -689,7 +751,13 @@ def main() -> int:
     if args.command == "build":
         try:
             result = run_build_workflow(args.spec, args.target)
-        except (SpecValidationError, ArchetypeResolutionError, StackRegistryResolutionError, RuntimeError) as exc:
+        except (
+            SpecValidationError,
+            ArchetypeResolutionError,
+            StackRegistryResolutionError,
+            PluginResolutionError,
+            RuntimeError,
+        ) as exc:
             _print({"status": "error", "error": str(exc)}, args.json)
             return 2
         _print(result, args.json)
@@ -708,7 +776,13 @@ def main() -> int:
     if args.command == "ship":
         try:
             result = run_ship_workflow(spec_path=args.spec, target_path=args.target)
-        except (SpecValidationError, ArchetypeResolutionError, StackRegistryResolutionError, RuntimeError) as exc:
+        except (
+            SpecValidationError,
+            ArchetypeResolutionError,
+            StackRegistryResolutionError,
+            PluginResolutionError,
+            RuntimeError,
+        ) as exc:
             _print({"status": "error", "error": str(exc)}, args.json)
             return 2
         _print(result, args.json)

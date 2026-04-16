@@ -1,13 +1,13 @@
-from archetypes.catalog import resolve_archetype
+from platform_plugins.registry import get_plugin_registry
 from specs.loader import NormalizedSpecBundle
-from stack_registry.registry import resolve_stack_bundle
 
 from ir.model import AppIR
 
 
 def compile_specs_to_ir(specs: NormalizedSpecBundle) -> AppIR:
-    archetype = resolve_archetype(specs.app_type)
-    stack_entries = resolve_stack_bundle(specs.stack_selection)
+    plugins = get_plugin_registry().resolve_plugins(specs.app_type, specs.stack_selection)
+    archetype = plugins.archetype.resolve_archetype(specs.app_type)
+    stack_entries = plugins.stack.resolve_stack_bundle(specs.stack_selection)
 
     return AppIR(
         app_identity=specs.app_identity,

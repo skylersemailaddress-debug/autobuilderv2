@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from generator.template_packs import first_class_validation_plan, generate_first_class_templates
+from generator.template_packs import GeneratedTemplate, first_class_validation_plan, generate_first_class_templates
 from ir.model import AppIR
 
 
@@ -37,10 +37,16 @@ class BuildPlan:
         }
 
 
-def prepare_build_plan(ir: AppIR, target_repo: str | Path) -> BuildPlan:
+def prepare_build_plan(
+    ir: AppIR,
+    target_repo: str | Path,
+    templates: list[GeneratedTemplate] | None = None,
+    plugin_validation_plan: list[str] | None = None,
+) -> BuildPlan:
     target = Path(target_repo).resolve()
     stack_entries = ir.stack_entries
-    templates = generate_first_class_templates(ir)
+    if templates is None:
+        templates = generate_first_class_templates(ir)
 
     planned_repo_structure = [
         ".autobuilder/",
@@ -90,7 +96,8 @@ def prepare_build_plan(ir: AppIR, target_repo: str | Path) -> BuildPlan:
         for expectation in stack_entries[category]["validation_expectations"]:
             if expectation not in planned_validation_surface:
                 planned_validation_surface.append(expectation)
-    for check in first_class_validation_plan():
+    validation_checks = plugin_validation_plan or first_class_validation_plan()
+    for check in validation_checks:
         if check not in planned_validation_surface:
             planned_validation_surface.append(check)
     planned_validation_surface = sorted(planned_validation_surface)

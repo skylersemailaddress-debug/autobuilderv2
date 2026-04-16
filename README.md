@@ -15,6 +15,15 @@ Perfect for autonomous workflows, CI/CD pipelines, local development, and enterp
 
 AutobuilderV2 now also includes a commercial app-planning spine for spec-driven application builds across a controlled set of first-class archetypes and stacks.
 
+AutobuilderV2 now runs this lane through a plugin platform with deterministic plugin resolution for:
+
+- archetypes
+- stacks
+- code generation backend
+- generated-app validation
+- repair policy
+- packaging/proof targets
+
 ## Quick Start
 
 ### Local Bootstrap
@@ -114,6 +123,12 @@ Support tiers:
 
 - `first_class`: implemented and validated in this tranche
 - `future`: registry placeholder only, not generated or validated yet
+
+Plugin architecture scope in this tranche:
+
+- one production plugin lane: `first_class_commercial`
+- plugin registry resolves compatible plugin combinations deterministically per spec
+- unsupported or incompatible plugin combinations fail cleanly before generation
 
 Not yet supported in this tranche:
 
