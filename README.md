@@ -135,24 +135,33 @@ Build command options:
 
 For the first-class stack (`react_next` + `fastapi` + `postgres` + `docker_compose`), build mode now generates a real starter application into the `--target` repository, including:
 
-- Frontend React/Next workspace shell with:
-	- one command/input surface
-	- one main content/work surface
-	- one status/response panel
-- Backend FastAPI service shell with:
-	- `/health`
-	- `/ready`
-	- `/version`
-	- `/api/workspace/execute`
+- Frontend React/Next enterprise shell with:
+	- coherent shell layout with navigation and header conventions
+	- deterministic loading, empty, error, and success state rendering
+	- command/input surface polish and response-state region
+	- operator-ready route placeholders under `/settings`, `/admin`, and `/activity`
+	- status/notification convention markers used by generated validation
+- Backend FastAPI enterprise surface with:
+	- structured config and startup logging placeholder
+	- structured response envelopes for health, readiness, version, and execute routes
+	- admin/operator/audit route placeholders under `/api/admin`, `/api/operator`, `/api/audit`
+	- clearer readiness payload shape and version metadata
 - Postgres-oriented runtime env scaffolding
 - Docker Compose local deployment scaffold
 - Root README with run instructions
-- Basic backend endpoint tests and frontend shell checks
+- Deterministic backend endpoint tests and frontend shell checks
+- Proof/readiness artifacts:
+	- `docs/ENTERPRISE_POLISH.md`
+	- `docs/READINESS.md`
+	- `docs/PROOF_OF_RUN.md`
+	- `.autobuilder/proof_report.json`
+	- `.autobuilder/readiness_report.json`
 
 Build JSON output includes:
 
 - `files_created_summary` (deterministic file list and count)
 - `validation_plan` (deterministic validation checklist)
+- `generated_app_validation` (enterprise UX/backend/proof readiness checks)
 - `plan` and `execution` details
 
 ## Using a generated app

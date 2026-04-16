@@ -11,6 +11,7 @@ This tranche adds a deterministic compiler spine and commercial generation surfa
 3. Compile normalized specs into internal IR.
 4. Prepare and execute a target-repo build plan.
 5. Generate a real starter app scaffold for the first-class stack.
+6. Enforce enterprise generated-app validation gates before build succeeds.
 
 ## Canonical Spec Bundle
 
@@ -99,13 +100,24 @@ Build output now generates:
 - `.autobuilder/ir.json`
 - `.autobuilder/build_plan.json`
 - `.autobuilder/README.md`
+- `.autobuilder/proof_report.json`
+- `.autobuilder/readiness_report.json`
 - `README.md` with startup and test instructions
-- `frontend/*` React/Next shell
-- `backend/*` FastAPI service and endpoint tests
+- `frontend/*` React/Next enterprise shell including:
+	- deterministic loading/empty/error state components
+	- shell navigation/header and status notification conventions
+	- operator-facing settings/admin/activity route placeholders
+- `backend/*` FastAPI service and endpoint tests including:
+	- structured response envelopes
+	- admin/operator/audit placeholder routes
+	- structured logging/config placeholders
 - `db/schema.sql`
 - `docker-compose.yml`
 - `.env.example` and backend env example
 - `docs/OPERATOR.md`
+- `docs/ENTERPRISE_POLISH.md`
+- `docs/READINESS.md`
+- `docs/PROOF_OF_RUN.md`
 
 Structured build plan output includes:
 
@@ -119,6 +131,7 @@ Structured build result output includes:
 
 - `files_created_summary`
 - `validation_plan`
+- `generated_app_validation`
 - `execution.operations_applied` with deterministic hashes
 
 ## Template Packs
@@ -126,7 +139,18 @@ Structured build result output includes:
 Internal template packs are used to build the app scaffold (no donor repository merge strategy):
 
 - frontend shell templates
+- frontend enterprise polish pack templates:
+	- loading states
+	- empty states
+	- error states
+	- shell navigation/header
+	- status/notification conventions
+	- settings/admin/activity surfaces
 - API service templates
+- backend enterprise placeholders:
+	- response envelope helpers
+	- admin/operator/audit route placeholders
+	- logging placeholders
 - runtime/config templates
 - deployment templates
 
@@ -144,6 +168,7 @@ Safety guarantees:
 - all mutation paths are resolved under `--target`
 - path traversal outside target is rejected
 - each applied operation includes machine-readable status and hash
+- generated app must pass enterprise validation checks before build returns success
 
 ## Support Tiers
 

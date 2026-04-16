@@ -43,8 +43,16 @@ def test_autobuilder_build_command_emits_machine_readable_summary(tmp_path: Path
     assert "planned_modules" in payload["plan"]
     assert "planned_validation_surface" in payload["plan"]
     assert payload["execution"]["operations_applied"]
+    assert payload["execution"]["output_hash"]
+    assert payload["execution"]["output_files"]
+    assert payload["generated_app_validation"]["all_passed"] is True
+    assert payload["generated_app_validation"]["failed_count"] == 0
+    assert payload["determinism"]["verified"] is True
+    assert payload["determinism"]["repeat_build_match_required"] is True
     assert (target_repo / ".autobuilder" / "ir.json").exists()
     assert (target_repo / ".autobuilder" / "build_plan.json").exists()
+    assert (target_repo / ".autobuilder" / "proof_report.json").exists()
+    assert (target_repo / ".autobuilder" / "readiness_report.json").exists()
 
 
 def test_autobuilder_build_command_reports_resolution_errors(tmp_path: Path):

@@ -49,16 +49,21 @@ def prepare_build_plan(ir: AppIR, target_repo: str | Path) -> BuildPlan:
         "backend/tests/",
         "frontend/",
         "frontend/app/",
+        "frontend/app/settings/",
+        "frontend/app/admin/",
+        "frontend/app/activity/",
+        "frontend/components/",
         "frontend/public/",
         "frontend/tests/",
         "db/",
         "docs/",
     ]
+    planned_repo_structure = sorted(set(planned_repo_structure))
 
     stack_modules = [
         module
-        for entry in stack_entries.values()
-        for module in entry["required_files_modules"]
+        for category in sorted(stack_entries)
+        for module in stack_entries[category]["required_files_modules"]
     ]
 
     planned_modules = [template.path for template in templates]
@@ -71,30 +76,38 @@ def prepare_build_plan(ir: AppIR, target_repo: str | Path) -> BuildPlan:
         planned_modules.append(".autobuilder/build_plan.json")
     if ".autobuilder/generation_summary.json" not in planned_modules:
         planned_modules.append(".autobuilder/generation_summary.json")
+    planned_modules = sorted(set(planned_modules))
 
-    planned_validation_surface = []
+    planned_validation_surface: list[str] = []
     for item in ir.archetype["expected_validation_concerns"]:
         if item not in planned_validation_surface:
             planned_validation_surface.append(item)
-    for entry in stack_entries.values():
-        for expectation in entry["validation_expectations"]:
+    for category in sorted(stack_entries):
+        for expectation in stack_entries[category]["validation_expectations"]:
             if expectation not in planned_validation_surface:
                 planned_validation_surface.append(expectation)
     for check in first_class_validation_plan():
         if check not in planned_validation_surface:
             planned_validation_surface.append(check)
+    planned_validation_surface = sorted(planned_validation_surface)
+
+    templates_by_path = sorted(templates, key=lambda template: template.path)
 
     operations: list[BuildOperation] = [
         BuildOperation(op="create_dir", path=path.rstrip("/")) for path in planned_repo_structure
     ]
-    operations.extend(
+    write_operations: list[BuildOperation] = [
         BuildOperation(op="write_file", path=template.path, content=template.content)
-        for template in templates
+        for template in templates_by_path
+    ]
+    write_operations.append(
+        BuildOperation(
+            op="write_file",
+            path=".autobuilder/ir.json",
+            content=json.dumps(ir.to_dict(), indent=2, sort_keys=True),
+        )
     )
-    operations.append(
-        BuildOperation(op="write_file", path=".autobuilder/ir.json", content=json.dumps(ir.to_dict(), indent=2))
-    )
-    operations.append(
+    write_operations.append(
         BuildOperation(
             op="write_file",
             path=".autobuilder/build_plan.json",
@@ -107,10 +120,11 @@ def prepare_build_plan(ir: AppIR, target_repo: str | Path) -> BuildPlan:
                     "planned_validation_surface": planned_validation_surface,
                 },
                 indent=2,
+                sort_keys=True,
             ),
         )
     )
-    operations.append(
+    write_operations.append(
         BuildOperation(
             op="write_file",
             path=".autobuilder/generation_summary.json",
@@ -120,9 +134,11 @@ def prepare_build_plan(ir: AppIR, target_repo: str | Path) -> BuildPlan:
                     "validation_plan": sorted(planned_validation_surface),
                 },
                 indent=2,
+                sort_keys=True,
             ),
         )
     )
+    operations.extend(sorted(write_operations, key=lambda operation: operation.path))
 
     return BuildPlan(
         target_repo=str(target),

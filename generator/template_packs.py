@@ -13,7 +13,7 @@ class GeneratedTemplate:
 
 
 def _json_pretty(payload: dict[str, object]) -> str:
-    return f"{json.dumps(payload, indent=2)}\n"
+  return f"{json.dumps(payload, indent=2, sort_keys=True)}\n"
 
 
 def _frontend_package_json() -> str:
@@ -76,9 +76,19 @@ def _frontend_shell_page(ir: AppIR) -> str:
     return f'''"use client";
 
 import {{ useState }} from "react";
+import {{ EnterpriseShell }} from "../components/enterprise-shell";
+import {{ EnterpriseStatePanel }} from "../components/enterprise-states";
 
 type ApiResponse = {{
   status: string;
+  data?: {{
+    command?: string;
+    result?: string;
+  }};
+  error?: {{
+    code: string;
+    message: string;
+  }};
   command: string;
   result: string;
 }};
@@ -88,9 +98,18 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
 export default function HomePage() {{
   const [command, setCommand] = useState("");
   const [status, setStatus] = useState("idle");
-  const [response, setResponse] = useState("Waiting for input");
+  const [response, setResponse] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   async function runCommand() {{
+    const normalized = command.trim();
+    if (!normalized) {{
+      setStatus("empty");
+      setResponse("");
+      return;
+    }}
+
+    setIsLoading(true);
     setStatus("processing");
     setResponse("Contacting backend...");
 
@@ -98,7 +117,7 @@ export default function HomePage() {{
       const res = await fetch(`${{API_BASE}}/api/workspace/execute`, {{
         method: "POST",
         headers: {{ "Content-Type": "application/json" }},
-        body: JSON.stringify({{ command }}),
+        body: JSON.stringify({{ command: normalized }}),
       }});
 
       if (!res.ok) {{
@@ -107,55 +126,180 @@ export default function HomePage() {{
 
       const payload = (await res.json()) as ApiResponse;
       setStatus(payload.status);
-      setResponse(payload.result);
+      setResponse(payload.data?.result ?? payload.result ?? "No response payload");
     }} catch (error) {{
       const message = error instanceof Error ? error.message : "Unknown error";
       setStatus("error");
       setResponse(message);
+    }} finally {{
+      setIsLoading(false);
     }}
   }}
 
   return (
-    <main className="shell" data-testid="workspace-shell">
-      <header className="shell-header">
-        <h1>{ir.app_identity}</h1>
-        <p>Commercial starter shell for operator-driven workspace apps.</p>
-      </header>
+    <div data-testid="workspace-shell">
+      <EnterpriseShell
+        appTitle="{ir.app_identity}"
+        shellNote="Commercial workspace shell with deterministic enterprise UX states."
+        statusLabel={{isLoading ? "processing" : status}}
+      >
+        <section className="command-panel" data-testid="command-surface">
+          <label htmlFor="command-input">Command</label>
+          <div className="command-row">
+            <input
+              id="command-input"
+              value={{command}}
+              onChange={{(event) => setCommand(event.target.value)}}
+              placeholder="Type a command for backend execution"
+            />
+            <button type="button" onClick={{runCommand}}>
+              Execute
+            </button>
+          </div>
+          <p className="hint">Use settings/admin/activity routes for operator workflows.</p>
+        </section>
 
-      <section className="command-panel" data-testid="command-surface">
-        <label htmlFor="command-input">Command</label>
-        <div className="command-row">
-          <input
-            id="command-input"
-            value={{command}}
-            onChange={{(event) => setCommand(event.target.value)}}
-            placeholder="Type a command for backend execution"
-          />
-          <button type="button" onClick={{runCommand}}>
-            Execute
-          </button>
-        </div>
-      </section>
+        <section className="work-surface" data-testid="main-surface">
+          <h2>Work Surface</h2>
+          <p>Primary content area for task output, records, and operator-facing tools.</p>
+          <div data-testid="response-state-region">
+            <EnterpriseStatePanel
+              state={{isLoading ? "loading" : (status as "idle" | "empty" | "ok" | "error" | "processing")}}
+              message={{response}}
+            />
+          </div>
+        </section>
 
-      <section className="work-surface" data-testid="main-surface">
-        <h2>Work Surface</h2>
-        <p>
-          Primary content area for task output, records, and operator-facing tools.
-        </p>
-      </section>
-
-      <aside className="status-panel" data-testid="status-panel">
-        <h2>Status</h2>
-        <p>
-          <strong>State:</strong> {{status}}
-        </p>
-        <p>
-          <strong>Response:</strong> {{response}}
-        </p>
-      </aside>
-    </main>
+        <aside className="status-panel" data-testid="status-panel">
+          <h2>Status</h2>
+          <p>
+            <strong>State:</strong> {{isLoading ? "loading" : status}}
+          </p>
+          <p>
+            <strong>Response:</strong> {{response || "No response yet"}}
+          </p>
+        </aside>
+      </EnterpriseShell>
+    </div>
   );
 }}
+'''
+
+
+def _frontend_enterprise_shell_component() -> str:
+    return '''import type { ReactNode } from "react";
+
+type EnterpriseShellProps = {
+  appTitle: string;
+  shellNote: string;
+  statusLabel: string;
+  children: ReactNode;
+};
+
+export function EnterpriseShell({ appTitle, shellNote, statusLabel, children }: EnterpriseShellProps) {
+  return (
+    <main className="shell" data-testid="workspace-shell">
+      <nav className="shell-navigation" data-testid="shell-navigation">
+        <a href="/">Workspace</a>
+        <a href="/settings">Settings</a>
+        <a href="/admin">Admin</a>
+        <a href="/activity">Activity</a>
+      </nav>
+      <header className="shell-header" data-testid="shell-header">
+        <div>
+          <h1>{appTitle}</h1>
+          <p>{shellNote}</p>
+        </div>
+        <div className="status-pill" data-testid="status-notification">
+          {statusLabel}
+        </div>
+      </header>
+      <section className="shell-content">{children}</section>
+    </main>
+  );
+}
+'''
+
+
+def _frontend_enterprise_states_component() -> str:
+    return '''type EnterpriseState = "idle" | "loading" | "empty" | "ok" | "error" | "processing";
+
+type EnterpriseStatePanelProps = {
+  state: EnterpriseState;
+  message: string;
+};
+
+export function EnterpriseStatePanel({ state, message }: EnterpriseStatePanelProps) {
+  if (state === "loading" || state === "processing") {
+    return (
+      <section className="state-card state-loading" data-testid="loading-state">
+        <h3>Loading</h3>
+        <p>Processing your command and waiting for backend response.</p>
+      </section>
+    );
+  }
+
+  if (state === "empty" || (state === "idle" && !message)) {
+    return (
+      <section className="state-card state-empty" data-testid="empty-state">
+        <h3>No Command Yet</h3>
+        <p>Submit a command to populate this workspace response panel.</p>
+      </section>
+    );
+  }
+
+  if (state === "error") {
+    return (
+      <section className="state-card state-error" data-testid="error-state">
+        <h3>Request Error</h3>
+        <p>{message || "An unexpected error occurred."}</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="state-card state-success" data-testid="success-state">
+      <h3>Response</h3>
+      <p>{message || "Command processed successfully."}</p>
+    </section>
+  );
+}
+'''
+
+
+def _frontend_settings_page() -> str:
+    return '''export default function SettingsPage() {
+  return (
+    <main className="surface-page" data-testid="settings-surface">
+      <h1>Settings Surface</h1>
+      <p>Operator configuration placeholders for profile, environment, and notification preferences.</p>
+    </main>
+  );
+}
+'''
+
+
+def _frontend_admin_page() -> str:
+    return '''export default function AdminPage() {
+  return (
+    <main className="surface-page" data-testid="admin-surface">
+      <h1>Admin Surface</h1>
+      <p>Enterprise admin workflows placeholder for user management, policy controls, and escalations.</p>
+    </main>
+  );
+}
+'''
+
+
+def _frontend_activity_page() -> str:
+    return '''export default function ActivityPage() {
+  return (
+    <main className="surface-page" data-testid="activity-surface">
+      <h1>Activity Surface</h1>
+      <p>Audit and operational activity placeholder with deterministic timeline structure.</p>
+    </main>
+  );
+}
 '''
 
 
@@ -202,14 +346,35 @@ body {
 
 .shell {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: 2fr 1fr;
+  gap: 1.25rem;
+  grid-template-columns: 2.1fr 1fr;
   grid-template-areas:
+    "nav nav"
     "header header"
     "command status"
     "main status";
   min-height: 100vh;
-  padding: 1.25rem;
+  padding: 1.5rem;
+}
+
+.shell-navigation {
+  grid-area: nav;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  gap: 0.9rem;
+  padding: 0.75rem 1rem;
+}
+
+.shell-navigation a {
+  color: var(--accent-strong);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.shell-content {
+  display: contents;
 }
 
 .shell-header {
@@ -218,6 +383,9 @@ body {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .shell-header h1 {
@@ -230,6 +398,18 @@ body {
   margin-top: 0.5rem;
 }
 
+.status-pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #e7f2f7;
+  color: var(--accent-strong);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.35rem 0.75rem;
+  text-transform: uppercase;
+}
+
 .command-panel,
 .work-surface,
 .status-panel {
@@ -237,6 +417,15 @@ body {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1rem;
+}
+
+.surface-page {
+  max-width: 840px;
+  margin: 2rem auto;
+  padding: 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
 }
 
 .command-panel {
@@ -253,8 +442,14 @@ body {
 
 .command-row {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.65rem;
   margin-top: 0.5rem;
+}
+
+.hint {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 input {
@@ -278,6 +473,38 @@ button:hover {
   background: var(--accent-strong);
 }
 
+.state-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 0.8rem;
+  padding: 0.8rem;
+}
+
+.state-card h3 {
+  margin: 0;
+}
+
+.state-card p {
+  margin: 0.4rem 0 0;
+}
+
+.state-loading {
+  background: #eef6fb;
+}
+
+.state-empty {
+  background: #f8f5ef;
+}
+
+.state-error {
+  background: #fff1ef;
+  border-color: #f0c3b9;
+}
+
+.state-success {
+  background: #eef8f2;
+}
+
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;
@@ -286,6 +513,16 @@ button:hover {
       "command"
       "main"
       "status";
+  }
+
+  .shell-navigation {
+    overflow-x: auto;
+  }
+
+  .shell-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 }
 '''
@@ -296,18 +533,22 @@ def _frontend_shell_check() -> str:
 const path = require("path");
 
 const shellPath = path.join(__dirname, "..", "app", "page.tsx");
-const content = fs.readFileSync(shellPath, "utf-8");
+const shellComponentPath = path.join(__dirname, "..", "components", "enterprise-shell.tsx");
+const pageContent = fs.readFileSync(shellPath, "utf-8");
+const shellContent = fs.readFileSync(shellComponentPath, "utf-8");
 
 const requiredMarkers = [
   'data-testid="workspace-shell"',
+  'data-testid="shell-navigation"',
+  'data-testid="shell-header"',
+  'data-testid="status-notification"',
   'data-testid="command-surface"',
-  'data-testid="main-surface"',
-  'data-testid="status-panel"',
+  'data-testid="response-state-region"',
   '/api/workspace/execute',
 ];
 
 for (const marker of requiredMarkers) {
-  if (!content.includes(marker)) {
+  if (!pageContent.includes(marker) && !shellContent.includes(marker)) {
     throw new Error(`Missing required shell marker: ${marker}`);
   }
 }
@@ -319,10 +560,16 @@ console.log("frontend shell check passed");
 def _backend_app() -> str:
     return '''from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from api.config import Settings, get_settings
+from api.admin import router as admin_router
+from api.audit import router as audit_router
+from api.config import get_settings
+from api.logging import configure_logging
+from api.operator import router as operator_router
+from api.responses import error_envelope, ok_envelope
 
 
 class CommandRequest(BaseModel):
@@ -330,33 +577,132 @@ class CommandRequest(BaseModel):
 
 
 app = FastAPI(title="Autobuilder Commercial Starter API")
+configure_logging()
+app.include_router(admin_router)
+app.include_router(operator_router)
+app.include_router(audit_router)
+
+
+@app.exception_handler(Exception)
+def unhandled_error_handler(_: Request, exc: Exception) -> JSONResponse:
+  return JSONResponse(status_code=500, content=error_envelope("unhandled_error", str(exc)))
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict[str, object]:
+  return ok_envelope(data={"status": "ok"})
 
 
 @app.get("/ready")
-def readiness() -> dict[str, str]:
+def readiness() -> dict[str, object]:
     settings = get_settings()
-    return {"status": "ready", "database_url": settings.database_url}
+  return ok_envelope(
+    data={
+      "status": "ready",
+      "checks": {
+        "database_url_configured": bool(settings.database_url),
+        "cors_origin_configured": bool(settings.cors_origin),
+      },
+    }
+  )
 
 
 @app.get("/version")
-def version() -> dict[str, str]:
+def version() -> dict[str, object]:
     settings = get_settings()
-    return {"version": settings.app_version}
+  return ok_envelope(data={"version": settings.app_version, "env": settings.app_env})
 
 
 @app.post("/api/workspace/execute")
-def execute_workspace_command(payload: CommandRequest) -> dict[str, str]:
+def execute_workspace_command(payload: CommandRequest) -> dict[str, object]:
     sanitized = payload.command.strip() or "noop"
-    return {
-        "status": "ok",
-        "command": sanitized,
-        "result": f"accepted command: {sanitized}",
+  return ok_envelope(
+    data={
+      "command": sanitized,
+      "result": f"accepted command: {sanitized}",
+      "state": "ok",
     }
+  )
+'''
+
+
+def _backend_response_envelopes() -> str:
+  return '''from __future__ import annotations
+
+
+def ok_envelope(data: dict[str, object]) -> dict[str, object]:
+  return {
+    "status": "ok",
+    "data": data,
+    "error": None,
+  }
+
+
+def error_envelope(code: str, message: str) -> dict[str, object]:
+  return {
+    "status": "error",
+    "data": None,
+    "error": {
+      "code": code,
+      "message": message,
+    },
+  }
+'''
+
+
+def _backend_logging() -> str:
+  return '''from __future__ import annotations
+
+import logging
+
+
+def configure_logging() -> None:
+  logging.basicConfig(
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    level=logging.INFO,
+  )
+'''
+
+
+def _backend_admin_router() -> str:
+  return '''from fastapi import APIRouter
+
+from api.responses import ok_envelope
+
+router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+@router.get("/status")
+def admin_status() -> dict[str, object]:
+  return ok_envelope(data={"surface": "admin", "ready": True})
+'''
+
+
+def _backend_operator_router() -> str:
+  return '''from fastapi import APIRouter
+
+from api.responses import ok_envelope
+
+router = APIRouter(prefix="/api/operator", tags=["operator"])
+
+
+@router.get("/status")
+def operator_status() -> dict[str, object]:
+  return ok_envelope(data={"surface": "operator", "ready": True})
+'''
+
+
+def _backend_audit_router() -> str:
+  return '''from fastapi import APIRouter
+
+from api.responses import ok_envelope
+
+router = APIRouter(prefix="/api/audit", tags=["audit"])
+
+
+@router.get("/activity")
+def recent_activity() -> dict[str, object]:
+  return ok_envelope(data={"surface": "audit", "entries": []})
 '''
 
 
@@ -399,19 +745,23 @@ client = TestClient(app)
 def test_health_endpoint() -> None:
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+  payload = response.json()
+  assert payload["status"] == "ok"
+  assert payload["data"]["status"] == "ok"
 
 
 def test_readiness_endpoint() -> None:
     response = client.get("/ready")
     assert response.status_code == 200
-    assert response.json()["status"] == "ready"
+  payload = response.json()
+  assert payload["status"] == "ok"
+  assert payload["data"]["status"] == "ready"
 
 
 def test_version_endpoint() -> None:
     response = client.get("/version")
     assert response.status_code == 200
-    assert "version" in response.json()
+  assert "version" in response.json()["data"]
 
 
 def test_workspace_execute_shape() -> None:
@@ -419,9 +769,78 @@ def test_workspace_execute_shape() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "ok"
-    assert payload["command"] == "refresh dashboard"
-    assert "accepted command" in payload["result"]
+  assert payload["data"]["command"] == "refresh dashboard"
+  assert "accepted command" in payload["data"]["result"]
+
+
+def test_operator_and_admin_routes_exist() -> None:
+  assert client.get("/api/admin/status").status_code == 200
+  assert client.get("/api/operator/status").status_code == 200
+  assert client.get("/api/audit/activity").status_code == 200
 '''
+
+
+def _enterprise_polish_doc() -> str:
+  return '''# Enterprise Polish Coverage
+
+Generated package includes enterprise polish packs:
+
+- loading state surface
+- empty state surface
+- error state surface
+- settings surface
+- admin/operator surface
+- audit/activity surface
+- shell navigation/header conventions
+- status/notification conventions
+'''
+
+
+def _readiness_doc() -> str:
+  return '''# Readiness
+
+This generated app includes deterministic readiness endpoints and placeholder checks.
+
+- GET /health
+- GET /ready
+- GET /version
+- Operator/admin/audit placeholder routes
+'''
+
+
+def _proof_of_run_doc() -> str:
+  return '''# Proof of Run
+
+Expected local proof sequence:
+
+1. docker compose up
+2. frontend shell loads with deterministic states
+3. backend endpoints return envelope responses
+4. operator/admin/audit placeholders respond
+'''
+
+
+def _proof_report_json(ir: AppIR) -> str:
+  return _json_pretty(
+    {
+      "appIdentity": ir.app_identity,
+      "status": "pending",
+      "checks": [
+        "frontend_shell",
+        "backend_health_ready_version",
+        "operator_admin_audit_surfaces",
+      ],
+    }
+  )
+
+
+def _readiness_report_json() -> str:
+  return _json_pretty(
+    {
+      "readiness_status": "pending",
+      "readiness_reasons": ["run generated app validation"],
+    }
+  )
 
 
 def _docker_compose() -> str:
@@ -532,6 +951,10 @@ This directory records deterministic metadata about the generated starter app.
 
 def _build_validation_plan() -> list[str]:
     return [
+    "enterprise_ui_state_surfaces_present",
+    "enterprise_operator_placeholders_present",
+    "enterprise_backend_essentials_present",
+    "enterprise_proof_readiness_files_present",
         "backend_pytest_endpoints",
         "frontend_shell_structure_check",
         "docker_compose_service_boot",
@@ -556,7 +979,12 @@ def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
         GeneratedTemplate(path="frontend/next.config.js", content='/** @type {import("next").NextConfig} */\nconst nextConfig = {};\n\nmodule.exports = nextConfig;\n'),
         GeneratedTemplate(path="frontend/app/layout.tsx", content=_frontend_layout()),
         GeneratedTemplate(path="frontend/app/page.tsx", content=_frontend_shell_page(ir)),
+        GeneratedTemplate(path="frontend/app/settings/page.tsx", content=_frontend_settings_page()),
+        GeneratedTemplate(path="frontend/app/admin/page.tsx", content=_frontend_admin_page()),
+        GeneratedTemplate(path="frontend/app/activity/page.tsx", content=_frontend_activity_page()),
         GeneratedTemplate(path="frontend/app/globals.css", content=_frontend_css()),
+        GeneratedTemplate(path="frontend/components/enterprise-shell.tsx", content=_frontend_enterprise_shell_component()),
+        GeneratedTemplate(path="frontend/components/enterprise-states.tsx", content=_frontend_enterprise_states_component()),
         GeneratedTemplate(path="frontend/tests/shell-check.js", content=_frontend_shell_check()),
         GeneratedTemplate(path="frontend/public/.gitkeep", content=""),
         GeneratedTemplate(path="frontend/status.seed.json", content=_frontend_status_seed(ir)),
@@ -564,6 +992,11 @@ def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
         GeneratedTemplate(path="backend/api/__init__.py", content=""),
         GeneratedTemplate(path="backend/api/main.py", content=_backend_app()),
         GeneratedTemplate(path="backend/api/config.py", content=_backend_config()),
+        GeneratedTemplate(path="backend/api/responses.py", content=_backend_response_envelopes()),
+        GeneratedTemplate(path="backend/api/logging.py", content=_backend_logging()),
+        GeneratedTemplate(path="backend/api/admin.py", content=_backend_admin_router()),
+        GeneratedTemplate(path="backend/api/operator.py", content=_backend_operator_router()),
+        GeneratedTemplate(path="backend/api/audit.py", content=_backend_audit_router()),
         GeneratedTemplate(path="backend/tests/test_endpoints.py", content=_backend_test()),
         GeneratedTemplate(path="backend/.env.example", content=(
             "APP_ENV=local\n"
@@ -584,7 +1017,12 @@ def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
             "- Add privileged workspace actions behind role checks\n"
             "- Keep execution actions auditable\n"
         )),
+        GeneratedTemplate(path="docs/ENTERPRISE_POLISH.md", content=_enterprise_polish_doc()),
+        GeneratedTemplate(path="docs/READINESS.md", content=_readiness_doc()),
+        GeneratedTemplate(path="docs/PROOF_OF_RUN.md", content=_proof_of_run_doc()),
         GeneratedTemplate(path=".autobuilder/README.md", content=_generated_readme()),
+        GeneratedTemplate(path=".autobuilder/proof_report.json", content=_proof_report_json(ir)),
+        GeneratedTemplate(path=".autobuilder/readiness_report.json", content=_readiness_report_json()),
     ]
 
 

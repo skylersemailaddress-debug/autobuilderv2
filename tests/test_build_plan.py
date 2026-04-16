@@ -17,8 +17,35 @@ def test_prepare_build_plan_is_archetype_and_stack_aware():
     assert "backend/" in plan.planned_repo_structure
     assert ".autobuilder/build_plan.json" in plan.planned_modules
     assert "frontend/app/page.tsx" in plan.planned_modules
+    assert "frontend/components/enterprise-shell.tsx" in plan.planned_modules
+    assert "frontend/components/enterprise-states.tsx" in plan.planned_modules
+    assert "frontend/app/settings/page.tsx" in plan.planned_modules
+    assert "frontend/app/admin/page.tsx" in plan.planned_modules
+    assert "frontend/app/activity/page.tsx" in plan.planned_modules
     assert "backend/api/main.py" in plan.planned_modules
+    assert "backend/api/responses.py" in plan.planned_modules
+    assert "backend/api/logging.py" in plan.planned_modules
+    assert "backend/api/admin.py" in plan.planned_modules
+    assert "backend/api/operator.py" in plan.planned_modules
+    assert "backend/api/audit.py" in plan.planned_modules
     assert "docker-compose.yml" in plan.planned_modules
+    assert "docs/ENTERPRISE_POLISH.md" in plan.planned_modules
+    assert "docs/READINESS.md" in plan.planned_modules
+    assert "docs/PROOF_OF_RUN.md" in plan.planned_modules
+    assert ".autobuilder/proof_report.json" in plan.planned_modules
+    assert ".autobuilder/readiness_report.json" in plan.planned_modules
     assert "signup_to_activation" in plan.planned_validation_surface
     assert "frontend_build" in plan.planned_validation_surface
+    assert "enterprise_ui_state_surfaces_present" in plan.planned_validation_surface
+    assert "enterprise_operator_placeholders_present" in plan.planned_validation_surface
+    assert "enterprise_backend_essentials_present" in plan.planned_validation_surface
+    assert "enterprise_proof_readiness_files_present" in plan.planned_validation_surface
+    assert plan.planned_repo_structure == sorted(plan.planned_repo_structure)
+    assert plan.planned_modules == sorted(plan.planned_modules)
+    assert plan.planned_validation_surface == sorted(plan.planned_validation_surface)
+
+    create_dirs = [op.path for op in plan.operations if op.op == "create_dir"]
+    written_files = [op.path for op in plan.operations if op.op == "write_file"]
+    assert create_dirs == sorted(create_dirs)
+    assert written_files == sorted(written_files)
     assert "backend_pytest_endpoints" in plan.planned_validation_surface

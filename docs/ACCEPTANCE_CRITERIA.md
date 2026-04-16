@@ -10,6 +10,11 @@
 - Must provide audit logs
 - Must enforce policies
 - Must support secure execution
+- Must generate deterministic loading/empty/error UI states for first-class web builds
+- Must generate operator/admin/activity placeholder surfaces in first-class web builds
+- Must generate health/readiness/version endpoints plus operator/admin/audit backend placeholders
+- Must emit proof/readiness artifact files for generated apps
+- Must fail build when generated-app enterprise validation checks do not pass
 
 ## Launch Criteria
 - Repeatable success across multiple builds
