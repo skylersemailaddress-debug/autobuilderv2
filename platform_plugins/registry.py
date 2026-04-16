@@ -24,6 +24,9 @@ class ResolvedPluginSet:
 
 def _supports(plugin: PluginBase, app_type: str, stack_selection: dict[str, str]) -> bool:
     metadata = plugin.metadata
+    if metadata.plugin_type != "archetype" and metadata.supported_archetypes:
+        if app_type not in metadata.supported_archetypes:
+            return False
     for category, expected_values in metadata.supported_stacks.items():
         chosen = stack_selection.get(category)
         if chosen is None or chosen not in expected_values:
@@ -90,8 +93,12 @@ class PluginRegistry:
         return sorted(candidates, key=lambda entry: (entry.metadata.priority, entry.metadata.plugin_id))[0]
 
     def resolve_plugins(self, app_type: str, stack_selection: dict[str, str]) -> ResolvedPluginSet:
+        archetype_plugin = self._resolve_one("archetype", app_type, stack_selection)
+        # Validate app_type explicitly through the archetype plugin so unknown app_type retains clear errors.
+        archetype_plugin.resolve_archetype(app_type)
+
         resolved = ResolvedPluginSet(
-            archetype=self._resolve_one("archetype", app_type, stack_selection),
+            archetype=archetype_plugin,
             stack=self._resolve_one("stack", app_type, stack_selection),
             generation=self._resolve_one("generation", app_type, stack_selection),
             validation=self._resolve_one("validation", app_type, stack_selection),

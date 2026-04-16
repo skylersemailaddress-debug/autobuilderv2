@@ -53,15 +53,16 @@ Supported `app_type` values:
 - `api_service`
 - `workflow_system`
 - `copilot_chat_app`
+- `mobile_app`
+- `game_app`
 
-First-class supported stack selections in this tranche:
+First-class supported stack lanes in this tranche:
 
-- frontend: `react_next`
-- backend: `fastapi`
-- database: `postgres`
-- deployment: `docker_compose`
+- web lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
+- mobile lane: `flutter_mobile` + `fastapi` + `postgres` + `docker_compose`
+- game lane: `godot_game` + `fastapi` + `postgres` + `docker_compose`
 
-Registry placeholders may exist for future expansion, but only the first-class stack above is in scope for deterministic planning and generation in this tranche.
+Registry placeholders may exist for future expansion, but only first-class lanes above are in scope for deterministic planning and generation in this tranche.
 
 Current parser behavior:
 
@@ -271,8 +272,11 @@ Proof artifacts written under `.autobuilder/`:
 
 ## Current Limitations
 
-- Only one first-class stack is generated in this tranche.
+- Only the defined first-class lanes are generated in this tranche.
 - YAML fallback without `PyYAML` requires JSON-compatible YAML syntax.
 - Generated starter is intentionally clean and minimal but deployable locally.
-- Only the `react_next` + `fastapi` + `postgres` + `docker_compose` stack is first-class in this tranche.
+- First-class lanes are constrained to:
+  - `react_next` + `fastapi` + `postgres` + `docker_compose`
+  - `flutter_mobile` + `fastapi` + `postgres` + `docker_compose`
+  - `godot_game` + `fastapi` + `postgres` + `docker_compose`
 - Existing readiness/proof/benchmark/mission/repair flows are unchanged.

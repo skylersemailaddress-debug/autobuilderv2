@@ -28,6 +28,20 @@ STACK_REGISTRY: dict[str, dict[str, StackDefinition]] = {
             required_files_modules=["app/", "next.config.js", "package.json"],
             validation_expectations=["page_routes", "ui_render", "frontend_build"],
         ),
+        "flutter_mobile": StackDefinition(
+            name="flutter_mobile",
+            category="frontend",
+            support_tier="first_class",
+            required_files_modules=["lib/", "pubspec.yaml", "android/", "ios/"],
+            validation_expectations=["navigation_routes", "state_management", "mobile_build"],
+        ),
+        "godot_game": StackDefinition(
+            name="godot_game",
+            category="frontend",
+            support_tier="first_class",
+            required_files_modules=["project.godot", "scenes/", "scripts/"],
+            validation_expectations=["scene_layout", "input_mapping", "game_loop"],
+        ),
         "future_frontend_placeholder": StackDefinition(
             name="future_frontend_placeholder",
             category="frontend",

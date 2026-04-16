@@ -103,13 +103,14 @@ Supported app archetypes:
 - `api_service`
 - `workflow_system`
 - `copilot_chat_app`
+- `mobile_app`
+- `game_app`
 
-First-class stack support in this tranche:
+First-class stack lanes in this tranche:
 
-- frontend: `react_next`
-- backend: `fastapi`
-- database: `postgres`
-- deployment: `docker_compose`
+- web lane: `react_next` + `fastapi` + `postgres` + `docker_compose`
+- mobile lane: `flutter_mobile` + `fastapi` + `postgres` + `docker_compose`
+- game lane: `godot_game` + `fastapi` + `postgres` + `docker_compose`
 
 Enterprise polish in this tranche means generated apps include:
 
@@ -126,7 +127,7 @@ Support tiers:
 
 Plugin architecture scope in this tranche:
 
-- one production plugin lane: `first_class_commercial`
+- production plugin lanes: `first_class_commercial`, `first_class_mobile`, `first_class_game`
 - plugin registry resolves compatible plugin combinations deterministically per spec
 - unsupported or incompatible plugin combinations fail cleanly before generation
 
@@ -173,7 +174,9 @@ Build command options:
 
 ## What build now generates
 
-For the first-class stack (`react_next` + `fastapi` + `postgres` + `docker_compose`), build mode now generates a real starter application into the `--target` repository, including:
+For each first-class lane, build mode now generates a real starter application into the `--target` repository:
+
+- Web lane (`react_next` + `fastapi` + `postgres` + `docker_compose`) includes:
 
 - Frontend React/Next enterprise shell with:
 	- coherent shell layout with navigation and header conventions
@@ -205,6 +208,11 @@ For the first-class stack (`react_next` + `fastapi` + `postgres` + `docker_compo
 	- `release/proof/PROOF_BUNDLE.md`
 	- `.autobuilder/package_artifact_summary.json`
 	- `.autobuilder/proof_readiness_bundle.json`
+
+Lane-specific first-class additions:
+
+- Mobile lane (`flutter_mobile`): Flutter scaffold with `pubspec.yaml`, `lib/main.dart`, navigation/state/API client modules, and lane validation markers.
+- Game lane (`godot_game`): Godot scaffold with `project.godot`, `scenes/*`, `scripts/*`, input mapping, and prototype main-loop validation markers.
 
 Build JSON output includes:
 

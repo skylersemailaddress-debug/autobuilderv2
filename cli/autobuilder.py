@@ -36,12 +36,16 @@ def _assert_first_class_lane(plugins: ResolvedPluginSet, ir: AppIR) -> None:
         support_tier = str(entry.get("support_tier", "unknown"))
         if support_tier != "first_class":
             unsupported.append(f"{category}:{entry.get('name', 'unknown')} ({support_tier})")
-    if plugins.generation.metadata.lane_id != "first_class_commercial":
-        unsupported.append(f"lane:{plugins.generation.metadata.lane_id}")
+
+    supported_lanes = {"first_class_commercial", "first_class_mobile", "first_class_game"}
+    lane_id = plugins.generation.metadata.lane_id
+    if lane_id not in supported_lanes:
+        unsupported.append(f"lane:{lane_id}")
+
     if unsupported:
         raise RuntimeError(
             "Unsupported commercial lane stack selection. "
-            "Only first_class stack entries are allowed in this tranche: "
+            "Only first_class stack entries and approved lanes are allowed in this tranche: "
             + ", ".join(unsupported)
         )
 

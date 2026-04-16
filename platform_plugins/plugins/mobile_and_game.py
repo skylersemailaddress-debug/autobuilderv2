@@ -1,0 +1,648 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from archetypes.catalog import resolve_archetype
+from generator.template_packs import GeneratedTemplate
+from platform_plugins.contracts import PluginMetadata
+from platform_plugins.registry import register_plugin
+from stack_registry.registry import resolve_stack_bundle
+from validator.generated_app_proof import emit_generated_app_proof_artifacts
+from validator.generated_app_repair import repair_generated_app
+
+
+def _json_pretty(payload: dict[str, object]) -> str:
+    return f"{json.dumps(payload, indent=2, sort_keys=True)}\n"
+
+
+def _check(name: str, items: list[dict[str, object]]) -> dict[str, object]:
+    passed = all(bool(item["passed"]) for item in items)
+    return {"name": name, "passed": passed, "items": items}
+
+
+def _file_exists(target: Path, relative_path: str) -> dict[str, object]:
+    exists = (target / relative_path).exists()
+    return {
+        "name": relative_path,
+        "passed": exists,
+        "details": "present" if exists else "missing",
+    }
+
+
+def _file_contains(target: Path, relative_path: str, markers: list[str]) -> dict[str, object]:
+    path = target / relative_path
+    if not path.exists():
+        return {"name": relative_path, "passed": False, "details": "missing"}
+    content = path.read_text(encoding="utf-8")
+    missing = [marker for marker in markers if marker not in content]
+    return {
+        "name": relative_path,
+        "passed": not missing,
+        "details": "markers_present" if not missing else f"missing markers: {', '.join(missing)}",
+    }
+
+
+def _summarize_checks(checks: list[dict[str, object]]) -> dict[str, object]:
+    passed_count = sum(1 for check in checks if check["passed"])
+    failed_checks = [check["name"] for check in checks if check["passed"] is not True]
+    failed_items = [
+        {"check": check["name"], "item": item["name"], "details": item["details"]}
+        for check in checks
+        for item in check["items"]
+        if item["passed"] is not True
+    ]
+    return {
+        "checks": checks,
+        "passed_count": passed_count,
+        "failed_count": len(checks) - passed_count,
+        "total_checks": len(checks),
+        "failed_checks": failed_checks,
+        "failed_items": failed_items,
+        "validation_status": "passed" if passed_count == len(checks) else "failed",
+        "all_passed": passed_count == len(checks),
+    }
+
+
+def _shared_artifact_templates() -> list[GeneratedTemplate]:
+    return [
+        GeneratedTemplate(
+            path=".autobuilder/proof_report.json",
+            content=_json_pretty({"proof_status": "pending", "checks": ["run lane validation"]}),
+        ),
+        GeneratedTemplate(
+            path=".autobuilder/readiness_report.json",
+            content=_json_pretty({"readiness_status": "pending", "readiness_reasons": ["run validation"]}),
+        ),
+        GeneratedTemplate(
+            path=".autobuilder/validation_summary.json",
+            content=_json_pretty({"validation_status": "pending"}),
+        ),
+        GeneratedTemplate(
+            path=".autobuilder/determinism_signature.json",
+            content=_json_pretty({"verified": False, "build_signature_sha256": "", "proof_signature_sha256": ""}),
+        ),
+        GeneratedTemplate(
+            path=".autobuilder/package_artifact_summary.json",
+            content=_json_pretty({"packaging_status": "pending"}),
+        ),
+        GeneratedTemplate(
+            path=".autobuilder/proof_readiness_bundle.json",
+            content=_json_pretty({"bundle_status": "pending"}),
+        ),
+        GeneratedTemplate(
+            path="release/README.md",
+            content="# Release Bundle\n\nCommercial handoff assets for this lane.\n",
+        ),
+        GeneratedTemplate(
+            path="release/deploy/DEPLOYMENT_NOTES.md",
+            content="# Deployment Notes\n\nDocker Compose assumed for local integration workflows.\n",
+        ),
+        GeneratedTemplate(
+            path="release/runbook/OPERATOR_RUNBOOK.md",
+            content="# Operator Runbook\n\nRun startup, validation, and proof commands before handoff.\n",
+        ),
+        GeneratedTemplate(
+            path="release/proof/PROOF_BUNDLE.md",
+            content="# Proof Bundle\n\nInclude .autobuilder proof/readiness/validation artifacts.\n",
+        ),
+        GeneratedTemplate(
+            path="docs/DEPLOYMENT.md",
+            content="# Deployment Notes\n\nUse documented lane startup and deployment assumptions.\n",
+        ),
+        GeneratedTemplate(
+            path="docs/STARTUP_VALIDATION.md",
+            content="# Startup and Validation\n\nUse build, validate-app, proof-app, and ship for this lane.\n",
+        ),
+    ]
+
+
+def generate_mobile_templates() -> list[GeneratedTemplate]:
+    templates = [
+        GeneratedTemplate(
+            path="README.md",
+            content=(
+                "# Mobile App Scaffold\n\n"
+                "Flutter mobile starter generated by AutobuilderV2.\n\n"
+                "## Run\n\n"
+                "1. flutter pub get\n"
+                "2. flutter run\n\n"
+                "## API integration\n\n"
+                "Configure API base URL in .env.example and lib/services/api_client.dart\n"
+            ),
+        ),
+        GeneratedTemplate(
+            path="pubspec.yaml",
+            content=(
+                "name: autobuilder_mobile\n"
+                "description: Autobuilder generated Flutter app\n"
+                "publish_to: 'none'\n"
+                "version: 0.1.0+1\n"
+                "environment:\n"
+                "  sdk: '>=3.2.0 <4.0.0'\n"
+                "dependencies:\n"
+                "  flutter:\n"
+                "    sdk: flutter\n"
+                "  http: ^1.2.2\n"
+                "flutter:\n"
+                "  uses-material-design: true\n"
+            ),
+        ),
+        GeneratedTemplate(path="android/.gitkeep", content=""),
+        GeneratedTemplate(path="ios/.gitkeep", content=""),
+        GeneratedTemplate(path="lib/main.dart", content=(
+            "import 'package:flutter/material.dart';\n"
+            "import 'app.dart';\n\n"
+            "void main() {\n"
+            "  runApp(const AutobuilderMobileApp());\n"
+            "}\n"
+        )),
+        GeneratedTemplate(path="lib/app.dart", content=(
+            "import 'package:flutter/material.dart';\n"
+            "import 'navigation.dart';\n"
+            "import 'state/app_state.dart';\n\n"
+            "class AutobuilderMobileApp extends StatefulWidget {\n"
+            "  const AutobuilderMobileApp({super.key});\n\n"
+            "  @override\n"
+            "  State<AutobuilderMobileApp> createState() => _AutobuilderMobileAppState();\n"
+            "}\n\n"
+            "class _AutobuilderMobileAppState extends State<AutobuilderMobileApp> {\n"
+            "  final AppState state = AppState();\n\n"
+            "  @override\n"
+            "  Widget build(BuildContext context) {\n"
+            "    return MaterialApp(\n"
+            "      title: 'Autobuilder Mobile Lane',\n"
+            "      routes: appRoutes(state),\n"
+            "      initialRoute: '/',\n"
+            "    );\n"
+            "  }\n"
+            "}\n"
+        )),
+        GeneratedTemplate(path="lib/navigation.dart", content=(
+            "import 'package:flutter/material.dart';\n"
+            "import 'state/app_state.dart';\n"
+            "import 'services/api_client.dart';\n\n"
+            "Map<String, WidgetBuilder> appRoutes(AppState state) => {\n"
+            "  '/': (_) => _HomeScreen(state: state),\n"
+            "  '/settings': (_) => _SettingsScreen(state: state),\n"
+            "};\n\n"
+            "class _HomeScreen extends StatelessWidget {\n"
+            "  const _HomeScreen({required this.state});\n"
+            "  final AppState state;\n\n"
+            "  @override\n"
+            "  Widget build(BuildContext context) {\n"
+            "    return Scaffold(\n"
+            "      appBar: AppBar(title: const Text('Workspace')),\n"
+            "      body: Center(child: Text('Session: ${state.sessionId}')),\n"
+            "      floatingActionButton: FloatingActionButton(\n"
+            "        onPressed: () => ApiClient().ping(),\n"
+            "        child: const Icon(Icons.cloud_done),\n"
+            "      ),\n"
+            "    );\n"
+            "  }\n"
+            "}\n\n"
+            "class _SettingsScreen extends StatelessWidget {\n"
+            "  const _SettingsScreen({required this.state});\n"
+            "  final AppState state;\n\n"
+            "  @override\n"
+            "  Widget build(BuildContext context) {\n"
+            "    return Scaffold(\n"
+            "      appBar: AppBar(title: const Text('Settings')),\n"
+            "      body: Center(child: Text('API base: ${state.apiBaseUrl}')),\n"
+            "    );\n"
+            "  }\n"
+            "}\n"
+        )),
+        GeneratedTemplate(path="lib/state/app_state.dart", content=(
+            "class AppState {\n"
+            "  String sessionId = 'mobile-session';\n"
+            "  String apiBaseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');\n"
+            "}\n"
+        )),
+        GeneratedTemplate(path="lib/services/api_client.dart", content=(
+            "import 'dart:convert';\n"
+            "import 'package:http/http.dart' as http;\n\n"
+            "class ApiClient {\n"
+            "  final String baseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');\n\n"
+            "  Future<void> ping() async {\n"
+            "    final response = await http.get(Uri.parse('$baseUrl/health'));\n"
+            "    if (response.statusCode != 200) {\n"
+            "      throw Exception('API ping failed: ${response.statusCode}');\n"
+            "    }\n"
+            "    jsonDecode(response.body);\n"
+            "  }\n"
+            "}\n"
+        )),
+        GeneratedTemplate(path=".env.example", content="API_BASE_URL=http://localhost:8000\nFLUTTER_ENV=local\n"),
+        GeneratedTemplate(path="docs/RUN.md", content="# Run\n\nflutter pub get\nflutter run\n"),
+    ]
+    return templates + _shared_artifact_templates()
+
+
+def generate_game_templates() -> list[GeneratedTemplate]:
+    templates = [
+        GeneratedTemplate(
+            path="README.md",
+            content=(
+                "# Game App Scaffold\n\n"
+                "Godot prototype starter generated by AutobuilderV2.\n\n"
+                "## Run\n\n"
+                "1. Open project.godot in Godot 4.x\n"
+                "2. Run the Main scene\n"
+            ),
+        ),
+        GeneratedTemplate(
+            path="project.godot",
+            content=(
+                "config_version=5\n\n"
+                "[application]\n"
+                "config/name=\"AutobuilderGame\"\n"
+                "run/main_scene=\"res://scenes/Main.tscn\"\n\n"
+                "[input]\n"
+                "move_left={\"deadzone\":0.2}\n"
+                "move_right={\"deadzone\":0.2}\n"
+                "jump={\"deadzone\":0.2}\n"
+            ),
+        ),
+        GeneratedTemplate(path="scenes/Main.tscn", content=(
+            "[gd_scene load_steps=2 format=3]\n"
+            "[ext_resource type=\"Script\" path=\"res://scripts/main.gd\" id=\"1\"]\n\n"
+            "[node name=\"Main\" type=\"Node2D\"]\n"
+            "script = ExtResource(\"1\")\n"
+        )),
+        GeneratedTemplate(path="scenes/Player.tscn", content=(
+            "[gd_scene load_steps=2 format=3]\n"
+            "[ext_resource type=\"Script\" path=\"res://scripts/player.gd\" id=\"1\"]\n\n"
+            "[node name=\"Player\" type=\"CharacterBody2D\"]\n"
+            "script = ExtResource(\"1\")\n"
+        )),
+        GeneratedTemplate(path="scripts/main.gd", content=(
+            "extends Node2D\n\n"
+            "func _ready() -> void:\n"
+            "    var player_scene = preload(\"res://scenes/Player.tscn\")\n"
+            "    var player = player_scene.instantiate()\n"
+            "    add_child(player)\n\n"
+            "func _process(delta: float) -> void:\n"
+            "    # Main loop structure for prototype systems\n"
+            "    pass\n"
+        )),
+        GeneratedTemplate(path="scripts/player.gd", content=(
+            "extends CharacterBody2D\n\n"
+            "const SPEED := 240.0\n"
+            "const JUMP_VELOCITY := -320.0\n"
+            "var gravity := 980.0\n\n"
+            "func _physics_process(delta: float) -> void:\n"
+            "    if not is_on_floor():\n"
+            "        velocity.y += gravity * delta\n"
+            "    if Input.is_action_just_pressed(\"jump\") and is_on_floor():\n"
+            "        velocity.y = JUMP_VELOCITY\n"
+            "    var direction = Input.get_axis(\"move_left\", \"move_right\")\n"
+            "    velocity.x = direction * SPEED\n"
+            "    move_and_slide()\n"
+        )),
+        GeneratedTemplate(path="assets/.gitkeep", content=""),
+        GeneratedTemplate(path="docs/RUN.md", content="# Run\n\nOpen project.godot in Godot 4.x and run Main scene.\n"),
+        GeneratedTemplate(path="docs/DEPLOYMENT.md", content="# Deployment Notes\n\nPrototype-level Godot lane for local iteration and packaging.\n"),
+        GeneratedTemplate(path=".env.example", content="GAME_ENV=local\n"),
+    ]
+    return templates + _shared_artifact_templates()
+
+
+def validate_mobile_generated_app(target_repo: str) -> dict[str, object]:
+    target = Path(target_repo).resolve()
+    checks = [
+        _check(
+            "mobile_structure",
+            [
+                _file_exists(target, "pubspec.yaml"),
+                _file_exists(target, "lib/main.dart"),
+                _file_exists(target, "lib/navigation.dart"),
+                _file_exists(target, "lib/state/app_state.dart"),
+                _file_exists(target, "lib/services/api_client.dart"),
+            ],
+        ),
+        _check(
+            "mobile_markers",
+            [
+                _file_contains(target, "lib/navigation.dart", ["appRoutes", "'/settings'", "ApiClient"]),
+                _file_contains(target, "lib/services/api_client.dart", ["API_BASE_URL", "/health"]),
+            ],
+        ),
+        _check(
+            "mobile_packaging",
+            [
+                _file_exists(target, "docs/RUN.md"),
+                _file_exists(target, "release/README.md"),
+                _file_exists(target, ".autobuilder/proof_report.json"),
+                _file_exists(target, ".autobuilder/readiness_report.json"),
+                _file_exists(target, ".autobuilder/validation_summary.json"),
+                _file_exists(target, ".autobuilder/determinism_signature.json"),
+            ],
+        ),
+    ]
+    return _summarize_checks(checks)
+
+
+def validate_game_generated_app(target_repo: str) -> dict[str, object]:
+    target = Path(target_repo).resolve()
+    checks = [
+        _check(
+            "game_structure",
+            [
+                _file_exists(target, "project.godot"),
+                _file_exists(target, "scenes/Main.tscn"),
+                _file_exists(target, "scenes/Player.tscn"),
+                _file_exists(target, "scripts/main.gd"),
+                _file_exists(target, "scripts/player.gd"),
+            ],
+        ),
+        _check(
+            "game_markers",
+            [
+                _file_contains(target, "project.godot", ["run/main_scene", "move_left", "move_right", "jump"]),
+                _file_contains(target, "scripts/main.gd", ["_process", "Main loop structure"]),
+                _file_contains(target, "scripts/player.gd", ["_physics_process", "Input.get_axis", "move_and_slide"]),
+            ],
+        ),
+        _check(
+            "game_packaging",
+            [
+                _file_exists(target, "docs/RUN.md"),
+                _file_exists(target, "release/README.md"),
+                _file_exists(target, ".autobuilder/proof_report.json"),
+                _file_exists(target, ".autobuilder/readiness_report.json"),
+                _file_exists(target, ".autobuilder/validation_summary.json"),
+                _file_exists(target, ".autobuilder/determinism_signature.json"),
+            ],
+        ),
+    ]
+    return _summarize_checks(checks)
+
+
+class MobileArchetypePlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_mobile.archetype",
+        plugin_type="archetype",
+        lane_id="first_class_mobile",
+        capabilities=["archetype_resolution"],
+        supported_archetypes=["mobile_app"],
+        supported_stacks={
+            "frontend": ["flutter_mobile"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=20,
+    )
+
+    def resolve_archetype(self, app_type: str) -> object:
+        return resolve_archetype(app_type)
+
+
+class MobileStackPlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_mobile.stack",
+        plugin_type="stack",
+        lane_id="first_class_mobile",
+        capabilities=["stack_resolution"],
+        supported_archetypes=["mobile_app"],
+        supported_stacks={
+            "frontend": ["flutter_mobile"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=20,
+    )
+
+    def resolve_stack_bundle(self, selection: dict[str, str]) -> dict[str, object]:
+        return resolve_stack_bundle(selection)
+
+
+class MobileGenerationPlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_mobile.generation",
+        plugin_type="generation",
+        lane_id="first_class_mobile",
+        capabilities=["flutter_generation", "mobile_navigation", "api_integration_patterns"],
+        supported_archetypes=["mobile_app"],
+        supported_stacks={
+            "frontend": ["flutter_mobile"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=20,
+    )
+
+    def generate_templates(self, ir) -> list[GeneratedTemplate]:
+        return generate_mobile_templates()
+
+    def validation_plan(self) -> list[str]:
+        return [
+            "mobile_structure",
+            "mobile_markers",
+            "mobile_packaging",
+        ]
+
+
+class MobileValidationPlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_mobile.validation",
+        plugin_type="validation",
+        lane_id="first_class_mobile",
+        capabilities=["mobile_validation"],
+        supported_archetypes=["mobile_app"],
+        supported_stacks={
+            "frontend": ["flutter_mobile"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=20,
+    )
+
+    def validate_generated_app(self, target_repo: str) -> dict[str, object]:
+        return validate_mobile_generated_app(target_repo)
+
+
+class MobileRepairPlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_mobile.repair",
+        plugin_type="repair",
+        lane_id="first_class_mobile",
+        capabilities=["bounded_repair_policy"],
+        supported_archetypes=["mobile_app"],
+        supported_stacks={
+            "frontend": ["flutter_mobile"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=20,
+    )
+
+    def repair_generated_app(self, target_repo, validation_report, expected_templates, max_repairs):
+        return repair_generated_app(target_repo, validation_report, expected_templates, max_repairs)
+
+
+class MobilePackagingPlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_mobile.packaging",
+        plugin_type="packaging",
+        lane_id="first_class_mobile",
+        capabilities=["proof_artifacts", "packaging_targets"],
+        supported_archetypes=["mobile_app"],
+        supported_stacks={
+            "frontend": ["flutter_mobile"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=20,
+    )
+
+    def emit_proof_artifacts(self, target_repo, build_status, validation_report, determinism, repair_report):
+        return emit_generated_app_proof_artifacts(target_repo, build_status, validation_report, determinism, repair_report)
+
+
+class GameArchetypePlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_game.archetype",
+        plugin_type="archetype",
+        lane_id="first_class_game",
+        capabilities=["archetype_resolution"],
+        supported_archetypes=["game_app"],
+        supported_stacks={
+            "frontend": ["godot_game"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=30,
+    )
+
+    def resolve_archetype(self, app_type: str) -> object:
+        return resolve_archetype(app_type)
+
+
+class GameStackPlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_game.stack",
+        plugin_type="stack",
+        lane_id="first_class_game",
+        capabilities=["stack_resolution"],
+        supported_archetypes=["game_app"],
+        supported_stacks={
+            "frontend": ["godot_game"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=30,
+    )
+
+    def resolve_stack_bundle(self, selection: dict[str, str]) -> dict[str, object]:
+        return resolve_stack_bundle(selection)
+
+
+class GameGenerationPlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_game.generation",
+        plugin_type="generation",
+        lane_id="first_class_game",
+        capabilities=["godot_generation", "scene_structure", "input_mapping", "main_loop"],
+        supported_archetypes=["game_app"],
+        supported_stacks={
+            "frontend": ["godot_game"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=30,
+    )
+
+    def generate_templates(self, ir) -> list[GeneratedTemplate]:
+        return generate_game_templates()
+
+    def validation_plan(self) -> list[str]:
+        return [
+            "game_structure",
+            "game_markers",
+            "game_packaging",
+        ]
+
+
+class GameValidationPlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_game.validation",
+        plugin_type="validation",
+        lane_id="first_class_game",
+        capabilities=["game_validation"],
+        supported_archetypes=["game_app"],
+        supported_stacks={
+            "frontend": ["godot_game"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=30,
+    )
+
+    def validate_generated_app(self, target_repo: str) -> dict[str, object]:
+        return validate_game_generated_app(target_repo)
+
+
+class GameRepairPlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_game.repair",
+        plugin_type="repair",
+        lane_id="first_class_game",
+        capabilities=["bounded_repair_policy"],
+        supported_archetypes=["game_app"],
+        supported_stacks={
+            "frontend": ["godot_game"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=30,
+    )
+
+    def repair_generated_app(self, target_repo, validation_report, expected_templates, max_repairs):
+        return repair_generated_app(target_repo, validation_report, expected_templates, max_repairs)
+
+
+class GamePackagingPlugin:
+    metadata = PluginMetadata(
+        plugin_id="first_class_game.packaging",
+        plugin_type="packaging",
+        lane_id="first_class_game",
+        capabilities=["proof_artifacts", "packaging_targets"],
+        supported_archetypes=["game_app"],
+        supported_stacks={
+            "frontend": ["godot_game"],
+            "backend": ["fastapi"],
+            "database": ["postgres"],
+            "deployment": ["docker_compose"],
+        },
+        priority=30,
+    )
+
+    def emit_proof_artifacts(self, target_repo, build_status, validation_report, determinism, repair_report):
+        return emit_generated_app_proof_artifacts(target_repo, build_status, validation_report, determinism, repair_report)
+
+
+register_plugin(MobileArchetypePlugin())
+register_plugin(MobileStackPlugin())
+register_plugin(MobileGenerationPlugin())
+register_plugin(MobileValidationPlugin())
+register_plugin(MobileRepairPlugin())
+register_plugin(MobilePackagingPlugin())
+
+register_plugin(GameArchetypePlugin())
+register_plugin(GameStackPlugin())
+register_plugin(GameGenerationPlugin())
+register_plugin(GameValidationPlugin())
+register_plugin(GameRepairPlugin())
+register_plugin(GamePackagingPlugin())
