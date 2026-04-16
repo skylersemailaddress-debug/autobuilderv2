@@ -26,7 +26,20 @@ Use the top-level CLI for all standard operations:
 python cli/autobuilder.py --help
 ```
 
-Available commands: `mission`, `resume`, `inspect`, `benchmark`, `readiness`, `proof`, `build`
+Available commands for the commercial lane: `readiness`, `build`, `validate-app`, `proof-app`, `ship`
+
+Secondary operational autonomy commands remain available (`mission`, `resume`, `inspect`, `benchmark`, `proof`) but are not required for the commercial ship lane.
+
+Supported commercial lane scope:
+
+- app archetypes: `internal_tool`, `workspace_app`, `saas_web_app`, `api_service`, `workflow_system`, `copilot_chat_app`
+- first-class stack only: `react_next` + `fastapi` + `postgres` + `docker_compose`
+
+Not yet supported in this tranche:
+
+- future/non-first-class stack entries
+- additional languages or deployment lanes
+- cloud-specific production deployment manifests
 
 ### 1a. Check System Readiness
 
@@ -46,7 +59,39 @@ This runs deterministic checks on:
 
 Exit code 0 = ready. Non-zero = investigate before proceeding.
 
-### 1b. Run Proof of Execution
+### 1b. Build Generated App
+
+Compile canonical specs into a deterministic generated app target:
+
+```bash
+python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
+```
+
+### 1c. Validate and Repair Generated App
+
+Validate generated app essentials and auto-repair common defects:
+
+```bash
+python cli/autobuilder.py validate-app --target /tmp/my-app --repair --json
+```
+
+### 1d. Emit Generated-App Proof
+
+Emit proof/readiness artifacts and certification summary:
+
+```bash
+python cli/autobuilder.py proof-app --target /tmp/my-app --repair --json
+```
+
+### 1e. Ship (One Command)
+
+One-command flow for specs in -> polished generated app out:
+
+```bash
+python cli/autobuilder.py ship --spec specs --target /tmp/my-app --json
+```
+
+### 1f. Run Proof of Execution (Core System)
 
 Validate that the system executes correctly end-to-end:
 
@@ -62,7 +107,7 @@ This runs the complete proof workflow:
 
 Use `proof` as a deterministic validation gate in CI/CD or before mission work.
 
-### 1c. Start a Mission
+### 1g. Start a Mission
 
 Execute a goal autonomously with governance:
 
@@ -76,7 +121,7 @@ Captures from output:
 - `mission_result`: final outcome and confidence
 - `awaiting_approval`: true if mission paused for approval
 
-### 1d. Inspect a Run
+### 1h. Inspect a Run
 
 View operator-friendly details of any run:
 
@@ -91,7 +136,7 @@ Check:
 - `events`: full execution trace
 - `approval_request`: governance decision context if paused
 
-### 1e. Resume After Approval
+### 1i. Resume After Approval
 
 Continue a paused mission:
 
@@ -106,7 +151,7 @@ Behavior:
 - pending/denied approvals do not continue
 - Execution picks up from checkpoint
 
-### 1f. Run Benchmarks
+### 1j. Run Benchmarks
 
 Regression test the system against known cases:
 
@@ -128,24 +173,9 @@ Output includes:
 - Performance metrics
 - Regression summary
 
-### 1g. Compile Spec Bundle Into Target Repo Scaffold
+### 1k. Compile Spec Bundle Into Target Repo Scaffold (Details)
 
-Use build mode to compile canonical specs into a deterministic scaffold in a target repository path:
-
-```bash
-python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
-```
-
-Build mode performs:
-
-- Canonical spec loading and validation
-- Archetype resolution from `product.app_type`
-- Controlled stack resolution from `stack.yaml`
-- Spec normalization and IR compilation
-- Build plan preparation and scoped target-repo mutations
-- Machine-readable summary output of plan and execution
-
-See `docs/SPEC_COMPILER.md` for full spec format and IR details.
+`build` remains available as a stepwise command if `ship` is not used.
 
 ## 2. Cleanup Runtime Artifacts
 

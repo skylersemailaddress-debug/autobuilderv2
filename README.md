@@ -29,14 +29,11 @@ This creates a virtual environment, installs dependencies, and prints next steps
 
 ### Canonical Commands
 
-Run these commands once the environment is bootstrapped:
+Run these canonical commercial-lane commands once the environment is bootstrapped:
 
 ```bash
 # Check if system is ready
 python cli/autobuilder.py readiness --json
-
-# Run proof-of-execution validation
-python cli/autobuilder.py proof --json
 
 # Compile canonical specs into a target repository scaffold
 python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
@@ -49,16 +46,9 @@ python cli/autobuilder.py validate-app --target /tmp/my-app --repair --json
 
 # Emit generated-app proof certification artifacts
 python cli/autobuilder.py proof-app --target /tmp/my-app --repair --json
-
-# Start a mission (autonomous execution)
-python cli/autobuilder.py mission "Your goal here" --json
-
-# Inspect any run
-python cli/autobuilder.py inspect <run_id> --json
-
-# Run benchmark regression tests
-python cli/autobuilder.py benchmark --json
 ```
+
+Operational autonomy commands (`mission`, `resume`, `inspect`, `benchmark`, `proof`) remain available but are secondary to the commercial ship lane above.
 
 ### Cleanup Runtime Artifacts
 
@@ -112,10 +102,25 @@ First-class stack support in this tranche:
 - database: `postgres`
 - deployment: `docker_compose`
 
+Enterprise polish in this tranche means generated apps include:
+
+- deterministic loading/empty/error response states
+- shell navigation and status conventions
+- settings/admin/activity operator surfaces
+- backend readiness/version/health and admin/operator/audit placeholders
+- proof/readiness and packaging bundle artifacts for handoff
+
 Support tiers:
 
 - `first_class`: implemented and validated in this tranche
 - `future`: registry placeholder only, not generated or validated yet
+
+Not yet supported in this tranche:
+
+- additional frontend/backend/database/deployment stacks
+- non-first-class stack combinations
+- non-Python backend lanes
+- production cloud IaC deployment generation
 
 ## Canonical interface
 
@@ -137,6 +142,14 @@ Supported commands:
 - `validate-app`
 - `proof-app`
 - `ship`
+
+Canonical commercial lane command order:
+
+1. `readiness`
+2. `build`
+3. `validate-app`
+4. `proof-app`
+5. `ship`
 
 Build command options:
 

@@ -33,6 +33,20 @@ def _read_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _assert_first_class_lane(ir: AppIR) -> None:
+    non_first_class: list[str] = []
+    for category, entry in sorted(ir.stack_entries.items()):
+        support_tier = str(entry.get("support_tier", "unknown"))
+        if support_tier != "first_class":
+            non_first_class.append(f"{category}:{entry.get('name', 'unknown')} ({support_tier})")
+    if non_first_class:
+        raise RuntimeError(
+            "Unsupported commercial lane stack selection. "
+            "Only first_class stack entries are allowed in this tranche: "
+            + ", ".join(non_first_class)
+        )
+
+
 def _write_json(path: Path, payload: dict[str, object]) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -281,6 +295,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
 
     specs = load_spec_bundle(spec_path)
     ir = compile_specs_to_ir(specs)
+    _assert_first_class_lane(ir)
     (
         plan,
         execution,

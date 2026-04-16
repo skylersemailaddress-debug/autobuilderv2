@@ -585,44 +585,44 @@ app.include_router(audit_router)
 
 @app.exception_handler(Exception)
 def unhandled_error_handler(_: Request, exc: Exception) -> JSONResponse:
-  return JSONResponse(status_code=500, content=error_envelope("unhandled_error", str(exc)))
+    return JSONResponse(status_code=500, content=error_envelope("unhandled_error", str(exc)))
 
 
 @app.get("/health")
 def health() -> dict[str, object]:
-  return ok_envelope(data={"status": "ok"})
+    return ok_envelope(data={"status": "ok"})
 
 
 @app.get("/ready")
 def readiness() -> dict[str, object]:
     settings = get_settings()
-  return ok_envelope(
-    data={
-      "status": "ready",
-      "checks": {
-        "database_url_configured": bool(settings.database_url),
-        "cors_origin_configured": bool(settings.cors_origin),
-      },
-    }
-  )
+    return ok_envelope(
+        data={
+            "status": "ready",
+            "checks": {
+                "database_url_configured": bool(settings.database_url),
+                "cors_origin_configured": bool(settings.cors_origin),
+            },
+        }
+    )
 
 
 @app.get("/version")
 def version() -> dict[str, object]:
     settings = get_settings()
-  return ok_envelope(data={"version": settings.app_version, "env": settings.app_env})
+    return ok_envelope(data={"version": settings.app_version, "env": settings.app_env})
 
 
 @app.post("/api/workspace/execute")
 def execute_workspace_command(payload: CommandRequest) -> dict[str, object]:
     sanitized = payload.command.strip() or "noop"
-  return ok_envelope(
-    data={
-      "command": sanitized,
-      "result": f"accepted command: {sanitized}",
-      "state": "ok",
-    }
-  )
+    return ok_envelope(
+        data={
+            "command": sanitized,
+            "result": f"accepted command: {sanitized}",
+            "state": "ok",
+        }
+    )
 '''
 
 
@@ -769,14 +769,40 @@ def test_workspace_execute_shape() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "ok"
-  assert payload["data"]["command"] == "refresh dashboard"
-  assert "accepted command" in payload["data"]["result"]
+    assert payload["data"]["command"] == "refresh dashboard"
+    assert "accepted command" in payload["data"]["result"]
 
 
 def test_operator_and_admin_routes_exist() -> None:
-  assert client.get("/api/admin/status").status_code == 200
-  assert client.get("/api/operator/status").status_code == 200
-  assert client.get("/api/audit/activity").status_code == 200
+    assert client.get("/api/admin/status").status_code == 200
+    assert client.get("/api/operator/status").status_code == 200
+    assert client.get("/api/audit/activity").status_code == 200
+'''
+
+
+def _operator_notes_doc() -> str:
+  return '''# Operator Notes
+
+This generated app is intended for the first-class commercial lane:
+
+- frontend: React/Next
+- backend: FastAPI
+- database: Postgres
+- deployment: Docker Compose
+
+## Canonical operator flow
+
+1. Start services with `docker compose up`.
+2. Verify `/health`, `/ready`, and `/version`.
+3. Run generated-app validation and repair if needed.
+4. Run proof-app certification.
+5. Archive `.autobuilder/*report*.json` and release bundle docs.
+
+## Admin and audit placeholders
+
+- `backend/api/admin.py`
+- `backend/api/operator.py`
+- `backend/api/audit.py`
 '''
 
 
@@ -1177,12 +1203,7 @@ def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
             "  role TEXT NOT NULL DEFAULT 'user'\n"
             ");\n"
         )),
-        GeneratedTemplate(path="docs/OPERATOR.md", content=(
-            "# Operator Notes\n\n"
-            "- Add admin routes under backend/api/admin.py\n"
-            "- Add privileged workspace actions behind role checks\n"
-            "- Keep execution actions auditable\n"
-        )),
+        GeneratedTemplate(path="docs/OPERATOR.md", content=_operator_notes_doc()),
         GeneratedTemplate(path="docs/ENTERPRISE_POLISH.md", content=_enterprise_polish_doc()),
         GeneratedTemplate(path="docs/READINESS.md", content=_readiness_doc()),
         GeneratedTemplate(path="docs/PROOF_OF_RUN.md", content=_proof_of_run_doc()),
