@@ -36,6 +36,9 @@ python cli/autobuilder.py readiness --json
 # Run proof-of-execution validation
 python cli/autobuilder.py proof --json
 
+# Compile canonical specs into a target repository scaffold
+python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
+
 # Start a mission (autonomous execution)
 python cli/autobuilder.py mission "Your goal here" --json
 
@@ -94,6 +97,12 @@ Supported commands:
 - `benchmark`
 - `readiness`
 - `proof`
+- `build`
+
+Build command options:
+
+- `--spec <path>`: canonical spec bundle directory (default: `specs`)
+- `--target <path>`: target repository path for scaffold output
 
 ## One clear operator path
 
@@ -207,3 +216,4 @@ The built-in benchmark cases are in benchmarks/cases.py and cover simple runs, r
 
 - docs/NEXUS_EXECUTION.md: Nexus mission-mode behavior and interpretation guide
 - docs/OPERATOR_WORKFLOW.md: step-by-step operator workflow
+- docs/SPEC_COMPILER.md: canonical spec bundle, IR contract, build mode behavior and limitations

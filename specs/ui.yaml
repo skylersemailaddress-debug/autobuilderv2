@@ -1,0 +1,6 @@
+{
+  "pages": [
+    {"name": "Login", "surface": "web", "route": "/login"},
+    {"name": "Dashboard", "surface": "web", "route": "/dashboard"}
+  ]
+}

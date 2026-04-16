@@ -26,7 +26,7 @@ Use the top-level CLI for all standard operations:
 python cli/autobuilder.py --help
 ```
 
-Available commands: `mission`, `resume`, `inspect`, `benchmark`, `readiness`, `proof`
+Available commands: `mission`, `resume`, `inspect`, `benchmark`, `readiness`, `proof`, `build`
 
 ### 1a. Check System Readiness
 
@@ -127,6 +127,23 @@ Output includes:
 - Confidence metrics
 - Performance metrics
 - Regression summary
+
+### 1g. Compile Spec Bundle Into Target Repo Scaffold
+
+Use build mode to compile canonical specs into a deterministic scaffold in a target repository path:
+
+```bash
+python cli/autobuilder.py build --spec specs --target /tmp/my-app --json
+```
+
+Build mode performs:
+
+- Canonical spec loading and validation
+- Spec normalization and IR compilation
+- Build plan preparation and scoped target-repo mutations
+- Machine-readable summary output of plan and execution
+
+See `docs/SPEC_COMPILER.md` for full spec format and IR details.
 
 ## 2. Cleanup Runtime Artifacts
 

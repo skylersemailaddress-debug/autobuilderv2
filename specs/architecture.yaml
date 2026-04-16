@@ -1,0 +1,18 @@
+{
+  "entities": [
+    {"name": "User", "fields": ["id", "email", "role"]}
+  ],
+  "workflows": [
+    {"name": "User Sign In", "steps": ["submit_credentials", "issue_session"]}
+  ],
+  "api_routes": [
+    {"method": "POST", "path": "/api/session", "workflow": "User Sign In"}
+  ],
+  "runtime_services": [
+    {"name": "database", "type": "postgres"}
+  ],
+  "permissions": [
+    {"role": "admin", "grants": ["users:read", "users:write"]},
+    {"role": "user", "grants": ["profile:read"]}
+  ]
+}

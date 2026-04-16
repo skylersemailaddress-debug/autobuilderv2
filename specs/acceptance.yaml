@@ -1,0 +1,7 @@
+{
+  "criteria": [
+    "Users can authenticate with email and password",
+    "Authenticated users can view dashboard",
+    "API session route returns success payload"
+  ]
+}

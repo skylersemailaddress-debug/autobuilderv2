@@ -12,8 +12,12 @@ from benchmarks.report import build_benchmark_report
 from benchmarks.runner import run_benchmark_cases
 from cli.inspect import inspect_run
 from cli.mission import resume_mission, run_mission
+from generator.executor import apply_build_plan
+from generator.plan import prepare_build_plan
+from ir.compiler import compile_specs_to_ir
 from readiness.checks import run_readiness_checks
 from readiness.report import build_readiness_report
+from specs.loader import SpecValidationError, load_spec_bundle
 
 
 def _print(data, as_json: bool) -> None:
@@ -58,6 +62,22 @@ def run_proof_workflow() -> dict:
     }
 
 
+def run_build_workflow(spec_path: str, target_path: str) -> dict:
+    specs = load_spec_bundle(spec_path)
+    ir = compile_specs_to_ir(specs)
+    plan = prepare_build_plan(ir, target_path)
+    execution = apply_build_plan(plan)
+
+    return {
+        "status": "ok",
+        "spec_root": specs.spec_root,
+        "target_repo": plan.target_repo,
+        "ir": ir.to_dict(),
+        "plan": plan.to_dict(),
+        "execution": execution.to_dict(),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="AutobuilderV2 top-level CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -97,6 +117,19 @@ def main() -> int:
     proof_parser = subparsers.add_parser("proof", help="Run end-to-end proof workflow")
     proof_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output")
 
+    build_parser = subparsers.add_parser("build", help="Compile canonical specs into target repo scaffold")
+    build_parser.add_argument(
+        "--spec",
+        default="specs",
+        help="Path to canonical spec bundle directory (default: specs)",
+    )
+    build_parser.add_argument(
+        "--target",
+        required=True,
+        help="Target repository path for scaffold output",
+    )
+    build_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output")
+
     args = parser.parse_args()
 
     if args.command == "mission":
@@ -129,6 +162,15 @@ def main() -> int:
     if args.command == "proof":
         proof = run_proof_workflow()
         _print(proof, args.json)
+        return 0
+
+    if args.command == "build":
+        try:
+            result = run_build_workflow(args.spec, args.target)
+        except SpecValidationError as exc:
+            _print({"status": "error", "error": str(exc)}, args.json)
+            return 2
+        _print(result, args.json)
         return 0
 
     parser.error("Unknown command")
