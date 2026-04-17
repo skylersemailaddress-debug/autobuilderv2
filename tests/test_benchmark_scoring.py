@@ -35,6 +35,10 @@ def test_compute_benchmark_scores_structure_and_values():
         "unsupported_handling_rate",
         "reproducibility_rate",
         "replayable_failure_rate",
+        "ship_flow_success_rate",
+        "repair_flow_success_rate",
+        "approval_resume_success_rate",
+        "proof_coverage_rate",
     }
     assert scores["pass_rate"] == 0.5
     assert scores["average_confidence"] == 0.7

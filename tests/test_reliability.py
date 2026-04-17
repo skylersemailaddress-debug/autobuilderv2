@@ -52,3 +52,21 @@ def test_build_reliability_uses_proof_and_determinism_evidence() -> None:
     assert summary["components"]["determinism"] == 1.0
     assert summary["components"]["proof_completeness"] == 1.0
     assert summary["score"] >= 0.9
+
+
+def test_reliability_summary_includes_model_metadata() -> None:
+    summary = build_reliability_summary(
+        "run",
+        {
+            "determinism": 1.0,
+            "repair_success": 1.0,
+            "proof_completeness": 1.0,
+            "validation_completeness": 1.0,
+            "rollback_availability": 1.0,
+            "unsupported_feature_handling": 1.0,
+            "reproducibility": 1.0,
+        },
+    )
+
+    assert summary["model"]["model_version"] == "v2"
+    assert "determinism" in summary["model"]["component_weights"]

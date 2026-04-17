@@ -45,3 +45,21 @@ def test_confidence_derivation_is_measurable_and_consistent():
     assert "task_completion" in details["components"]
     assert details["derived_from"]["completed_tasks"] == 2
     assert "measurable factors" in details["explanation"]
+    assert details["derived_from"]["model_version"] == "v2"
+    assert "formula" in details
+
+
+def test_confidence_includes_determinism_and_reliability_alignment() -> None:
+    tasks = [Task(task_id="task-1", title="Analyze goal", status="complete")]
+    details = calculate_confidence_details(
+        tasks,
+        {"status": "pass"},
+        0,
+        determinism_verified=True,
+        reliability_score=0.95,
+    )
+
+    assert "determinism" in details["components"]
+    assert "reliability_alignment" in details["components"]
+    assert details["components"]["determinism"] == 1.0
+    assert details["components"]["reliability_alignment"] == 0.95

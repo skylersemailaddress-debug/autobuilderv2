@@ -37,6 +37,26 @@ def build_benchmark_report(results: List[Dict]) -> Dict:
         },
     }
 
+    scenario_breakdown = {
+        "ship": [result.get("case") for result in results if result.get("scenario_kind") == "ship"],
+        "repair_flow": [result.get("case") for result in results if result.get("scenario_kind") == "repair_flow"],
+        "unsupported_build": [result.get("case") for result in results if result.get("scenario_kind") == "unsupported_build"],
+        "self_extend": [result.get("case") for result in results if result.get("scenario_kind") == "self_extend"],
+        "mission": [result.get("case") for result in results if result.get("scenario_kind") in {None, "mission"}],
+    }
+    replay_intelligence = {
+        "replayable_failure_cases": [
+            {
+                "case": result.get("case"),
+                "replayable_failures": int(result.get("replayable_failures", 0)),
+                "failure_reason": result.get("failure_reason"),
+            }
+            for result in results
+            if int(result.get("replayable_failures", 0)) > 0
+        ],
+        "replayable_failure_rate": aggregate_scores.get("replayable_failure_rate", 0.0),
+    }
+
     return {
         "total_cases": total_cases,
         "passed_cases": passed_cases,
@@ -48,4 +68,6 @@ def build_benchmark_report(results: List[Dict]) -> Dict:
         "per_case_scores": per_case_scores,
         "failure_reasons": failures,
         "regression": regression,
+        "scenario_breakdown": scenario_breakdown,
+        "replay_intelligence": replay_intelligence,
     }

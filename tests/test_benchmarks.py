@@ -101,3 +101,5 @@ def test_report_output_shape():
     assert "failure_reasons" in report
     assert "regression" in report
     assert "average_reliability" in report
+    assert "scenario_breakdown" in report
+    assert "replay_intelligence" in report

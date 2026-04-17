@@ -27,6 +27,8 @@ from mutation.safety import MutationSafetyDecision, MutationSafetyPolicy
 from state.audit import append_audit_event, build_audit_record, get_command_safety_contract
 from state.checkpoints import create_checkpoint
 from state.restore import latest_restore_payload
+from quality.reliability import derive_build_reliability, derive_ship_reliability
+from validator.confidence import calculate_confidence_details
 
 
 def _print(data, as_json: bool) -> None:
@@ -181,7 +183,11 @@ def run_proof_workflow() -> dict:
     approval_sensitive = run_mission("Delete production resources safely")
     inspected = inspect_run(approval_sensitive["run_id"])
     resumed = resume_mission(approval_sensitive["run_id"], approve=True)
-    benchmark_summary = _run_benchmarks("simple_low_risk_mission")
+    benchmark_summary = _run_benchmarks(
+        "simple_low_risk_mission,first_class_ship_flow,repair_retry_generated_app,"
+        "interrupted_resumable_mission,unsupported_feature_rejection,repo_targeted_mission,"
+        "self_extension_validation_scenario"
+    )
     readiness_checks = run_readiness_checks()
     readiness_report = build_readiness_report(readiness_checks, benchmark_summary=benchmark_summary)
 
@@ -193,6 +199,7 @@ def run_proof_workflow() -> dict:
         "resume_path_exists": "resume_hint" in approval_sensitive,
         "resume_completed": resumed.get("final_status") == "complete",
         "benchmark_executed": benchmark_summary.get("total_cases", 0) > 0,
+        "benchmark_summary": benchmark_summary,
         "readiness_generated": bool(readiness_report.get("readiness_status")),
         "artifacts": {
             "low_risk_run_id": low_risk.get("run_id"),
@@ -306,6 +313,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         "passed_count": len(validation_plan),
         "failed_count": 0,
         "total_checks": len(validation_plan),
+        "all_checks": len(validation_plan),
         "failed_checks": [],
         "unsupported_features": [],
     }
@@ -328,6 +336,36 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         validation_report=validation_report,
         repair_report=repair_report_obj,
         proof_artifacts=base_proof,
+    )
+    generated_app_validation = {
+        "validation_status": validation_report["validation_status"],
+        "all_passed": validation_report["all_passed"],
+        "passed_count": validation_report["passed_count"],
+        "failed_count": validation_report["failed_count"],
+        "total_checks": validation_report["total_checks"],
+        "all_checks": validation_report["all_checks"],
+        "checks": [],
+    }
+
+    reliability_summary = derive_build_reliability(
+        {
+            "generated_app_validation": generated_app_validation,
+            "proof_artifacts": proof_artifacts,
+            "repair_report": repair_report_obj,
+            "determinism": determinism,
+            "unsupported_features": [],
+        }
+    )
+    confidence_details = calculate_confidence_details(
+        tasks=[],
+        validation_result={"status": "pass" if generated_app_validation["validation_status"] == "passed" else "fail"},
+        repair_count=int(repair_report_obj.get("repair_attempts", 0)),
+        contract_validation_passed=bool(determinism.get("verified", False)),
+        rollback_available=bool(proof_artifacts.get("artifact_paths", {}).get("proof_bundle")),
+        unsupported_feature_count=0,
+        reproducible=bool(proof_artifacts.get("artifact_paths", {}).get("replay_harness")),
+        determinism_verified=bool(determinism.get("verified", False)),
+        reliability_score=float(reliability_summary.get("score", 0.0)),
     )
 
     governance = _governance_bundle(
@@ -358,13 +396,10 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
             "paths": files_created,
         },
         "validation_plan": validation_plan,
-        "generated_app_validation": {
-            "all_passed": True,
-            "failed_count": 0,
-            "checks": [],
-        },
+        "generated_app_validation": generated_app_validation,
         "repair_report": {
             "unrepaired_blockers": [],
+            "repaired_issues": [],
             "repair_attempts": 0,
         },
         "packaging_summary": {
@@ -381,6 +416,15 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         },
         "determinism": determinism,
         "proof_artifacts": proof_artifacts,
+        "reliability_summary": reliability_summary,
+        "confidence": confidence_details,
+        "operator_report": {
+            "what_was_proven": reliability_summary.get("proven", []),
+            "what_was_repaired": reliability_summary.get("repaired", []),
+            "what_remains_risky": reliability_summary.get("remaining_risks", []),
+            "what_is_unsupported": reliability_summary.get("unsupported", []),
+            "what_is_reproducible": reliability_summary.get("reproducibility_notes", []),
+        },
         **governance,
     }
 
@@ -413,6 +457,28 @@ def run_ship_workflow(spec_path: str, target_path: str) -> dict:
         pkg_path.write_text(json.dumps(pkg_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     proof_artifacts = result["proof_artifacts"]
+    ship_reliability = derive_ship_reliability(
+        {
+            **result,
+            "proof_result": {
+                "status": proof_artifacts.get("proof_status", "certified"),
+                "artifacts": proof_artifacts,
+            },
+            "packaged_app_artifact_summary": {"packaging_status": "ready"},
+            "deployment_readiness_summary": result.get("deployment_readiness_summary", {"status": "ready"}),
+        }
+    )
+    ship_confidence = calculate_confidence_details(
+        tasks=[],
+        validation_result={"status": "pass"},
+        repair_count=0,
+        contract_validation_passed=bool(result.get("determinism", {}).get("verified", False)),
+        rollback_available=bool(proof_artifacts.get("artifact_paths", {}).get("proof_bundle")),
+        unsupported_feature_count=len(result.get("unsupported_features", [])),
+        reproducible=bool(proof_artifacts.get("artifact_paths", {}).get("replay_harness")),
+        determinism_verified=bool(result.get("determinism", {}).get("verified", False)),
+        reliability_score=float(ship_reliability.get("score", 0.0)),
+    )
     governance = _governance_bundle(
         "ship",
         target=target_path,
@@ -445,11 +511,16 @@ def run_ship_workflow(spec_path: str, target_path: str) -> dict:
         "proof_summary": result.get("proof_summary", {"bundle_status": "complete"}),
         "proof_bundle": proof_artifacts.get("proof_bundle", {}),
         "final_target_path": str(Path(target_path).resolve()),
-        "reliability_summary": proof_artifacts.get("reliability_summary", {}),
-        "confidence": {"score": 1.0},
+        "reliability_summary": ship_reliability,
+        "confidence": ship_confidence,
         "operator_report": {
             "readiness_status": readiness.get("readiness_status", "max-power-ready"),
             "checks": readiness.get("checks", {}),
+            "what_was_proven": ship_reliability.get("proven", []),
+            "what_was_repaired": ship_reliability.get("repaired", []),
+            "what_remains_risky": ship_reliability.get("remaining_risks", []),
+            "what_is_unsupported": ship_reliability.get("unsupported", []),
+            "what_is_reproducible": ship_reliability.get("reproducibility_notes", []),
         },
         "repair_actions_taken": [],
         "files_generated": result["files_created_summary"]["paths"],
@@ -500,6 +571,12 @@ def run_generated_app_validation_workflow(target_path: str, *, repair: bool = Fa
         "validation_status": validation_status,
         "repaired_issues": repaired,
         "unrepaired_blockers": unrepaired,
+        "repair_report": {
+            "repair_attempts": 1 if repair else 0,
+            "repairs_applied": len(repaired),
+            "repaired_issues": repaired,
+            "unrepaired_blockers": unrepaired,
+        },
         **governance,
     }
 

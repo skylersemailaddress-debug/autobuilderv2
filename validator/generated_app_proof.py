@@ -63,6 +63,7 @@ def emit_generated_app_proof_artifacts(
     )
 
     proof_report = {
+        "schema_version": "v2",
         "proof_status": proof_status,
         "build_status": build_status,
         "validation_status": validation_status,
@@ -71,6 +72,14 @@ def emit_generated_app_proof_artifacts(
         "unrepaired_blockers": blockers,
         "reliability_summary": reliability_summary,
         "unsupported_features": validation_report.get("unsupported_features", []),
+        "determinism": determinism,
+        "operator_trust_summary": {
+            "what_was_proven": reliability_summary.get("proven", []),
+            "what_was_repaired": reliability_summary.get("repaired", []),
+            "what_remains_risky": reliability_summary.get("remaining_risks", []),
+            "what_is_unsupported": reliability_summary.get("unsupported", []),
+            "what_is_reproducible": reliability_summary.get("reproducibility_notes", []),
+        },
     }
     readiness_report = {
         "readiness_status": "ready" if proof_status.startswith("certified") else "not_ready",
@@ -79,6 +88,7 @@ def emit_generated_app_proof_artifacts(
         "reliability_summary": reliability_summary,
     }
     validation_summary = {
+        "schema_version": "v2",
         "validation_status": validation_status,
         "all_passed": validation_report.get("all_passed", False),
         "passed_count": validation_report.get("passed_count", 0),
@@ -88,6 +98,7 @@ def emit_generated_app_proof_artifacts(
         "unsupported_features": validation_report.get("unsupported_features", []),
     }
     determinism_signature = {
+        "schema_version": "v2",
         "build_signature_sha256": determinism.get("build_signature_sha256", ""),
         "proof_signature_sha256": determinism.get("proof_signature_sha256", ""),
         "repeat_build_match_required": determinism.get("repeat_build_match_required", True),
@@ -103,7 +114,38 @@ def emit_generated_app_proof_artifacts(
         ),
         "package_summary": str(autobuilder_dir / "package_artifact_summary.json"),
         "proof_bundle": str(autobuilder_dir / "proof_readiness_bundle.json"),
+        "operator_report": str(autobuilder_dir / "operator_report.json"),
+        "trust_evaluation": str(autobuilder_dir / "trust_evaluation.json"),
     }
+
+    package_summary = {
+        "schema_version": "v2",
+        "packaging_status": "ready" if proof_status.startswith("certified") else "blocked",
+        "proof_status": proof_status,
+        "readiness_status": readiness_report["readiness_status"],
+        "validation_status": validation_status,
+        "reliability_score": reliability_summary["score"],
+    }
+    operator_report = {
+        "schema_version": "v2",
+        "what_was_proven": reliability_summary.get("proven", []),
+        "what_was_repaired": reliability_summary.get("repaired", []),
+        "what_remains_risky": reliability_summary.get("remaining_risks", []),
+        "what_is_unsupported": reliability_summary.get("unsupported", []),
+        "what_is_reproducible": reliability_summary.get("reproducibility_notes", []),
+    }
+    trust_evaluation = {
+        "schema_version": "v2",
+        "flow": "build",
+        "reliability_summary": reliability_summary,
+        "proof_status": proof_status,
+        "determinism_verified": bool(determinism.get("verified", False)),
+        "reproducibility": reliability_summary.get("components", {}).get("reproducibility", 0.0),
+    }
+
+    _write_json(autobuilder_dir / "package_artifact_summary.json", package_summary)
+    _write_json(autobuilder_dir / "operator_report.json", operator_report)
+    _write_json(autobuilder_dir / "trust_evaluation.json", trust_evaluation)
 
     return {
         "proof_status": proof_status,
@@ -114,10 +156,17 @@ def emit_generated_app_proof_artifacts(
         "unrepaired_blockers": blockers,
         "reliability_summary": reliability_summary,
         "proof_bundle": {
+            "schema_version": "v2",
             "proof_status": proof_status,
             "readiness_status": readiness_report["readiness_status"],
             "validation_summary": validation_summary,
             "determinism_signature": determinism_signature,
             "reliability_summary": reliability_summary,
+            "operator_report": operator_report,
+            "package_artifact_summary": package_summary,
+            "trust_evaluation": trust_evaluation,
         },
+        "operator_report": operator_report,
+        "package_artifact_summary": package_summary,
+        "trust_evaluation": trust_evaluation,
     }

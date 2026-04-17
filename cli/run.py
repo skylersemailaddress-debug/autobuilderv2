@@ -18,7 +18,7 @@ from execution.executor import Executor
 from execution.artifacts import Artifact
 from debugger.repair import RepairEngine
 from debugger.classifier import FailureClassifier
-from debugger.failures import FailureRecord
+from debugger.failures import FailureRecord, summarize_failure_intelligence
 from control_plane.control import ControlDecision
 from memory.store import MemoryStore
 from memory.json_memory import JsonMemoryStore
@@ -35,12 +35,13 @@ from state.run_state import RunStateStore
 from state.json_store import JsonRunStore
 from state.resume import resume_run
 from state.audit import append_audit_event, build_audit_record
-from validator.confidence import calculate_confidence
+from validator.confidence import calculate_confidence_details
 from nexus.mode import NexusMode
 from validator.validator import Validator
 from control_plane.approvals import require_approval
 from policies.action_policy import ActionPolicy
 from planner.context import build_planning_context
+from quality.reliability import derive_run_reliability
 
 DEFAULT_GOAL = "Build an autonomous execution plan"
 
@@ -227,7 +228,22 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
             "tasks": task_contracts,
             "summary": summary_evidence,
         }
+        confidence_details = calculate_confidence_details(
+            tasks,
+            None,
+            repair_count,
+            contract_validation_passed=contract_validation_passed,
+            rollback_available=bool(policy.get("checkpoint_required", False)),
+            unsupported_feature_count=len(record.get("unsupported_features", [])),
+            reproducible=contract_validation_passed,
+            determinism_verified=contract_validation_passed,
+        )
+        record["confidence"] = confidence_details["score"]
+        record["confidence_details"] = confidence_details
+        record["failure_intelligence"] = summarize_failure_intelligence([])
+        record["reliability_summary"] = derive_run_reliability(record)
         record["durable_memory_keys"] = durable_memory_store.list_keys()
+        record["summary"] = build_run_summary(record)
         record["resume"] = resume_run(record)
         saved_path = json_store.save(run_id, record)
 
@@ -346,7 +362,6 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
         )
     )
 
-    confidence = calculate_confidence(tasks, validation_result, repair_count)
     record = {
         "run_id": run_id,
         "created_at": created_at,
@@ -356,7 +371,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
         "tasks": [serialize_task(task) for task in tasks],
         "artifacts": artifacts,
         "checkpoints": checkpoints,
-        "confidence": confidence,
+        "confidence": 0.0,
         "policy": policy,
         "memory_context": memory_context,
         "repo_context": repo_context,
@@ -420,6 +435,23 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
         "tasks": task_contracts,
         "summary": summary_evidence,
     }
+    failure_records = [FailureRecord(**item) for item in failures]
+    failure_intelligence = summarize_failure_intelligence(failure_records)
+    record["failure_intelligence"] = failure_intelligence
+    record["reliability_summary"] = derive_run_reliability(record)
+    confidence_details = calculate_confidence_details(
+        tasks,
+        validation_result,
+        repair_count,
+        contract_validation_passed=contract_validation_passed,
+        rollback_available=bool(record.get("restore_payload", {}).get("restore_possible", False)),
+        unsupported_feature_count=len(record.get("unsupported_features", [])),
+        reproducible=contract_validation_passed,
+        determinism_verified=contract_validation_passed,
+        reliability_score=float(record.get("reliability_summary", {}).get("score", 0.0)),
+    )
+    record["confidence"] = confidence_details["score"]
+    record["confidence_details"] = confidence_details
     memory_store.add_memory("summary", record["summary"])
     record["memory_keys"] = memory_store.list_keys()
     
@@ -429,6 +461,7 @@ def perform_run(run_id, goal=DEFAULT_GOAL, nexus_mode_enabled=False):
     
     # Add resume payload
     record["resume"] = resume_run(record)
+    record["summary"] = build_run_summary(record)
     
     saved_path = json_store.save(run_id, record)
 

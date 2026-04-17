@@ -13,6 +13,13 @@ RELIABILITY_WEIGHTS = {
     "reproducibility": 0.1,
 }
 
+RELIABILITY_MODEL = {
+    "model_version": "v2",
+    "flow_support": ["run", "build", "ship"],
+    "component_weights": RELIABILITY_WEIGHTS,
+    "determinism_guarantee": "deterministic signatures and repeat-build checks are required for trusted grades",
+}
+
 
 def _clamp(value: float) -> float:
     return max(0.0, min(1.0, round(float(value), 4)))
@@ -56,6 +63,7 @@ def build_reliability_summary(
         sum(components[key] * RELIABILITY_WEIGHTS[key] for key in RELIABILITY_WEIGHTS)
     )
     return {
+        "model": RELIABILITY_MODEL,
         "flow": flow,
         "score": score,
         "grade": _grade(score),
@@ -95,6 +103,7 @@ def derive_run_reliability(record: Dict[str, object]) -> Dict[str, object]:
             1.0 if quality_present else 0.0,
             1.0 if record.get("events") else 0.0,
             1.0 if record.get("checkpoints") else 0.0,
+            1.0 if record.get("confidence_details") else 0.0,
         ]
     )
     repair_success = 1.0 if not failures and record.get("status") == "complete" else 0.6
@@ -104,8 +113,14 @@ def derive_run_reliability(record: Dict[str, object]) -> Dict[str, object]:
         repair_success = 0.0
     rollback_availability = 1.0 if (restore_available or not checkpoint_required) else 0.0
     unsupported_feature_handling = 1.0 if not unsupported else 0.0
-    reproducibility = 1.0 if contract_validation_passed else 0.5
-    determinism = 1.0 if contract_validation_passed else 0.4
+    reproducibility = _average(
+        [
+            1.0 if contract_validation_passed else 0.4,
+            1.0 if bool(record.get("audit_trail")) else 0.5,
+            1.0 if bool(record.get("events")) else 0.5,
+        ]
+    )
+    determinism = 1.0 if contract_validation_passed and bool(record.get("plan_artifact")) else 0.4
 
     proven = []
     if contract_validation_passed:
@@ -155,6 +170,8 @@ def derive_run_reliability(record: Dict[str, object]) -> Dict[str, object]:
             "repair_count": repair_count,
             "checkpoint_required": checkpoint_required,
             "restore_available": restore_available,
+            "failure_count": len(failures),
+            "contract_validation_passed": contract_validation_passed,
         },
     )
 
@@ -167,8 +184,12 @@ def derive_build_reliability(result: Dict[str, object]) -> Dict[str, object]:
     unsupported = list(result.get("unsupported_features", []))
     artifact_paths = dict(proof_artifacts.get("artifact_paths", {}))
 
-    total_checks = max(int(validation.get("total_checks", 0)), 1)
+    total_checks = int(validation.get("total_checks") or validation.get("all_checks") or 0)
+    if total_checks <= 0:
+        total_checks = max(int(validation.get("failed_count", 0)) + int(validation.get("passed_count", 0)), 1)
     passed_count = int(validation.get("passed_count", 0))
+    if passed_count <= 0 and validation.get("all_passed"):
+        passed_count = total_checks
     validation_completeness = passed_count / total_checks if total_checks else 0.0
     proof_completeness = _average(
         [
@@ -183,9 +204,20 @@ def derive_build_reliability(result: Dict[str, object]) -> Dict[str, object]:
     repair_success = 1.0 if not repair_report.get("unrepaired_blockers") else 0.0
     if repair_report.get("repaired_issues") and repair_success == 1.0:
         repair_success = 0.9
-    rollback_availability = 1.0 if artifact_paths.get("proof_bundle") else 0.5
+    rollback_availability = _average(
+        [
+            1.0 if artifact_paths.get("proof_bundle") else 0.4,
+            1.0 if artifact_paths.get("replay_harness") else 0.5,
+        ]
+    )
     unsupported_feature_handling = 1.0 if not unsupported else 0.0
-    reproducibility = 1.0 if artifact_paths.get("replay_harness") and determinism_payload.get("verified", False) else 0.5
+    reproducibility = _average(
+        [
+            1.0 if artifact_paths.get("replay_harness") else 0.5,
+            1.0 if determinism_payload.get("verified", False) else 0.4,
+            1.0 if artifact_paths.get("determinism_signature") else 0.5,
+        ]
+    )
 
     proven = []
     if validation.get("validation_status") == "passed":
@@ -224,6 +256,7 @@ def derive_build_reliability(result: Dict[str, object]) -> Dict[str, object]:
             "passed_count": passed_count,
             "proof_status": proof_artifacts.get("proof_status"),
             "validation_status": validation.get("validation_status"),
+            "determinism_verified": determinism_payload.get("verified", False),
         },
     )
 
@@ -232,14 +265,35 @@ def derive_ship_reliability(result: Dict[str, object]) -> Dict[str, object]:
     build_summary = dict(result.get("reliability_summary", {}))
     proof_result = dict(result.get("proof_result", {}))
     proof_artifacts = dict(proof_result.get("artifacts", {}))
+    if not proof_artifacts:
+        proof_artifacts = dict(result.get("proof_artifacts", {}))
     packaging = dict(result.get("packaged_app_artifact_summary", {}))
     deployment = dict(result.get("deployment_readiness_summary", {}))
     determinism_payload = dict(result.get("determinism", {}))
 
-    proof_completeness = 1.0 if packaging.get("packaging_status") == "ready" else 0.6
-    rollback_availability = 1.0 if proof_artifacts.get("artifact_paths", {}).get("proof_bundle") else 0.5
+    artifact_paths = dict(proof_artifacts.get("artifact_paths", {}))
+    proof_completeness = _average(
+        [
+            1.0 if packaging.get("packaging_status") == "ready" else 0.5,
+            1.0 if artifact_paths.get("proof_bundle") else 0.5,
+            1.0 if artifact_paths.get("readiness_report") else 0.5,
+            1.0 if artifact_paths.get("validation_summary") else 0.5,
+        ]
+    )
+    rollback_availability = _average(
+        [
+            1.0 if artifact_paths.get("proof_bundle") else 0.5,
+            1.0 if artifact_paths.get("replay_harness") else 0.5,
+        ]
+    )
     determinism = 1.0 if determinism_payload.get("verified", False) else build_summary.get("components", {}).get("determinism", 0.0)
-    reproducibility = 1.0 if proof_artifacts.get("artifact_paths", {}).get("replay_harness") else 0.5
+    reproducibility = _average(
+        [
+            1.0 if artifact_paths.get("replay_harness") else 0.5,
+            1.0 if determinism_payload.get("verified", False) else 0.5,
+            build_summary.get("components", {}).get("reproducibility", 0.5),
+        ]
+    )
 
     summary = build_reliability_summary(
         "ship",
@@ -264,6 +318,7 @@ def derive_ship_reliability(result: Dict[str, object]) -> Dict[str, object]:
             "proof_status": proof_result.get("status"),
             "deployment_status": deployment.get("status"),
             "packaging_status": packaging.get("packaging_status"),
+            "artifact_path_count": len(artifact_paths),
         },
     )
     return summary

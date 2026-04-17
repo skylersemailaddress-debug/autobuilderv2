@@ -52,6 +52,10 @@ def compute_benchmark_scores(results: List[Dict]) -> Dict:
             "unsupported_handling_rate": 0.0,
             "reproducibility_rate": 0.0,
             "replayable_failure_rate": 0.0,
+            "ship_flow_success_rate": 0.0,
+            "repair_flow_success_rate": 0.0,
+            "approval_resume_success_rate": 0.0,
+            "proof_coverage_rate": 0.0,
         }
 
     passed = sum(1 for result in results if result.get("success") is True)
@@ -61,6 +65,20 @@ def compute_benchmark_scores(results: List[Dict]) -> Dict:
     unsupported_handled = sum(1 for result in results if result.get("unsupported_handled") is True)
     reproducible = sum(1 for result in results if result.get("reproducible") is True)
     replayable_failures = sum(1 for result in results if int(result.get("replayable_failures", 0)) > 0)
+    ship_cases = [result for result in results if result.get("scenario_kind") == "ship"]
+    repair_cases = [result for result in results if result.get("scenario_kind") == "repair_flow"]
+    resumable_cases = [result for result in results if result.get("expected_resumable")]
+    approval_resume_success = sum(
+        1
+        for result in resumable_cases
+        if result.get("resumed") is True and result.get("success") is True
+    )
+    proof_covered = sum(
+        1
+        for result in results
+        if str(result.get("proof_status", "")).startswith("certified")
+        or float(result.get("reliability_summary", {}).get("components", {}).get("proof_completeness", 0.0)) >= 0.9
+    )
 
     return {
         "pass_rate": passed / total,
@@ -72,4 +90,18 @@ def compute_benchmark_scores(results: List[Dict]) -> Dict:
         "unsupported_handling_rate": unsupported_handled / total,
         "reproducibility_rate": reproducible / total,
         "replayable_failure_rate": replayable_failures / total,
+        "ship_flow_success_rate": (
+            sum(1 for result in ship_cases if result.get("success") is True) / len(ship_cases)
+            if ship_cases
+            else 1.0
+        ),
+        "repair_flow_success_rate": (
+            sum(1 for result in repair_cases if result.get("success") is True) / len(repair_cases)
+            if repair_cases
+            else 1.0
+        ),
+        "approval_resume_success_rate": (
+            approval_resume_success / len(resumable_cases) if resumable_cases else 1.0
+        ),
+        "proof_coverage_rate": proof_covered / total,
     }
