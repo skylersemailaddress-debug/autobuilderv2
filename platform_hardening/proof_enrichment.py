@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 
 from platform_hardening.commerce import build_commerce_pack_contract
+from platform_hardening.enterprise_readiness import build_enterprise_readiness_artifact
 from platform_hardening.failure_replay import append_failure_corpus, emit_replay_harness
+from platform_hardening.lifecycle import build_lifecycle_contract
 from platform_hardening.packs import get_pack_registry
 from platform_hardening.repair_runtime import verify_runtime_startup
 from platform_hardening.security_governance import build_security_governance_contract
@@ -32,6 +34,8 @@ def enrich_proof_with_platform_hardening(
     security_governance = build_security_governance_contract(lane_id)
     commerce_contract = build_commerce_pack_contract(lane_id)
     pack_profile = get_pack_registry().compose_lane_profile(lane_id)
+    lifecycle_contract = build_lifecycle_contract(lane_id)
+    enterprise_artifact = build_enterprise_readiness_artifact(lane_id)
 
     failure_corpus = append_failure_corpus(
         target_repo=target,
@@ -52,6 +56,8 @@ def enrich_proof_with_platform_hardening(
     security_path = _write_json(autobuilder / "security_governance_contract.json", security_governance)
     commerce_path = _write_json(autobuilder / "commerce_pack_contract.json", commerce_contract)
     packs_path = _write_json(autobuilder / "pack_composition.json", pack_profile)
+    lifecycle_path = _write_json(autobuilder / "lifecycle_contract.json", lifecycle_contract)
+    enterprise_path = _write_json(autobuilder / "enterprise_readiness.json", enterprise_artifact)
 
     merged = dict(proof_artifacts)
     merged.setdefault("artifact_paths", {})
@@ -59,6 +65,8 @@ def enrich_proof_with_platform_hardening(
     merged["artifact_paths"]["security_governance_contract"] = security_path
     merged["artifact_paths"]["commerce_pack_contract"] = commerce_path
     merged["artifact_paths"]["pack_composition"] = packs_path
+    merged["artifact_paths"]["lifecycle_contract"] = lifecycle_path
+    merged["artifact_paths"]["enterprise_readiness"] = enterprise_path
     merged["artifact_paths"]["failure_corpus"] = failure_corpus["corpus_path"]
     merged["artifact_paths"]["replay_harness"] = replay["replay_harness_path"]
 
@@ -66,6 +74,8 @@ def enrich_proof_with_platform_hardening(
     merged["security_governance"] = security_governance
     merged["commerce_pack"] = commerce_contract
     merged["pack_profile"] = pack_profile
+    merged["lifecycle_contract"] = lifecycle_contract
+    merged["enterprise_readiness"] = enterprise_artifact
     merged["failure_corpus"] = failure_corpus
     merged["replay_harness"] = replay
     return merged

@@ -95,6 +95,84 @@ CAPABILITY_FAMILY_MATURITY: dict[str, dict[str, object]] = {
         "unsupported": ["live_multimodal_execution"],
         "summary": "Multimodal/world-state support is schema-contract groundwork only.",
     },
+    "security": {
+        "maturity": BOUNDED_PROTOTYPE,
+        "supported": [
+            "auth_authz_pack",
+            "rbac_scaffold",
+            "abac_scaffold",
+            "secrets_policy",
+            "audit_defaults",
+            "safe_generation_defaults",
+            "policy_hooks",
+        ],
+        "unsupported": [
+            "live_auth_provider_without_operator_credentials",
+            "automated_penetration_testing",
+        ],
+        "summary": "Security foundations are bounded-prototype; auth provider credentials and live enforcement require operator integration.",
+    },
+    "commerce": {
+        "maturity": BOUNDED_PROTOTYPE,
+        "supported": [
+            "plan_catalog",
+            "subscription_model",
+            "entitlement_model",
+            "billing_webhooks",
+            "billing_admin_surfaces",
+            "stripe_adapter_scaffold",
+        ],
+        "unsupported": [
+            "live_payment_processing_without_operator_credentials",
+            "automated_tax_compliance",
+        ],
+        "summary": "Commerce layer is bounded-prototype; payment credentials and live billing enforcement require operator integration.",
+    },
+    "cross-lane-composition": {
+        "maturity": BOUNDED_PROTOTYPE,
+        "supported": [
+            "app_plus_agent",
+            "app_plus_realtime",
+            "app_plus_mobile_companion",
+            "app_plus_payment_layer",
+            "composition_contract_validation",
+        ],
+        "unsupported": [
+            "arbitrary_lane_mixing_without_contract",
+            "maturity_tier_blurring",
+        ],
+        "summary": "Cross-lane composition is bounded-prototype; valid patterns are registered and contract-validated.",
+    },
+    "lifecycle": {
+        "maturity": BOUNDED_PROTOTYPE,
+        "supported": [
+            "regen_safety_classification",
+            "migration_aware_updates",
+            "capability_evolution_tracking",
+            "maintenance_semantics",
+            "lifecycle_contract",
+        ],
+        "unsupported": [
+            "automated_schema_diff_migration",
+            "silent_destructive_overwrite",
+        ],
+        "summary": "Lifecycle/regeneration is bounded-prototype; migration execution requires operator CI integration.",
+    },
+    "enterprise-readiness": {
+        "maturity": BOUNDED_PROTOTYPE,
+        "supported": [
+            "deployment_expectations",
+            "supportability_contract",
+            "operational_runbooks",
+            "known_limitations_registry",
+            "escalation_boundaries",
+        ],
+        "unsupported": [
+            "automated_runbook_execution",
+            "live_observability_backend",
+        ],
+        "summary": "Enterprise readiness artifacts are bounded-prototype scaffolds; execution requires operator infrastructure integration.",
+    },
 }
 
 
