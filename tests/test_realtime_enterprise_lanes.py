@@ -48,13 +48,23 @@ def test_realtime_lane_build_and_validation(tmp_path: Path) -> None:
     assert result["build_status"] == "ok"
     assert result["validation_status"] == "passed"
     assert str(result["proof_status"]).startswith("certified")
+    assert result["generated_app_validation"]["all_passed"] is True
     assert "realtime_structure" in result["validation_plan"]
     assert "realtime_markers" in result["validation_plan"]
+    assert "realtime_ws_gateway_present" in result["validation_plan"]
+    assert "realtime_alert_action_path_present" in result["validation_plan"]
 
     generated = set(result["files_created_summary"]["paths"])
     assert "frontend/lib/realtime-client.ts" in generated
+    assert "frontend/lib/alert-actions.ts" in generated
     assert "backend/connectors/sensors.py" in generated
+    assert "backend/realtime/channels.py" in generated
+    assert "backend/realtime/events.py" in generated
     assert "backend/realtime/world_state.py" in generated
+    assert "backend/realtime/ws_gateway.py" in generated
+    assert "backend/api/realtime.py" in generated
+    assert "backend/services/alerts.py" in generated
+    assert "docs/READINESS.md" in generated
 
     artifacts = result["proof_artifacts"]["artifact_paths"]
     assert Path(artifacts["runtime_verification"]).exists()
@@ -74,13 +84,20 @@ def test_enterprise_agent_lane_build_and_validation(tmp_path: Path) -> None:
     assert result["build_status"] == "ok"
     assert result["validation_status"] == "passed"
     assert str(result["proof_status"]).startswith("certified")
+    assert result["generated_app_validation"]["all_passed"] is True
     assert "enterprise_structure" in result["validation_plan"]
     assert "enterprise_markers" in result["validation_plan"]
+    assert "multi_role_workflow_surface" in result["validation_plan"]
+    assert "enterprise_reporting_surface" in result["validation_plan"]
 
     generated = set(result["files_created_summary"]["paths"])
     assert "frontend/components/workflow-board.tsx" in generated
     assert "backend/workflows/router.py" in generated
+    assert "backend/workflows/approvals.py" in generated
     assert "backend/memory/state_store.py" in generated
+    assert "backend/agent/briefing.py" in generated
+    assert "backend/api/enterprise.py" in generated
+    assert "docs/READINESS.md" in generated
 
     artifacts = result["proof_artifacts"]["artifact_paths"]
     assert Path(artifacts["security_governance_contract"]).exists()

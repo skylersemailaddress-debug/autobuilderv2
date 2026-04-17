@@ -1551,22 +1551,305 @@ def first_class_validation_plan() -> list[str]:
     return _build_validation_plan()
 
 
+def _mobile_readiness_doc() -> str:
+  return '''# Mobile Lane Readiness
+
+Generated mobile lane includes:
+
+- route-aware navigation shell
+- auth-ready guard scaffolds
+- local/offline store placeholder
+- API client and state controller scaffolds
+
+Run validation:
+
+```bash
+python cli/autobuilder.py validate-app --target <generated_mobile_repo> --json
+```
+'''
+
+
+def _mobile_operator_doc() -> str:
+  return '''# Mobile Operator Notes
+
+- Verify Home, Settings, Admin, and Activity surfaces are reachable from the navigation scaffold.
+- Wire auth providers and token exchange in `lib/auth/auth_guard.dart` and backend auth routes.
+- Wire storage adapters in `lib/data/local_store.dart` for offline sync.
+'''
+
+
+def _realtime_readiness_doc() -> str:
+  return '''# Realtime Lane Readiness
+
+Generated realtime lane includes:
+
+- bounded websocket gateway scaffold
+- stream/event channel contracts
+- world-state projection and alert/action path scaffolds
+- sensor connector surface with deterministic event shape
+
+Run validation:
+
+```bash
+python cli/autobuilder.py validate-app --target <generated_realtime_repo> --json
+```
+'''
+
+
+def _enterprise_readiness_doc() -> str:
+  return '''# Enterprise-Agent Lane Readiness
+
+Generated enterprise-agent lane includes:
+
+- multi-role task routing scaffold
+- workflow and approval service scaffolds
+- memory/state store with briefing/reporting surfaces
+- operator-facing enterprise API endpoints
+
+Run validation:
+
+```bash
+python cli/autobuilder.py validate-app --target <generated_enterprise_repo> --json
+```
+'''
+
+
+def _game_readiness_doc() -> str:
+  return '''# Game Lane Readiness
+
+Generated game lane is bounded but materially scaffolded:
+
+- scene organization for main and HUD
+- input mapping and update loop scaffolds
+- game-state and HUD controller surfaces
+- run/export guidance for local prototyping
+
+Run validation:
+
+```bash
+python cli/autobuilder.py validate-app --target <generated_game_repo> --json
+```
+'''
+
+
+def _realtime_backend_app() -> str:
+  return '''from __future__ import annotations
+
+from fastapi import FastAPI
+
+from api.admin import router as admin_router
+from api.audit import router as audit_router
+from api.operator import router as operator_router
+from api.realtime import router as realtime_router
+from api.responses import ok_envelope
+
+app = FastAPI(title="Autobuilder Realtime Lane API")
+app.include_router(admin_router)
+app.include_router(operator_router)
+app.include_router(audit_router)
+app.include_router(realtime_router)
+
+
+@app.get("/health")
+def health() -> dict[str, object]:
+  return ok_envelope(data={"status": "ok", "lane": "realtime"})
+
+
+@app.get("/ready")
+def ready() -> dict[str, object]:
+  return ok_envelope(data={"status": "ready", "stream_contract": "bounded"})
+'''
+
+
+def _enterprise_backend_app() -> str:
+  return '''from __future__ import annotations
+
+from fastapi import FastAPI
+
+from api.admin import router as admin_router
+from api.audit import router as audit_router
+from api.enterprise import router as enterprise_router
+from api.operator import router as operator_router
+from api.responses import ok_envelope
+
+app = FastAPI(title="Autobuilder Enterprise Agent Lane API")
+app.include_router(admin_router)
+app.include_router(operator_router)
+app.include_router(audit_router)
+app.include_router(enterprise_router)
+
+
+@app.get("/health")
+def health() -> dict[str, object]:
+  return ok_envelope(data={"status": "ok", "lane": "enterprise_agent"})
+
+
+@app.get("/ready")
+def ready() -> dict[str, object]:
+  return ok_envelope(data={"status": "ready", "workflow_contract": "multi_role"})
+'''
+
+
 def mobile_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
     return [
         GeneratedTemplate(path="pubspec.yaml", content=(
             "name: mobile_app\nenvironment:\n  sdk: '>=3.0.0 <4.0.0'\n"
-            "dependencies:\n  flutter:\n    sdk: flutter\n  http: ^1.0.0\n"
+      "dependencies:\n  flutter:\n    sdk: flutter\n  http: ^1.0.0\n  shared_preferences: ^2.2.3\n"
         )),
+    GeneratedTemplate(path="lib/app.dart", content=(
+      "import 'package:flutter/material.dart';\n"
+      "import 'navigation/app_router.dart';\n"
+      "import 'state/app_state.dart';\n"
+      "\n"
+      "class MobileLaneApp extends StatelessWidget {\n"
+      "  const MobileLaneApp({super.key});\n"
+      "\n"
+      "  @override\n"
+      "  Widget build(BuildContext context) {\n"
+      "    return MaterialApp(\n"
+      "      title: 'Autobuilder Mobile Lane',\n"
+      "      initialRoute: AppRouter.homeRoute,\n"
+      "      routes: AppRouter.routes,\n"
+      "      builder: (_, child) => AppStateScope(child: child ?? const SizedBox.shrink()),\n"
+      "    );\n"
+      "  }\n"
+      "}\n"
+    )),
         GeneratedTemplate(path="lib/main.dart", content=(
-            "import 'package:flutter/material.dart';\nvoid main() => runApp(const MyApp());\n"
-            "class MyApp extends StatelessWidget {\n  const MyApp({super.key});\n"
-            "  @override Widget build(BuildContext context) => const MaterialApp(home: Scaffold());\n}\n"
+      "import 'package:flutter/material.dart';\n"
+      "import 'app.dart';\n"
+      "\n"
+      "void main() => runApp(const MobileLaneApp());\n"
         )),
-        GeneratedTemplate(path="lib/navigation.dart", content=(
-            "// Navigation configuration\nclass AppNavigation {\n  static const routes = <String, dynamic>{};\n}\n"
+    GeneratedTemplate(path="lib/navigation/app_router.dart", content=(
+      "import 'package:flutter/widgets.dart';\n"
+      "\n"
+      "import '../screens/activity_screen.dart';\n"
+      "import '../screens/admin_screen.dart';\n"
+      "import '../screens/home_screen.dart';\n"
+      "import '../screens/settings_screen.dart';\n"
+      "\n"
+      "class AppRouter {\n"
+      "  static const homeRoute = '/';\n"
+      "  static const settingsRoute = '/settings';\n"
+      "  static const adminRoute = '/admin';\n"
+      "  static const activityRoute = '/activity';\n"
+      "\n"
+      "  static final routes = <String, WidgetBuilder>{\n"
+      "    homeRoute: (_) => const HomeScreen(),\n"
+      "    settingsRoute: (_) => const SettingsScreen(),\n"
+      "    adminRoute: (_) => const AdminScreen(),\n"
+      "    activityRoute: (_) => const ActivityScreen(),\n"
+      "  };\n"
+      "}\n"
+    )),
+    GeneratedTemplate(path="lib/screens/home_screen.dart", content=(
+      "import 'package:flutter/material.dart';\n"
+      "\n"
+      "class HomeScreen extends StatelessWidget {\n"
+      "  const HomeScreen({super.key});\n"
+      "\n"
+      "  @override\n"
+      "  Widget build(BuildContext context) {\n"
+      "    return const Scaffold(body: Center(child: Text('Home')));\n"
+      "  }\n"
+      "}\n"
+    )),
+    GeneratedTemplate(path="lib/screens/settings_screen.dart", content=(
+      "import 'package:flutter/material.dart';\n"
+      "\n"
+      "class SettingsScreen extends StatelessWidget {\n"
+      "  const SettingsScreen({super.key});\n"
+      "\n"
+      "  @override\n"
+      "  Widget build(BuildContext context) {\n"
+      "    return const Scaffold(body: Center(child: Text('Settings')));\n"
+      "  }\n"
+      "}\n"
+    )),
+    GeneratedTemplate(path="lib/screens/admin_screen.dart", content=(
+      "import 'package:flutter/material.dart';\n"
+      "\n"
+      "class AdminScreen extends StatelessWidget {\n"
+      "  const AdminScreen({super.key});\n"
+      "\n"
+      "  @override\n"
+      "  Widget build(BuildContext context) {\n"
+      "    return const Scaffold(body: Center(child: Text('Admin')));\n"
+      "  }\n"
+      "}\n"
+    )),
+    GeneratedTemplate(path="lib/screens/activity_screen.dart", content=(
+      "import 'package:flutter/material.dart';\n"
+      "\n"
+      "class ActivityScreen extends StatelessWidget {\n"
+      "  const ActivityScreen({super.key});\n"
+      "\n"
+      "  @override\n"
+      "  Widget build(BuildContext context) {\n"
+      "    return const Scaffold(body: Center(child: Text('Activity')));\n"
+      "  }\n"
+      "}\n"
+    )),
+    GeneratedTemplate(path="lib/auth/auth_guard.dart", content=(
+      "class AuthGuard {\n"
+      "  bool hasValidSessionToken(String? token) => token != null && token.isNotEmpty;\n"
+      "}\n"
+    )),
+    GeneratedTemplate(path="lib/state/app_state.dart", content=(
+      "import 'package:flutter/widgets.dart';\n"
+      "\n"
+      "class AppStateScope extends InheritedWidget {\n"
+      "  const AppStateScope({required super.child, super.key});\n"
+      "\n"
+      "  @override\n"
+      "  bool updateShouldNotify(covariant AppStateScope oldWidget) => false;\n"
+      "}\n"
+    )),
+    GeneratedTemplate(path="lib/data/local_store.dart", content=(
+      "class LocalStore {\n"
+      "  Future<void> persistDraft(String key, String payload) async {\n"
+      "    _ = (key, payload);\n"
+      "  }\n"
+      "}\n"
         )),
         GeneratedTemplate(path="lib/services/api_client.dart", content=(
-            "// API client stub\nclass ApiClient {\n  final String baseUrl;\n  ApiClient(this.baseUrl);\n}\n"
+      "class ApiClient {\n"
+      "  final String baseUrl;\n"
+      "  ApiClient(this.baseUrl);\n"
+      "\n"
+      "  Uri endpoint(String path) => Uri.parse('$baseUrl$path');\n"
+      "}\n"
+    )),
+    GeneratedTemplate(path="backend/api/__init__.py", content=""),
+    GeneratedTemplate(path="backend/api/main.py", content=_backend_app(True, False)),
+    GeneratedTemplate(path="backend/api/auth.py", content=_backend_auth_router()),
+    GeneratedTemplate(path="backend/api/security.py", content=_backend_security_router()),
+    GeneratedTemplate(path="backend/security/__init__.py", content=""),
+    GeneratedTemplate(path="backend/security/auth_dependency.py", content=_backend_auth_dependency(ir)),
+    GeneratedTemplate(path="backend/security/rbac.py", content=_backend_rbac_roles(ir)),
+    GeneratedTemplate(path="backend/api/mobile.py", content=(
+      "from fastapi import APIRouter\n\n"
+      "from api.responses import ok_envelope\n\n"
+      "router = APIRouter(prefix='/api/mobile', tags=['mobile'])\n\n"
+      "@router.get('/bootstrap')\n"
+      "def mobile_bootstrap() -> dict[str, object]:\n"
+      "    return ok_envelope(data={'surface': 'mobile', 'status': 'scaffold'})\n"
+    )),
+    GeneratedTemplate(path="docs/READINESS.md", content=_mobile_readiness_doc()),
+    GeneratedTemplate(path="docs/OPERATOR.md", content=_mobile_operator_doc()),
+    GeneratedTemplate(path="release/runbook/OPERATOR_RUNBOOK.md", content=_operator_runbook_doc()),
+    GeneratedTemplate(path="release/proof/PROOF_BUNDLE.md", content=_release_proof_bundle_doc()),
+    GeneratedTemplate(path="release/deploy/DEPLOYMENT_NOTES.md", content=_release_deployment_notes()),
+    GeneratedTemplate(path="release/README.md", content=_release_bundle_readme()),
+    GeneratedTemplate(path="docker-compose.yml", content=_docker_compose()),
+    GeneratedTemplate(path="README.md", content=_root_readme(ir)),
+    GeneratedTemplate(path=".env.example", content=(
+      "APP_ENV=local\nAPP_VERSION=0.1.0\nDATABASE_URL=postgresql://postgres:postgres@db:5432/app\nCORS_ORIGIN=http://localhost:3000\nNEXT_PUBLIC_API_BASE_URL=http://localhost:8000\n"
+    )),
+    GeneratedTemplate(path="backend/requirements.txt", content=_backend_requirements()),
+    GeneratedTemplate(path="backend/.env.example", content=(
+      "APP_ENV=local\nAPP_VERSION=0.1.0\nDATABASE_URL=postgresql://postgres:postgres@db:5432/app\nCORS_ORIGIN=http://localhost:3000\n"
         )),
         GeneratedTemplate(path=".autobuilder/README.md", content="# Mobile App — AutobuilderV2\n"),
         GeneratedTemplate(path=".autobuilder/ir.json", content=_json_pretty(ir.to_dict())),
@@ -1580,7 +1863,17 @@ def mobile_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
 
 
 def mobile_lane_validation_plan() -> list[str]:
-    return ["mobile_structure", "mobile_markers", "navigation_flows", "api_client_present", "flutter_pubspec_valid"]
+  return [
+    "mobile_structure",
+    "mobile_markers",
+    "navigation_flows",
+    "api_client_present",
+    "flutter_pubspec_valid",
+    "mobile_auth_scaffold",
+    "mobile_state_surface",
+    "mobile_offline_store_surface",
+    "mobile_operator_surfaces",
+  ]
 
 
 def game_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
@@ -1592,11 +1885,47 @@ def game_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
         GeneratedTemplate(path="scenes/Main.tscn", content=(
             "[gd_scene load_steps=2 format=3]\n[node name=\"Main\" type=\"Node2D\"]\n"
         )),
+    GeneratedTemplate(path="scenes/HUD.tscn", content=(
+      "[gd_scene load_steps=2 format=3]\n[node name=\"HUD\" type=\"CanvasLayer\"]\n"
+    )),
         GeneratedTemplate(path="scripts/main.gd", content=(
-            "extends Node2D\nfunc _ready() -> void:\n\tpass\n"
+      "extends Node2D\n\nfunc _ready() -> void:\n\tprint('game lane initialized')\n"
+      "\nfunc _process(_delta: float) -> void:\n\tpass\n"
         )),
         GeneratedTemplate(path="scripts/player.gd", content=(
-            "extends CharacterBody2D\nfunc _physics_process(_delta: float) -> void:\n\tpass\n"
+      "extends CharacterBody2D\n\nvar speed := 120.0\n\nfunc _physics_process(_delta: float) -> void:\n\tpass\n"
+    )),
+    GeneratedTemplate(path="scripts/input_map.gd", content=(
+      "extends Node\n\nfunc configure_default_input_map() -> void:\n\t# bounded scaffold: map actions in project settings\n\tpass\n"
+    )),
+    GeneratedTemplate(path="scripts/game_state.gd", content=(
+      "extends Node\n\nvar score: int = 0\nvar health: int = 100\n\nfunc reset() -> void:\n\tscore = 0\n\thealth = 100\n"
+    )),
+    GeneratedTemplate(path="scripts/hud.gd", content=(
+      "extends CanvasLayer\n\nfunc set_status(_score: int, _health: int) -> void:\n\tpass\n"
+    )),
+    GeneratedTemplate(path="docs/READINESS.md", content=_game_readiness_doc()),
+    GeneratedTemplate(path="docs/EXPORT_AND_RUN.md", content=(
+      "# Export and Run Guidance\n\n"
+      "1. Open `project.godot` in Godot 4.x.\n"
+      "2. Verify Main and HUD scenes load.\n"
+      "3. Configure export presets for desktop/mobile as needed.\n"
+      "4. Treat runtime networking and assets as operator extension work.\n"
+    )),
+    GeneratedTemplate(path="release/proof/PROOF_BUNDLE.md", content=_release_proof_bundle_doc()),
+    GeneratedTemplate(path="release/runbook/OPERATOR_RUNBOOK.md", content=_operator_runbook_doc()),
+    GeneratedTemplate(path="README.md", content=_root_readme(ir)),
+    GeneratedTemplate(path="docker-compose.yml", content=_docker_compose()),
+    GeneratedTemplate(path="backend/requirements.txt", content=_backend_requirements()),
+    GeneratedTemplate(path="backend/api/__init__.py", content=""),
+    GeneratedTemplate(path="backend/api/main.py", content=_backend_app(False, False)),
+    GeneratedTemplate(path="backend/api/game.py", content=(
+      "from fastapi import APIRouter\n\n"
+      "from api.responses import ok_envelope\n\n"
+      "router = APIRouter(prefix='/api/game', tags=['game'])\n\n"
+      "@router.get('/state')\n"
+      "def game_state() -> dict[str, object]:\n"
+      "    return ok_envelope(data={'status': 'scaffold', 'mode': 'bounded_prototype'})\n"
         )),
         GeneratedTemplate(path=".autobuilder/README.md", content="# Game App — AutobuilderV2\n"),
         GeneratedTemplate(path=".autobuilder/ir.json", content=_json_pretty(ir.to_dict())),
@@ -1610,23 +1939,108 @@ def game_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
 
 
 def game_lane_validation_plan() -> list[str]:
-    return ["game_structure", "game_markers", "scene_flow", "godot_project_valid", "scripts_present"]
+  return [
+    "game_structure",
+    "game_markers",
+    "scene_flow",
+    "godot_project_valid",
+    "scripts_present",
+    "hud_surface_present",
+    "game_state_surface_present",
+    "game_export_guidance_present",
+  ]
 
 
 def realtime_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
     return [
         GeneratedTemplate(path="frontend/lib/realtime-client.ts", content=(
-            "// Realtime client\nexport class RealtimeClient {\n"
-            "  constructor(private url: string) {}\n  connect() { return this.url; }\n}\n"
+      "// Realtime client\n"
+      "export type StreamEvent = { channel: string; event: string; payload: Record<string, unknown> };\n"
+      "\n"
+      "export class RealtimeClient {\n"
+      "  private socket: WebSocket | null = null;\n"
+      "  constructor(private url: string) {}\n"
+      "\n"
+      "  connect(onEvent: (event: StreamEvent) => void): void {\n"
+      "    this.socket = new WebSocket(this.url);\n"
+      "    this.socket.onmessage = (msg) => {\n"
+      "      try { onEvent(JSON.parse(msg.data) as StreamEvent); } catch { /* bounded scaffold */ }\n"
+      "    };\n"
+      "  }\n"
+      "}\n"
+    )),
+    GeneratedTemplate(path="frontend/lib/alert-actions.ts", content=(
+      "export function classifyAlert(eventType: string): 'notify' | 'escalate' | 'ignore' {\n"
+      "  if (eventType.includes('critical')) return 'escalate';\n"
+      "  if (eventType.includes('warning')) return 'notify';\n"
+      "  return 'ignore';\n"
+      "}\n"
         )),
         GeneratedTemplate(path="backend/connectors/sensors.py", content=(
-            "# Sensor connector\nclass SensorConnector:\n    def connect(self) -> None:\n        pass\n"
+      "from __future__ import annotations\n\n"
+      "class SensorConnector:\n"
+      "    def connect(self) -> None:\n"
+      "        return None\n"
+      "\n"
+      "    def fetch_snapshot(self) -> dict[str, object]:\n"
+      "        return {'source': 'sensor', 'status': 'stub', 'value': 0}\n"
         )),
+    GeneratedTemplate(path="backend/realtime/channels.py", content=(
+      "CHANNELS = ['ops.events', 'ops.alerts', 'ops.actions']\n"
+    )),
+    GeneratedTemplate(path="backend/realtime/events.py", content=(
+      "from __future__ import annotations\n\n"
+      "def normalize_event(raw: dict[str, object]) -> dict[str, object]:\n"
+      "    return {\n"
+      "        'channel': str(raw.get('channel', 'ops.events')),\n"
+      "        'event': str(raw.get('event', 'unknown')),\n"
+      "        'payload': dict(raw.get('payload', {})),\n"
+      "    }\n"
+    )),
         GeneratedTemplate(path="backend/realtime/world_state.py", content=(
-            "# World state manager\nclass WorldState:\n    def __init__(self) -> None:\n        self._state: dict = {}\n"
+      "from __future__ import annotations\n\n"
+      "class WorldState:\n"
+      "    def __init__(self) -> None:\n"
+      "        self._state: dict[str, object] = {}\n"
+      "\n"
+      "    def apply_event(self, event: dict[str, object]) -> dict[str, object]:\n"
+      "        key = str(event.get('event', 'unknown'))\n"
+      "        self._state[key] = event.get('payload', {})\n"
+      "        return self._state\n"
+    )),
+    GeneratedTemplate(path="backend/realtime/ws_gateway.py", content=(
+      "from __future__ import annotations\n\n"
+      "class RealtimeGateway:\n"
+      "    def publish(self, channel: str, payload: dict[str, object]) -> dict[str, object]:\n"
+      "        return {'published': True, 'channel': channel, 'payload': payload}\n"
+    )),
+    GeneratedTemplate(path="backend/services/alerts.py", content=(
+      "from __future__ import annotations\n\n"
+      "def route_alert(event: dict[str, object]) -> str:\n"
+      "    name = str(event.get('event', ''))\n"
+      "    if 'critical' in name:\n"
+      "        return 'escalate'\n"
+      "    if 'warning' in name:\n"
+      "        return 'notify'\n"
+      "    return 'ignore'\n"
         )),
         GeneratedTemplate(path="backend/api/__init__.py", content=""),
-        GeneratedTemplate(path="backend/api/main.py", content=_backend_app(False, False)),
+    GeneratedTemplate(path="backend/api/main.py", content=_realtime_backend_app()),
+    GeneratedTemplate(path="backend/api/realtime.py", content=(
+      "from fastapi import APIRouter\n\n"
+      "from api.responses import ok_envelope\n"
+      "from connectors.sensors import SensorConnector\n"
+      "from realtime.events import normalize_event\n"
+      "from realtime.world_state import WorldState\n\n"
+      "router = APIRouter(prefix='/api/realtime', tags=['realtime'])\n"
+      "_sensor = SensorConnector()\n"
+      "_world = WorldState()\n\n"
+      "@router.post('/ingest')\n"
+      "def ingest(event: dict[str, object]) -> dict[str, object]:\n"
+      "    normalized = normalize_event(event)\n"
+      "    world = _world.apply_event(normalized)\n"
+      "    return ok_envelope(data={'accepted': True, 'world_state_keys': sorted(world.keys())})\n"
+    )),
         GeneratedTemplate(path="backend/api/admin.py", content=_backend_admin_router()),
         GeneratedTemplate(path="backend/api/operator.py", content=_backend_operator_router()),
         GeneratedTemplate(path="backend/api/audit.py", content=_backend_audit_router()),
@@ -1634,6 +2048,19 @@ def realtime_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
         GeneratedTemplate(path="backend/api/responses.py", content=_backend_response_envelopes()),
         GeneratedTemplate(path="backend/api/logging.py", content=_backend_logging()),
         GeneratedTemplate(path="backend/requirements.txt", content=_backend_requirements()),
+        GeneratedTemplate(path="docs/READINESS.md", content=_realtime_readiness_doc()),
+        GeneratedTemplate(path="release/proof/PROOF_BUNDLE.md", content=_release_proof_bundle_doc()),
+        GeneratedTemplate(path="release/runbook/OPERATOR_RUNBOOK.md", content=_operator_runbook_doc()),
+        GeneratedTemplate(path="release/deploy/DEPLOYMENT_NOTES.md", content=_release_deployment_notes()),
+        GeneratedTemplate(path="release/README.md", content=_release_bundle_readme()),
+        GeneratedTemplate(path="docker-compose.yml", content=_docker_compose()),
+        GeneratedTemplate(path="README.md", content=_root_readme(ir)),
+        GeneratedTemplate(path=".env.example", content=(
+          "APP_ENV=local\nAPP_VERSION=0.1.0\nDATABASE_URL=postgresql://postgres:postgres@db:5432/app\nCORS_ORIGIN=http://localhost:3000\nNEXT_PUBLIC_API_BASE_URL=http://localhost:8000\n"
+        )),
+        GeneratedTemplate(path="backend/.env.example", content=(
+          "APP_ENV=local\nAPP_VERSION=0.1.0\nDATABASE_URL=postgresql://postgres:postgres@db:5432/app\nCORS_ORIGIN=http://localhost:3000\n"
+        )),
         GeneratedTemplate(path=".autobuilder/README.md", content="# Realtime System — AutobuilderV2\n"),
         GeneratedTemplate(path=".autobuilder/ir.json", content=_json_pretty(ir.to_dict())),
         GeneratedTemplate(path=".autobuilder/determinism_signature.json", content=_determinism_signature_json()),
@@ -1646,31 +2073,99 @@ def realtime_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
 
 
 def realtime_lane_validation_plan() -> list[str]:
-    return ["realtime_structure", "realtime_markers", "channel_integrity", "world_state_present", "connector_present"]
+  return [
+    "realtime_structure",
+    "realtime_markers",
+    "channel_integrity",
+    "world_state_present",
+    "connector_present",
+    "realtime_ws_gateway_present",
+    "realtime_alert_action_path_present",
+    "realtime_operator_surface_present",
+  ]
 
 
 def enterprise_agent_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
     return [
         GeneratedTemplate(path="backend/agent/runtime.py", content=(
-            "# Agent runtime\nclass AgentRuntime:\n    def run(self, task: str) -> dict:\n        return {'status': 'completed', 'task': task}\n"
+      "from __future__ import annotations\n\n"
+      "class AgentRuntime:\n"
+      "    def run(self, task: str, actor_role: str = 'member') -> dict[str, object]:\n"
+      "        return {'status': 'completed', 'task': task, 'actor_role': actor_role}\n"
         )),
         GeneratedTemplate(path="backend/agent/task_router.py", content=(
-            "# Task router\nclass TaskRouter:\n    def route(self, task: str) -> str:\n        return task\n"
+      "from __future__ import annotations\n\n"
+      "ROLE_QUEUE = {'admin': 'priority', 'operator': 'operations', 'member': 'standard'}\n\n"
+      "class TaskRouter:\n"
+      "    def route(self, task: str, role: str) -> str:\n"
+      "        queue = ROLE_QUEUE.get(role, 'standard')\n"
+      "        return f'{queue}:{task}'\n"
         )),
         GeneratedTemplate(path="backend/agent/audit.py", content=(
-            "# Audit service\nclass AuditService:\n    def record(self, event: dict) -> None:\n        pass\n"
+      "class AuditService:\n"
+      "    def record(self, event: dict[str, object]) -> None:\n"
+      "        _ = event\n"
+      "        return None\n"
+    )),
+    GeneratedTemplate(path="backend/agent/briefing.py", content=(
+      "from __future__ import annotations\n\n"
+      "def build_briefing(summary: str, pending: list[str]) -> dict[str, object]:\n"
+      "    return {'summary': summary, 'pending_items': pending, 'status': 'scaffold'}\n"
         )),
         GeneratedTemplate(path="frontend/components/workflow-board.tsx", content=(
-            "// Workflow board component\nexport function WorkflowBoard() { return null; }\n"
+      "// Workflow board component\n"
+      "export function WorkflowBoard() {\n"
+      "  return <div data-testid=\"workflow-board\">workflow board scaffold</div>;\n"
+      "}\n"
         )),
         GeneratedTemplate(path="backend/workflows/router.py", content=(
-            "# Workflow router\nclass WorkflowRouter:\n    def route(self, workflow: str) -> str:\n        return workflow\n"
+      "from __future__ import annotations\n\n"
+      "WORKFLOW_BY_ROLE = {\n"
+      "    'admin': ['approve_change', 'view_reports'],\n"
+      "    'operator': ['triage_alert', 'resume_mission'],\n"
+      "    'member': ['submit_task'],\n"
+      "}\n\n"
+      "class WorkflowRouter:\n"
+      "    def route_for_role(self, role: str) -> list[str]:\n"
+      "        return WORKFLOW_BY_ROLE.get(role, ['submit_task'])\n"
+    )),
+    GeneratedTemplate(path="backend/workflows/approvals.py", content=(
+      "from __future__ import annotations\n\n"
+      "def requires_approval(action: str) -> bool:\n"
+      "    return action in {'deploy', 'delete', 'billing_change', 'role_grant'}\n"
         )),
         GeneratedTemplate(path="backend/memory/state_store.py", content=(
-            "# Memory state store\nclass StateStore:\n    def __init__(self) -> None:\n        self._store: dict = {}\n"
+      "from __future__ import annotations\n\n"
+      "class StateStore:\n"
+      "    def __init__(self) -> None:\n"
+      "        self._store: dict[str, dict[str, object]] = {}\n"
+      "\n"
+      "    def write(self, key: str, payload: dict[str, object]) -> None:\n"
+      "        self._store[key] = payload\n"
+      "\n"
+      "    def read(self, key: str) -> dict[str, object]:\n"
+      "        return self._store.get(key, {})\n"
         )),
         GeneratedTemplate(path="backend/api/__init__.py", content=""),
-        GeneratedTemplate(path="backend/api/main.py", content=_backend_app(False, False)),
+    GeneratedTemplate(path="backend/api/main.py", content=_enterprise_backend_app()),
+    GeneratedTemplate(path="backend/api/enterprise.py", content=(
+      "from fastapi import APIRouter\n\n"
+      "from agent.briefing import build_briefing\n"
+      "from api.responses import ok_envelope\n"
+      "from memory.state_store import StateStore\n"
+      "from workflows.router import WorkflowRouter\n\n"
+      "router = APIRouter(prefix='/api/enterprise', tags=['enterprise'])\n"
+      "_router = WorkflowRouter()\n"
+      "_state = StateStore()\n\n"
+      "@router.get('/briefing/{role}')\n"
+      "def briefing(role: str) -> dict[str, object]:\n"
+      "    tasks = _router.route_for_role(role)\n"
+      "    return ok_envelope(data=build_briefing(f'role={role}', tasks))\n\n"
+      "@router.post('/report/{run_id}')\n"
+      "def report(run_id: str, payload: dict[str, object]) -> dict[str, object]:\n"
+      "    _state.write(run_id, payload)\n"
+      "    return ok_envelope(data={'stored': True, 'run_id': run_id})\n"
+    )),
         GeneratedTemplate(path="backend/api/admin.py", content=_backend_admin_router()),
         GeneratedTemplate(path="backend/api/operator.py", content=_backend_operator_router()),
         GeneratedTemplate(path="backend/api/audit.py", content=_backend_audit_router()),
@@ -1678,6 +2173,19 @@ def enterprise_agent_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
         GeneratedTemplate(path="backend/api/responses.py", content=_backend_response_envelopes()),
         GeneratedTemplate(path="backend/api/logging.py", content=_backend_logging()),
         GeneratedTemplate(path="backend/requirements.txt", content=_backend_requirements()),
+        GeneratedTemplate(path="docs/READINESS.md", content=_enterprise_readiness_doc()),
+        GeneratedTemplate(path="release/proof/PROOF_BUNDLE.md", content=_release_proof_bundle_doc()),
+        GeneratedTemplate(path="release/runbook/OPERATOR_RUNBOOK.md", content=_operator_runbook_doc()),
+        GeneratedTemplate(path="release/deploy/DEPLOYMENT_NOTES.md", content=_release_deployment_notes()),
+        GeneratedTemplate(path="release/README.md", content=_release_bundle_readme()),
+        GeneratedTemplate(path="docker-compose.yml", content=_docker_compose()),
+        GeneratedTemplate(path="README.md", content=_root_readme(ir)),
+        GeneratedTemplate(path=".env.example", content=(
+          "APP_ENV=local\nAPP_VERSION=0.1.0\nDATABASE_URL=postgresql://postgres:postgres@db:5432/app\nCORS_ORIGIN=http://localhost:3000\nNEXT_PUBLIC_API_BASE_URL=http://localhost:8000\n"
+        )),
+        GeneratedTemplate(path="backend/.env.example", content=(
+          "APP_ENV=local\nAPP_VERSION=0.1.0\nDATABASE_URL=postgresql://postgres:postgres@db:5432/app\nCORS_ORIGIN=http://localhost:3000\n"
+        )),
         GeneratedTemplate(path=".autobuilder/README.md", content="# Enterprise Agent System — AutobuilderV2\n"),
         GeneratedTemplate(path=".autobuilder/ir.json", content=_json_pretty(ir.to_dict())),
         GeneratedTemplate(path=".autobuilder/determinism_signature.json", content=_determinism_signature_json()),
@@ -1690,7 +2198,16 @@ def enterprise_agent_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
 
 
 def enterprise_agent_lane_validation_plan() -> list[str]:
-    return ["enterprise_structure", "enterprise_markers", "approval_flows", "audit_service_present", "task_router_present"]
+  return [
+    "enterprise_structure",
+    "enterprise_markers",
+    "approval_flows",
+    "audit_service_present",
+    "task_router_present",
+    "multi_role_workflow_surface",
+    "memory_state_surface",
+    "enterprise_reporting_surface",
+  ]
 
 
 def get_lane_validation_plan(app_type: str) -> list[str]:

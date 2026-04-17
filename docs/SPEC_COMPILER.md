@@ -133,7 +133,7 @@ class AppIR:
 
 | Capability Family | Maturity | Compiler Enforcement |
 |---|---|---|
-| commercial/mobile/game/realtime/enterprise lanes | first_class | lane contract must match app_type + allowed stack frontends |
+| commercial/mobile/game/realtime/enterprise lanes | first_class | lane contract must match app_type + allowed stack frontends + lane-specific validation expectations |
 | chat-first builder | bounded_prototype | preview-first path and unsupported capability rejection |
 | agent-runtime | bounded_prototype | approval-gated execution with blocked/completed semantics |
 | self-extension/tool-factory | bounded_prototype | sandbox + validation threshold + registry/quarantine governance |

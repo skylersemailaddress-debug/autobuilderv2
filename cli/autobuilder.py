@@ -186,6 +186,127 @@ def _run_benchmarks(case_names: str | None = None) -> dict:
     return build_benchmark_report(results)
 
 
+LANE_VALIDATION_RULES: dict[str, dict[str, object]] = {
+    "mobile_app": {
+        "mobile_structure": {
+            "exists": [
+                "pubspec.yaml",
+                "lib/app.dart",
+                "lib/navigation/app_router.dart",
+                "lib/screens/home_screen.dart",
+                "lib/screens/settings_screen.dart",
+                "lib/screens/admin_screen.dart",
+                "lib/screens/activity_screen.dart",
+            ]
+        },
+        "mobile_markers": {
+            "contains": {
+                "lib/navigation/app_router.dart": ["settingsRoute", "adminRoute", "activityRoute"],
+            }
+        },
+        "navigation_flows": {"exists": ["lib/navigation/app_router.dart"]},
+        "api_client_present": {"contains": {"lib/services/api_client.dart": ["class ApiClient", "Uri endpoint"]}},
+        "flutter_pubspec_valid": {"contains": {"pubspec.yaml": ["flutter", "http", "shared_preferences"]}},
+        "mobile_auth_scaffold": {"exists": ["lib/auth/auth_guard.dart", "backend/api/auth.py"]},
+        "mobile_state_surface": {"exists": ["lib/state/app_state.dart"]},
+        "mobile_offline_store_surface": {"exists": ["lib/data/local_store.dart"]},
+        "mobile_operator_surfaces": {"exists": ["docs/READINESS.md", "docs/OPERATOR.md"]},
+    },
+    "realtime_system": {
+        "realtime_structure": {
+            "exists": [
+                "frontend/lib/realtime-client.ts",
+                "frontend/lib/alert-actions.ts",
+                "backend/realtime/world_state.py",
+                "backend/realtime/events.py",
+            ]
+        },
+        "realtime_markers": {"contains": {"backend/api/realtime.py": ["/ingest", "normalize_event", "WorldState"]}},
+        "channel_integrity": {"contains": {"backend/realtime/channels.py": ["ops.events", "ops.alerts", "ops.actions"]}},
+        "world_state_present": {"contains": {"backend/realtime/world_state.py": ["class WorldState", "apply_event"]}},
+        "connector_present": {"contains": {"backend/connectors/sensors.py": ["class SensorConnector", "fetch_snapshot"]}},
+        "realtime_ws_gateway_present": {"exists": ["backend/realtime/ws_gateway.py"]},
+        "realtime_alert_action_path_present": {"exists": ["backend/services/alerts.py", "frontend/lib/alert-actions.ts"]},
+        "realtime_operator_surface_present": {"exists": ["backend/api/realtime.py", "docs/READINESS.md"]},
+    },
+    "enterprise_agent_system": {
+        "enterprise_structure": {"exists": ["backend/workflows/router.py", "backend/workflows/approvals.py", "backend/agent/runtime.py"]},
+        "enterprise_markers": {"contains": {"backend/api/enterprise.py": ["/briefing/", "/report/", "WorkflowRouter"]}},
+        "approval_flows": {"contains": {"backend/workflows/approvals.py": ["requires_approval", "billing_change"]}},
+        "audit_service_present": {"exists": ["backend/agent/audit.py"]},
+        "task_router_present": {"contains": {"backend/agent/task_router.py": ["ROLE_QUEUE", "def route"]}},
+        "multi_role_workflow_surface": {"contains": {"backend/workflows/router.py": ["WORKFLOW_BY_ROLE", "route_for_role"]}},
+        "memory_state_surface": {"contains": {"backend/memory/state_store.py": ["def write", "def read"]}},
+        "enterprise_reporting_surface": {"exists": ["backend/api/enterprise.py", "backend/agent/briefing.py", "docs/READINESS.md"]},
+    },
+    "game_app": {
+        "game_structure": {"exists": ["project.godot", "scenes/Main.tscn", "scripts/main.gd"]},
+        "game_markers": {"contains": {"project.godot": ["run/main_scene", "config/name"]}},
+        "scene_flow": {"exists": ["scenes/Main.tscn", "scenes/HUD.tscn"]},
+        "godot_project_valid": {"contains": {"project.godot": ["[application]", "run/main_scene"]}},
+        "scripts_present": {"exists": ["scripts/player.gd", "scripts/input_map.gd", "scripts/game_state.gd", "scripts/hud.gd"]},
+        "hud_surface_present": {"exists": ["scenes/HUD.tscn", "scripts/hud.gd"]},
+        "game_state_surface_present": {"contains": {"scripts/game_state.gd": ["score", "health", "reset"]}},
+        "game_export_guidance_present": {"exists": ["docs/EXPORT_AND_RUN.md", "docs/READINESS.md"]},
+    },
+}
+
+
+def _run_lane_validation(target_repo: str, app_type: str, validation_plan: list[str]) -> dict[str, object]:
+    target = Path(target_repo).resolve()
+    rules = LANE_VALIDATION_RULES.get(app_type, {})
+    check_results: list[dict[str, object]] = []
+
+    for check_name in validation_plan:
+        rule = rules.get(check_name)
+        if not rule:
+            check_results.append({
+                "name": check_name,
+                "passed": True,
+                "details": "not_lane_specific_or_externally_validated",
+                "failed_items": [],
+            })
+            continue
+
+        failed_items: list[str] = []
+        for rel in rule.get("exists", []):
+            if not (target / rel).exists():
+                failed_items.append(f"missing:{rel}")
+        for rel, markers in rule.get("contains", {}).items():
+            path = target / rel
+            if not path.exists():
+                failed_items.append(f"missing:{rel}")
+                continue
+            content = path.read_text(encoding="utf-8")
+            for marker in markers:
+                if marker not in content:
+                    failed_items.append(f"marker_missing:{rel}:{marker}")
+
+        check_results.append(
+            {
+                "name": check_name,
+                "passed": len(failed_items) == 0,
+                "details": "ok" if not failed_items else "failed",
+                "failed_items": failed_items,
+            }
+        )
+
+    passed_count = sum(1 for item in check_results if item["passed"])
+    failed = [item for item in check_results if not item["passed"]]
+    return {
+        "validation_status": "passed" if not failed else "failed",
+        "all_passed": not failed,
+        "passed_count": passed_count,
+        "failed_count": len(check_results) - passed_count,
+        "total_checks": len(check_results),
+        "all_checks": len(check_results),
+        "failed_checks": [item["name"] for item in failed],
+        "unsupported_features": [],
+        "checks": check_results,
+        "failed_items": [entry for item in failed for entry in item.get("failed_items", [])],
+    }
+
+
 def run_proof_workflow() -> dict:
     low_risk = run_mission("Build an autonomous execution plan")
     approval_sensitive = run_mission("Delete production resources safely")
@@ -316,16 +437,21 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
     }
     lane_id = lane_contract.lane_id if lane_contract else _LANE_IDS.get(ir.app_type, "first_class_commercial")
 
-    validation_report = {
-        "validation_status": "passed",
-        "all_passed": True,
-        "passed_count": len(validation_plan),
-        "failed_count": 0,
-        "total_checks": len(validation_plan),
-        "all_checks": len(validation_plan),
-        "failed_checks": [],
-        "unsupported_features": [],
-    }
+    if ir.app_type in LANE_VALIDATION_RULES:
+        validation_report = _run_lane_validation(target_path, ir.app_type, validation_plan)
+    else:
+        validation_report = {
+            "validation_status": "passed",
+            "all_passed": True,
+            "passed_count": len(validation_plan),
+            "failed_count": 0,
+            "total_checks": len(validation_plan),
+            "all_checks": len(validation_plan),
+            "failed_checks": [],
+            "unsupported_features": [],
+            "checks": [],
+            "failed_items": [],
+        }
     repair_report_obj: dict = {"unrepaired_blockers": [], "repaired_issues": [], "repair_attempts": 0, "failure_classification": []}
 
     from platform_hardening.proof_enrichment import enrich_proof_with_platform_hardening
@@ -353,7 +479,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         "failed_count": validation_report["failed_count"],
         "total_checks": validation_report["total_checks"],
         "all_checks": validation_report["all_checks"],
-        "checks": [],
+        "checks": validation_report.get("checks", []),
     }
 
     reliability_summary = derive_build_reliability(
@@ -393,7 +519,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
     return {
         "status": "ok",
         "build_status": "ok",
-        "validation_status": "passed",
+        "validation_status": validation_report["validation_status"],
         "proof_status": proof_artifacts["proof_status"],
         "spec_root": specs.spec_root,
         "target_repo": plan.target_repo,
@@ -551,6 +677,24 @@ def run_generated_app_validation_workflow(target_path: str, *, repair: bool = Fa
     missing = [f for f in REQUIRED_FILES if not (target / f).exists()]
     repaired: list[str] = []
     unrepaired: list[str] = []
+    lane_failed_checks: list[str] = []
+    lane_failed_items: list[str] = []
+    lane_validation_status = "passed"
+
+    ir_path = target / ".autobuilder" / "ir.json"
+    if ir_path.exists():
+        try:
+            ir_payload = json.loads(ir_path.read_text(encoding="utf-8"))
+            app_type = str(ir_payload.get("app_type", ""))
+            if app_type in LANE_VALIDATION_RULES:
+                lane_validation = _run_lane_validation(str(target), app_type, list(LANE_VALIDATION_RULES[app_type].keys()))
+                lane_validation_status = str(lane_validation.get("validation_status", "failed"))
+                lane_failed_checks = list(lane_validation.get("failed_checks", []))
+                lane_failed_items = list(lane_validation.get("failed_items", []))
+        except Exception:
+            lane_validation_status = "failed"
+            lane_failed_checks = ["lane_validation_unreadable_ir"]
+            lane_failed_items = [".autobuilder/ir.json"]
 
     if missing and repair:
         for rel in missing:
@@ -564,7 +708,7 @@ def run_generated_app_validation_workflow(target_path: str, *, repair: bool = Fa
     elif missing:
         unrepaired = missing
 
-    validation_status = "passed" if not unrepaired else "failed"
+    validation_status = "passed" if (not unrepaired and lane_validation_status == "passed") else "failed"
     failure_classification = "repair_required" if unrepaired else "none"
     governance = _governance_bundle(
         "validate-app",
@@ -581,11 +725,16 @@ def run_generated_app_validation_workflow(target_path: str, *, repair: bool = Fa
         "validation_status": validation_status,
         "repaired_issues": repaired,
         "unrepaired_blockers": unrepaired,
+        "lane_validation": {
+            "status": lane_validation_status,
+            "failed_checks": lane_failed_checks,
+            "failed_items": lane_failed_items,
+        },
         "repair_report": {
             "repair_attempts": 1 if repair else 0,
             "repairs_applied": len(repaired),
             "repaired_issues": repaired,
-            "unrepaired_blockers": unrepaired,
+            "unrepaired_blockers": unrepaired + lane_failed_items,
         },
         **governance,
     }

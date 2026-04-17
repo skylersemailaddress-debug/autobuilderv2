@@ -143,10 +143,10 @@ Stacks with tier `future` are rejected by the `ship` command.
 | Capability Family | Maturity | Contract |
 |---|---|---|
 | commercial web lane | first_class | deterministic build/ship/proof, full readiness and reliability reporting |
-| mobile lane | first_class | flutter lane templates + lane validation + proof artifacts |
-| game lane | first_class | godot lane templates + lane validation + proof artifacts |
-| realtime/sensing lane | first_class | realtime scaffolds + world-state schema contract + proof artifacts |
-| enterprise-agent/workflow lane | first_class | workflow scaffolds + approvals surfaces + proof artifacts |
+| mobile lane | first_class | Flutter app router + auth/state/offline scaffolds + backend mobile/auth routes + lane validation/proof artifacts |
+| game lane | first_class | Godot project/scene/input/HUD/state scaffolds + bounded export guidance + lane validation/proof artifacts |
+| realtime/sensing lane | first_class | stream channels/events + world-state + websocket gateway scaffold + alert/action paths + lane validation/proof artifacts |
+| enterprise-agent/workflow lane | first_class | multi-role workflow routing + approvals + memory/briefing/reporting scaffolds + lane validation/proof artifacts |
 | chat-first builder | bounded_prototype | preview-first deterministic flow, explicit unsupported-request rejection |
 | agent-runtime | bounded_prototype | task model + approval gating + blocked/completed semantics + replay signature |
 | self-extension/tool-factory | bounded_prototype | sandbox boundary, validation threshold, registry/quarantine, rollback references |

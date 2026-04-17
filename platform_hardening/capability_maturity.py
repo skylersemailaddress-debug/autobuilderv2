@@ -41,7 +41,7 @@ LANE_CONTRACTS: dict[str, LaneMaturityContract] = {
         app_types=["mobile_app"],
         allowed_frontends=["flutter_mobile"],
         capability_families=["mobile_generation", "proof", "readiness"],
-        summary="Mobile lane is first-class for Flutter-oriented generated structures.",
+        summary="Mobile lane is first-class for deterministic Flutter+backend generation with auth-ready, state, navigation, and offline scaffolds.",
     ),
     "first_class_game": LaneMaturityContract(
         lane_id="first_class_game",
@@ -49,7 +49,7 @@ LANE_CONTRACTS: dict[str, LaneMaturityContract] = {
         app_types=["game_app"],
         allowed_frontends=["godot_game"],
         capability_families=["game_generation", "proof", "readiness"],
-        summary="Game lane is first-class for Godot-oriented generated structures.",
+        summary="Game lane is first-class for deterministic Godot project scaffolds with bounded gameplay/runtime contracts and explicit operator extension boundaries.",
     ),
     "first_class_realtime": LaneMaturityContract(
         lane_id="first_class_realtime",
@@ -57,7 +57,7 @@ LANE_CONTRACTS: dict[str, LaneMaturityContract] = {
         app_types=["realtime_system"],
         allowed_frontends=["react_next"],
         capability_families=["realtime_generation", "world_state_scaffold", "proof", "readiness"],
-        summary="Realtime/sensing lane is first-class for bounded stream and world-state contracts.",
+        summary="Realtime lane is first-class for deterministic stream/world-state generation with bounded websocket, alert/action, and connector scaffolds.",
     ),
     "first_class_enterprise_agent": LaneMaturityContract(
         lane_id="first_class_enterprise_agent",
@@ -65,7 +65,7 @@ LANE_CONTRACTS: dict[str, LaneMaturityContract] = {
         app_types=["enterprise_agent_system"],
         allowed_frontends=["react_next"],
         capability_families=["agent_workflow_scaffold", "approvals", "proof", "readiness"],
-        summary="Enterprise-agent workflow lane is first-class for operator-governed workflow scaffolds.",
+        summary="Enterprise-agent lane is first-class for deterministic multi-role workflow, approvals, memory, and briefing/reporting scaffolds under operator governance.",
     ),
 }
 
