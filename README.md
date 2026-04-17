@@ -147,13 +147,13 @@ Stacks with tier `future` are rejected by the `ship` command.
 | game lane | first_class | Godot project/scene/input/HUD/state scaffolds + bounded export guidance + lane validation/proof artifacts |
 | realtime/sensing lane | first_class | stream channels/events + world-state + websocket gateway scaffold + alert/action paths + lane validation/proof artifacts |
 | enterprise-agent/workflow lane | first_class | multi-role workflow routing + approvals + memory/briefing/reporting scaffolds + lane validation/proof artifacts |
-| chat-first builder | bounded_prototype | preview-first deterministic flow, explicit unsupported-request rejection |
-| agent-runtime | bounded_prototype | task model + approval gating + blocked/completed semantics + replay signature |
-| self-extension/tool-factory | bounded_prototype | sandbox boundary, validation threshold, registry/quarantine, rollback references |
-| multimodal/world-state | structural_only | schema normalization + world-state snapshot contracts only |
+| chat-first builder | bounded_prototype | preview-first deterministic flow, richer conversation-to-spec mapping, structured preview contract, explicit unsupported-request rejection |
+| agent-runtime | bounded_prototype | task model + approval gating + blocked/completed semantics + replay signature + bounded execution contract |
+| self-extension/tool-factory | bounded_prototype | sandbox boundary, stricter validation thresholds, registry/quarantine, rollback references, operator-visible trust metadata |
+| multimodal/world-state | structural_only | schema normalization + world-state snapshot + schema consistency counters only |
 | security | bounded_prototype | auth/authz contract + generated auth dependency and RBAC scaffolds for commercial lane |
 | commerce | bounded_prototype | contract + generated plans/webhook/entitlement/billing-admin scaffolds for commercial lane |
-| cross-lane-composition | bounded_prototype | validated composition patterns with explicit unsupported combinations |
+| cross-lane-composition | bounded_prototype | validated composition patterns with additive generated overlays and machine-readable combined proof/readiness/validation semantics |
 | lifecycle | bounded_prototype | regeneration safety classification with machine-readable lifecycle decisions |
 | enterprise-readiness | bounded_prototype | deployment/supportability/runbook/escalation artifacts emitted in proof |
 

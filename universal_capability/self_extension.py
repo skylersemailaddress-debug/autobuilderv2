@@ -20,7 +20,9 @@ def detect_capability_gaps(*, lane_id: str, requested_capabilities: list[str]) -
             for cap in pack.get("capabilities", []):
                 existing.add(str(cap))
 
-    return sorted({cap for cap in requested_capabilities if cap not in existing})
+    normalized_requested = {str(cap).strip().lower().replace(" ", "_") for cap in requested_capabilities if str(cap).strip()}
+    normalized_existing = {str(cap).strip().lower().replace(" ", "_") for cap in existing}
+    return sorted(cap for cap in normalized_requested if cap not in normalized_existing)
 
 
 def _tool_type_for_gap(gap: str) -> str:
@@ -32,6 +34,15 @@ def _tool_type_for_gap(gap: str) -> str:
     if "helper" in text or "utility" in text:
         return "helper"
     return "domain_utility"
+
+
+def _quality_threshold_for_gap(gap: str) -> int:
+    text = gap.lower()
+    if "core" in text or "auth" in text or "payment" in text:
+        return 92
+    if "validator" in text or "security" in text:
+        return 90
+    return 85
 
 
 def _enforce_sandbox_boundary(path: str) -> str:
@@ -69,6 +80,12 @@ def synthesize_missing_capabilities(
             purpose=f"fill capability gap: {gap}",
             lane_id=lane_id,
         )
+        candidate["quality_threshold"] = _quality_threshold_for_gap(gap)
+        candidate["operator_visibility"] = {
+            "why_generated": f"Missing lane capability: {gap}",
+            "trust_boundary": "sandbox_first",
+            "promotion_policy": "core-impact requires explicit approval",
+        }
         validation = validate_tool_candidate(candidate)
         decision = evaluate_registration(
             candidate=candidate,
@@ -144,6 +161,12 @@ def synthesize_missing_capabilities(
             "registered_count": len(registered),
             "quarantined_count": len(quarantined),
             "rollback_references": [f"rollback::{tool_id}" for tool_id in sorted(registered)],
+            "operator_report": {
+                "generated_count": len(generated),
+                "approval_required_for_core": require_approval_for_core,
+                "trusted_count": len(registered),
+                "rejected_count": len(quarantined),
+            },
         },
         "failure_intelligence": failure_intelligence,
         "confidence_summary": summarize_capability_confidence(target_root=failure_intelligence_root),

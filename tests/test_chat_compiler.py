@@ -48,6 +48,7 @@ def test_auth_and_roles_tokens_propagate_into_spec_architecture() -> None:
     assert "/api/auth/session" in routes
     assert {"admin", "auditor"}.issubset(role_names)
     assert "security_service" in runtime_services
+    assert spec.architecture["decision_map"]["runtime"]["auth_mode"] in {"session_auth", "federated_auth_scaffold", "token_auth"}
 
 
 def test_billing_and_payments_tokens_propagate_into_spec_architecture() -> None:
@@ -65,3 +66,19 @@ def test_billing_and_payments_tokens_propagate_into_spec_architecture() -> None:
     assert "/api/billing/webhooks" in routes
     assert "billing_service" in runtime_services
     assert "billing_admin" in role_names
+    assert "billing_reconciliation" in {job["name"] for job in spec.architecture["background_jobs"]}
+
+
+def test_realtime_intent_maps_into_decision_map_and_routes() -> None:
+    prompt = "Build a realtime control app with telemetry streams, memory, and operator console"
+    intent = parse_conversation_intent(prompt)
+    spec = synthesize_spec_bundle(intent)
+
+    routes = {route["path"] for route in spec.architecture["api_routes"]}
+    runtime_services = {service["name"] for service in spec.architecture["runtime_services"]}
+
+    assert "realtime" in intent.requested_features
+    assert "/api/realtime/events" in routes
+    assert "event_router" in runtime_services
+    assert "memory_state" in runtime_services
+    assert spec.architecture["decision_map"]["workflow"]["focus"]

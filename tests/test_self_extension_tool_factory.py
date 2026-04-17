@@ -27,6 +27,7 @@ def test_tool_generation_validation_and_safe_registration(tmp_path: Path) -> Non
     assert not result["quarantined_tool_ids"]
     assert result["activation_summary"]["registered_count"] >= 1
     assert "confidence" in result["confidence_summary"]
+    assert "operator_report" in result["activation_summary"]
 
 
 def test_quarantine_and_rollback_behavior(tmp_path: Path) -> None:
@@ -65,3 +66,19 @@ def test_quarantine_and_rollback_behavior(tmp_path: Path) -> None:
     tool_id = accepted["registered_tool_ids"][0]
     rollback = rollback_capability(registry_path=str(registry_path), tool_id=tool_id)
     assert rollback["status"] == "rolled_back"
+
+
+def test_core_sensitive_capability_requires_high_threshold_or_quarantine(tmp_path: Path) -> None:
+    result = synthesize_missing_capabilities(
+        lane_id="first_class_commercial",
+        requested_capabilities=["core_auth_guard"],
+        sandbox_root=str(tmp_path / "sandbox"),
+        registry_path=str(tmp_path / "registry.json"),
+        quarantine_path=str(tmp_path / "quarantine.json"),
+        require_approval_for_core=True,
+        approved=False,
+        failure_intelligence_root=str(tmp_path / "intel"),
+    )
+
+    assert result["status"] in {"quarantined_only", "partially_extended"}
+    assert result["quarantined_tool_ids"]

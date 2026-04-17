@@ -22,9 +22,14 @@ class ChatProjectMemoryStore:
 
     def load_or_create(self, session_id: str, project_id: str) -> ChatMemorySnapshot:
         path = self._path_for(session_id, project_id)
-        if not path.exists():
-            return ChatMemorySnapshot(session_id=session_id, project_id=project_id)
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload: dict[str, object]
+        if path.exists():
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        else:
+            carry = self._latest_payload_for_project(project_id)
+            if carry is None:
+                return ChatMemorySnapshot(session_id=session_id, project_id=project_id)
+            payload = carry
         return ChatMemorySnapshot(
             session_id=session_id,
             project_id=project_id,
@@ -45,3 +50,12 @@ class ChatProjectMemoryStore:
 
     def _path_for(self, session_id: str, project_id: str) -> Path:
         return self.root / f"chat_{session_id}_{project_id}.json"
+
+    def _latest_payload_for_project(self, project_id: str) -> dict[str, object] | None:
+        matches = sorted(self.root.glob(f"chat_*_{project_id}.json"), key=lambda item: item.stat().st_mtime, reverse=True)
+        for match in matches:
+            try:
+                return json.loads(match.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+        return None

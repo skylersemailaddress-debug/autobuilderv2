@@ -134,13 +134,13 @@ class AppIR:
 | Capability Family | Maturity | Compiler Enforcement |
 |---|---|---|
 | commercial/mobile/game/realtime/enterprise lanes | first_class | lane contract must match app_type + allowed stack frontends + lane-specific validation expectations |
-| chat-first builder | bounded_prototype | preview-first path and unsupported capability rejection |
-| agent-runtime | bounded_prototype | approval-gated execution with blocked/completed semantics |
-| self-extension/tool-factory | bounded_prototype | sandbox + validation threshold + registry/quarantine governance |
-| multimodal/world-state | structural_only | schema-only contract support, no first-class live execution claims |
+| chat-first builder | bounded_prototype | preview-first path with richer conversation-to-spec mapping, structured preview contract, and unsupported capability rejection |
+| agent-runtime | bounded_prototype | approval-gated execution with blocked/completed semantics, bounded execution contract, and replay confidence metadata |
+| self-extension/tool-factory | bounded_prototype | sandbox + stricter validation thresholds + registry/quarantine governance + operator-visible trust/rejection metadata |
+| multimodal/world-state | structural_only | schema-only contract support plus schema consistency counters; no first-class live execution claims |
 | security | bounded_prototype | commercial lane emits auth dependency scaffold, authorization header hook, RBAC placeholders, and security contract route |
 | commerce | bounded_prototype | commercial lane emits plans route, billing webhook scaffold, entitlement service placeholder, billing admin route |
-| cross-lane-composition | bounded_prototype | validates registered composition patterns; unsupported combinations rejected explicitly |
+| cross-lane-composition | bounded_prototype | validates registered composition patterns, emits additive composition overlays, and rejects unsupported combinations explicitly |
 | lifecycle | bounded_prototype | regeneration safety classification executes in build path; lifecycle decisions emitted as machine-readable artifact |
 | enterprise-readiness | bounded_prototype | enterprise deployment/supportability/runbook/escalation artifacts emitted through proof enrichment |
 

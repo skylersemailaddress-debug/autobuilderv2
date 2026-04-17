@@ -20,3 +20,19 @@ def test_project_memory_persists_session_and_decisions(tmp_path: Path) -> None:
     assert loaded.conversation_turns[0]["user"] == "hello"
     assert loaded.decisions[0]["lane_id"] == "first_class_mobile"
     assert "default lane assumptions" in loaded.accepted_defaults
+
+
+def test_project_memory_carries_forward_for_new_session_same_project(tmp_path: Path) -> None:
+    store = ChatProjectMemoryStore(tmp_path)
+    project_id = store.derive_project_id("/tmp/shared-app")
+
+    first_session = store.derive_session_id("Build first prompt")
+    snapshot = store.load_or_create(first_session, project_id)
+    snapshot.conversation_turns.append({"user": "first", "assistant_summary": "summary"})
+    store.save(snapshot)
+
+    second_session = store.derive_session_id("Different prompt second")
+    loaded = store.load_or_create(second_session, project_id)
+
+    assert loaded.conversation_turns
+    assert loaded.conversation_turns[0]["user"] == "first"

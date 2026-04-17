@@ -55,9 +55,24 @@ def generate_tool_candidate(
         "purpose": purpose,
         "lane_id": lane_id,
         "module_path": str(module_path),
-        "quality_threshold": 80,
+        "quality_threshold": 85,
         "safety_tier": "standard",
         "validation_requirements": ["file_exists", "forbidden_calls_absent", "signature_present"],
+        "input_contract": {
+            "type": "object",
+            "required": ["request_id"],
+            "additionalProperties": True,
+        },
+        "output_contract": {
+            "type": "object",
+            "required": ["status"],
+            "additionalProperties": True,
+        },
+        "trust_notes": [
+            "generated_in_sandbox",
+            "requires_operator_review_before_core_use",
+            "bounded_template_no_shell_exec",
+        ],
     }
     candidate["candidate_signature_sha256"] = _signature(candidate)
     return candidate
@@ -79,6 +94,24 @@ def validate_tool_candidate(candidate: dict[str, object]) -> dict[str, object]:
         "name": "signature_present",
         "passed": bool(candidate.get("candidate_signature_sha256")),
     })
+    checks.append(
+        {
+            "name": "input_contract_present",
+            "passed": isinstance(candidate.get("input_contract"), dict),
+        }
+    )
+    checks.append(
+        {
+            "name": "output_contract_present",
+            "passed": isinstance(candidate.get("output_contract"), dict),
+        }
+    )
+    checks.append(
+        {
+            "name": "sandbox_path_enforced",
+            "passed": "/generated_tools/" in str(module_path).replace("\\", "/"),
+        }
+    )
 
     passed_count = sum(1 for item in checks if item["passed"])
     quality_score = int((passed_count / len(checks)) * 100) if checks else 0

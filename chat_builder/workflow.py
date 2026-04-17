@@ -26,6 +26,8 @@ def run_chat_first_workflow(
     session_id = memory_store.derive_session_id(prompt)
     project_id = memory_store.derive_project_id(target_path)
     snapshot = memory_store.load_or_create(session_id=session_id, project_id=project_id)
+    prior_turn_count = len(snapshot.conversation_turns)
+    prior_failure_count = len(snapshot.failures)
 
     snapshot.conversation_turns.append(
         {
@@ -57,19 +59,25 @@ def run_chat_first_workflow(
             "status": "unsupported",
             "conversation_surface": {
                 "prompt": prompt,
-                "assistant_message": "I found unsupported requests and paused before build.",
-                "next_steps": ["Remove unsupported engine/stack requests and retry."],
+                "assistant_message": "Unsupported requests were detected and build is paused to preserve support-matrix honesty.",
+                "next_steps": [
+                    "Remove unsupported engine/stack requests and retry.",
+                    "Keep requirements within lane maturity contracts.",
+                ],
             },
             "plan_summary": {
                 "lane": intent.lane_id,
                 "app_type": intent.app_type,
                 "warnings": steering.warnings,
                 "unsupported": intent.unsupported_requests,
+                "unsupported_guidance": "Use first-class or bounded-prototype supported stacks only.",
             },
             "memory": {
                 "session_id": session_id,
                 "project_id": project_id,
                 "memory_path": memory_path,
+                "carried_forward_turns": prior_turn_count,
+                "carried_forward_failures": prior_failure_count,
             },
         }
 
@@ -82,6 +90,12 @@ def run_chat_first_workflow(
         "critical_questions": steering.critical_questions,
         "spec_preview": spec_bundle.to_dict(),
         "simple_explanations": spec_bundle.explanations,
+        "intent_summary": intent.to_dict(),
+        "preview_contract": {
+            "preview_required_before_build": True,
+            "deterministic_plan_surface": True,
+            "unsupported_requests_block_build": True,
+        },
     }
 
     if not approve:
@@ -99,6 +113,8 @@ def run_chat_first_workflow(
                 "session_id": session_id,
                 "project_id": project_id,
                 "memory_path": memory_path,
+                "carried_forward_turns": prior_turn_count,
+                "carried_forward_failures": prior_failure_count,
             },
         }
 
@@ -174,5 +190,7 @@ def run_chat_first_workflow(
             "session_id": session_id,
             "project_id": project_id,
             "memory_path": memory_path,
+            "carried_forward_turns": prior_turn_count,
+            "carried_forward_failures": prior_failure_count,
         },
     }

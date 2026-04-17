@@ -21,6 +21,7 @@ from platform_hardening.commerce import (
 from platform_hardening.composition import (
     CompositionContractError,
     evaluate_composition_request,
+    generate_composition_output,
     list_valid_composition_patterns,
     resolve_composition_contract,
 )
@@ -217,6 +218,42 @@ class TestCrossLaneCompositionRules:
         family = evaluate_capability_family("cross-lane-composition",
                                             ["arbitrary_lane_mixing_without_contract"])
         assert family["accepted"] is False
+
+    def test_composition_generates_additive_outputs_for_payment_layer(self, tmp_path: Path) -> None:
+        result = generate_composition_output(
+            primary_lane="first_class_commercial",
+            secondary="commerce",
+            target_root=tmp_path,
+        )
+
+        assert result["accepted"] is True
+        assert result["machine_semantics"]["proof"]["required"]
+        assert any("billing" in path for path in result["written_files"])
+
+    def test_composition_generates_additive_outputs_for_agent_and_realtime(self, tmp_path: Path) -> None:
+        agent = generate_composition_output(
+            primary_lane="first_class_commercial",
+            secondary="agent-runtime",
+            target_root=tmp_path / "agent",
+        )
+        realtime = generate_composition_output(
+            primary_lane="first_class_commercial",
+            secondary="first_class_realtime",
+            target_root=tmp_path / "rt",
+        )
+
+        assert any("agent" in path for path in agent["written_files"])
+        assert any("realtime" in path for path in realtime["written_files"])
+        assert agent["machine_semantics"]["combined_signature_sha256"]
+        assert realtime["machine_semantics"]["combined_signature_sha256"]
+
+    def test_composition_rejects_unsupported_combinations_honestly(self, tmp_path: Path) -> None:
+        with pytest.raises(CompositionContractError):
+            generate_composition_output(
+                primary_lane="first_class_mobile",
+                secondary="commerce",
+                target_root=tmp_path,
+            )
 
 
 # ---------------------------------------------------------------------------

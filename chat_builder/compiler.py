@@ -22,6 +22,22 @@ RISKY_KEYWORDS = {
 }
 
 
+FEATURE_TOKEN_MAP = {
+    "approvals": ["approval", "approve", "review gate", "sign-off"],
+    "notifications": ["alert", "notification", "notify", "pager"],
+    "analytics": ["report", "analytics", "dashboard", "insights"],
+    "memory": ["memory", "history", "timeline", "context"],
+    "realtime": ["stream", "realtime", "real-time", "telemetry", "live updates"],
+    "billing": ["billing", "subscription", "invoice", "plans"],
+    "payments": ["payment", "payments", "stripe", "checkout"],
+    "auth": ["auth", "authentication", "login", "signin", "sign in"],
+    "rbac": ["rbac", "permission matrix", "least privilege"],
+    "roles": ["role", "roles", "admin", "auditor", "operator"],
+    "offline_sync": ["offline", "sync", "sync later"],
+    "operator_console": ["operator", "ops", "admin console"],
+}
+
+
 FEATURE_CAPABILITY_BY_TOKEN = {
     "approvals": "conversation_to_spec",
     "notifications": "preview",
@@ -150,6 +166,62 @@ def _infer_name(prompt: str) -> tuple[str, list[str]]:
     return "Starter App", defaults
 
 
+def _detect_requested_features(normalized: str) -> list[str]:
+    detected: set[str] = set()
+    for feature, tokens in FEATURE_TOKEN_MAP.items():
+        if any(token in normalized for token in tokens):
+            detected.add(feature)
+    return sorted(detected)
+
+
+def _infer_decision_map(intent: ParsedIntent) -> dict[str, object]:
+    normalized = _normalize(intent.prompt)
+    auth_mode = "session_auth"
+    if "sso" in normalized or "saml" in normalized:
+        auth_mode = "federated_auth_scaffold"
+    elif "token" in normalized or "api key" in normalized:
+        auth_mode = "token_auth"
+
+    runtime_shape = ["api", "worker"]
+    if "realtime" in intent.requested_features:
+        runtime_shape.append("event_router")
+    if "memory" in intent.requested_features:
+        runtime_shape.append("memory_state")
+    if "billing" in intent.requested_features or "payments" in intent.requested_features:
+        runtime_shape.append("billing_service")
+
+    output_contract = ["determinism_signature", "validation_summary", "proof_bundle"]
+    if "operator_console" in intent.requested_features or intent.lane_id in {"first_class_realtime", "first_class_enterprise_agent"}:
+        output_contract.append("operator_runbook")
+
+    workflow_focus = ["input_to_outcome", "error_recovery"]
+    if "approvals" in intent.requested_features:
+        workflow_focus.append("approval_gates")
+    if "realtime" in intent.requested_features:
+        workflow_focus.append("event_ingest_to_action")
+
+    return {
+        "architecture": {
+            "primary_domain": intent.app_type,
+            "runtime_shape": runtime_shape,
+            "api_style": "http_json",
+        },
+        "runtime": {
+            "auth_mode": auth_mode,
+            "state_strategy": "event_backed" if "realtime" in intent.requested_features else "transactional",
+            "deployment_target": "container",
+        },
+        "workflow": {
+            "focus": workflow_focus,
+            "core_outcome": intent.core_outcome,
+        },
+        "output": {
+            "artifacts": output_contract,
+            "support_honesty": "bounded_by_lane_contract",
+        },
+    }
+
+
 def parse_conversation_intent(prompt: str) -> ParsedIntent:
     lane_id, app_type, stack, lane_defaults = _infer_lane(prompt)
     app_name, name_defaults = _infer_name(prompt)
@@ -158,24 +230,7 @@ def parse_conversation_intent(prompt: str) -> ParsedIntent:
     unsupported = [message for token, message in UNSUPPORTED_KEYWORDS.items() if token in normalized]
     risky = [message for token, message in RISKY_KEYWORDS.items() if token in normalized]
 
-    requested_features = sorted(
-        {
-            feature
-            for feature in [
-                "approvals" if "approval" in normalized else "",
-                "notifications" if "alert" in normalized or "notification" in normalized else "",
-                "analytics" if "report" in normalized or "analytics" in normalized else "",
-                "memory" if "memory" in normalized or "history" in normalized else "",
-                "realtime" if "stream" in normalized or "realtime" in normalized else "",
-                "billing" if "billing" in normalized or "subscription" in normalized else "",
-                "payments" if "payment" in normalized or "payments" in normalized or "stripe" in normalized else "",
-                "auth" if "auth" in normalized or "authentication" in normalized else "",
-                "rbac" if "rbac" in normalized else "",
-                "roles" if "role" in normalized or "roles" in normalized else "",
-            ]
-            if feature
-        }
-    )
+    requested_features = _detect_requested_features(normalized)
 
     lane_contract = resolve_lane_contract(app_type)
     chat_contract = evaluate_capability_family(
@@ -188,6 +243,10 @@ def parse_conversation_intent(prompt: str) -> ParsedIntent:
         after_for = normalized.split("for", 1)[1].strip()
         if after_for:
             core_outcome = after_for[:120]
+    elif "to " in normalized:
+        after_to = normalized.split("to ", 1)[1].strip()
+        if after_to:
+            core_outcome = after_to[:120]
 
     missing: list[str] = []
     if "user" not in normalized and "team" not in normalized and "customer" not in normalized:
@@ -198,12 +257,15 @@ def parse_conversation_intent(prompt: str) -> ParsedIntent:
         missing.append("Which one feature matters most for version one?")
     if risky:
         missing.append("Confirm required compliance boundary for risky domain request.")
+    if any(feature in requested_features for feature in ["payments", "billing"]):
+        missing.append("Confirm payment-provider credentials will be operator-supplied at deploy time.")
 
     inferred_defaults = lane_defaults + name_defaults
     if not requested_features:
         inferred_defaults.append("No feature list provided; defaulting to auth, health, and basic workflow scaffolds.")
     inferred_defaults.append(f"Lane contract selected: {lane_contract.lane_id} ({lane_contract.maturity}).")
     inferred_defaults.append(f"Chat-first maturity: {chat_contract['maturity']} (preview-first).")
+    inferred_defaults.append("Unsupported requests are blocked before build and surfaced with migration guidance.")
 
     return ParsedIntent(
         prompt=prompt,
@@ -224,6 +286,7 @@ def parse_conversation_intent(prompt: str) -> ParsedIntent:
 
 
 def synthesize_spec_bundle(intent: ParsedIntent) -> SynthesizedSpecBundle:
+    decision_map = _infer_decision_map(intent)
     lane_focus = {
         "first_class_mobile": ["mobile_navigation", "api_sync", "state_model", "env_config"],
         "first_class_game": ["scene_structure", "input_model", "main_loop", "export_expectations"],
@@ -260,6 +323,8 @@ def synthesize_spec_bundle(intent: ParsedIntent) -> SynthesizedSpecBundle:
             {"path": "/api/plans"},
             {"path": "/api/billing/webhooks"},
         ])
+    if "realtime" in intent.requested_features:
+        api_routes.append({"path": "/api/realtime/events"})
 
     auth_roles: list[dict[str, str]] = []
     if include_auth or include_billing:
@@ -274,12 +339,23 @@ def synthesize_spec_bundle(intent: ParsedIntent) -> SynthesizedSpecBundle:
             {"name": "worker"},
             *([{"name": "security_service"}] if include_auth else []),
             *([{"name": "billing_service"}] if include_billing else []),
+            *([{"name": "event_router"}] if "realtime" in intent.requested_features else []),
+            *([{"name": "memory_state"}] if "memory" in intent.requested_features else []),
         ],
         "permissions": [{"role": "operator"}, {"role": "admin"}],
         "auth_roles": auth_roles,
+        "background_jobs": [
+            {"name": "nightly_consistency_check"},
+            *([{"name": "billing_reconciliation"}] if include_billing else []),
+        ],
+        "decision_map": decision_map,
     }
     ui = {
-        "pages": [{"name": "Home", "route": "/"}, {"name": "Settings", "route": "/settings"}],
+        "pages": [
+            {"name": "Home", "route": "/"},
+            {"name": "Settings", "route": "/settings"},
+            *([{"name": "Operator", "route": "/operator"}] if "operator_console" in intent.requested_features else []),
+        ],
     }
     acceptance = {"criteria": acceptance_points}
     stack = {
@@ -294,6 +370,7 @@ def synthesize_spec_bundle(intent: ParsedIntent) -> SynthesizedSpecBundle:
         f"I matched your app to lane {intent.lane_id} because of the request wording.",
         "I kept the stack inside supported first-class combinations to avoid fragile builds.",
         "I used safe defaults where details were missing so you can preview before building.",
+        "I mapped intent into architecture/runtime/workflow/output decisions to keep preview traceable.",
     ]
     if include_auth:
         explanations.append("I propagated auth/RBAC tokens into architecture.auth_roles and auth API routes.")

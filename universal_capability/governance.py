@@ -27,6 +27,8 @@ def evaluate_registration(
     is_valid = bool(validation_report.get("is_valid", False))
 
     core_impact = "core" in str(candidate.get("purpose", "")).lower()
+    if "payment" in str(candidate.get("purpose", "")).lower() or "auth" in str(candidate.get("purpose", "")).lower():
+        core_impact = True
     needs_approval = bool(require_approval_for_core and core_impact)
     approval_ok = (not needs_approval) or approved
 
@@ -46,6 +48,11 @@ def evaluate_registration(
         "quality_threshold": quality_threshold,
         "quality_score": quality,
         "activation_status": "active" if accepted else "quarantined",
+        "operator_visibility": {
+            "core_impact": core_impact,
+            "approval_supplied": approved,
+            "is_valid": is_valid,
+        },
     }
 
 
@@ -73,6 +80,10 @@ def register_or_quarantine_candidate(
                 "quality_threshold": decision.get("quality_threshold"),
             },
             "candidate": candidate,
+            "trust": {
+                "status": "trusted_generated_candidate",
+                "requires_human_review_before_production": True,
+            },
         }
         capabilities.append(entry)
         history.append(
@@ -101,6 +112,7 @@ def register_or_quarantine_candidate(
             "activation_status": "quarantined",
             "quality_threshold": decision.get("quality_threshold"),
             "quality_score": decision.get("quality_score"),
+            "operator_visibility": decision.get("operator_visibility", {}),
         }
     )
     quarantine_file.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

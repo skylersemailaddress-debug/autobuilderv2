@@ -154,13 +154,13 @@ The operator must match the spec bundle's `app_type` and `stack_id` against the 
 | Capability Family | Maturity | Operator Expectation |
 |---|---|---|
 | lane build/ship (commercial/mobile/game/realtime/enterprise) | first_class | full deterministic build + lane-specific validation + proof/readiness reporting with explicit bounded-runtime boundaries |
-| chat-first builder | bounded_prototype | preview-first and explicit unsupported request rejection |
-| agent-runtime | bounded_prototype | approval-gated steps, blocked/completed semantics, replay signature |
-| self-extension/tool-factory | bounded_prototype | sandbox generation, validation thresholding, registry/quarantine routing |
-| multimodal/world-state | structural_only | schema contract and snapshot validation only |
+| chat-first builder | bounded_prototype | preview-first, richer conversation-to-spec mapping, structured preview contract, and explicit unsupported request rejection |
+| agent-runtime | bounded_prototype | approval-gated steps, blocked/completed semantics, replay signature, bounded execution contract |
+| self-extension/tool-factory | bounded_prototype | sandbox generation, stricter validation thresholding, registry/quarantine routing, operator-visible trust/rejection context |
+| multimodal/world-state | structural_only | schema contract, snapshot validation, and schema consistency counters only |
 | security | bounded_prototype | commercial lane emits auth dependency scaffold, authorization-header hook, RBAC placeholders, security contract route |
 | commerce | bounded_prototype | commercial lane emits plans route, billing webhook scaffold, entitlement service placeholder, billing admin route |
-| cross-lane-composition | bounded_prototype | composition patterns are validated with explicit unsupported rejection |
+| cross-lane-composition | bounded_prototype | composition patterns are validated, additive overlays are emitted, and unsupported combinations are explicitly rejected |
 | lifecycle | bounded_prototype | build path emits lifecycle regeneration decisions; operator-modified production-critical files require approval |
 | enterprise-readiness | bounded_prototype | proof artifacts include deployment/supportability/runbook/escalation readiness documents |
 

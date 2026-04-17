@@ -29,6 +29,7 @@ def test_multimodal_world_state_schema_normalization() -> None:
     assert snapshot["outputs"]["actions"] == ["dispatch_team"]
     assert snapshot["world_state_version"] == "v2"
     assert snapshot["contract"]["maturity"] == "structural_only"
+    assert snapshot["consistency"]["sensor_count"] == 1
     assert snapshot["snapshot_signature_sha256"]
 
 
@@ -41,3 +42,5 @@ def test_world_state_contract_is_stable() -> None:
     contract = world_state_contract()
     assert contract["contract_version"] == "v2"
     assert contract["maturity"] == "structural_only"
+    assert "schema" in contract
+    assert contract["schema"]["live"]["event_streams"]["type"] == "list[string]"
