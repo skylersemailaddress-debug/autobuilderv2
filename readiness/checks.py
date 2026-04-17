@@ -23,9 +23,13 @@ def run_readiness_checks() -> Dict:
         _check_file_exists("inspect_path_present", "cli/inspect.py"),
         _check_file_exists("benchmark_harness_present", "benchmarks/runner.py"),
         _check_file_exists("mutation_safety_present", "mutation/safety.py"),
+        _check_file_exists("mutation_provenance_present", "mutation/provenance.py"),
         _check_file_exists("restore_support_present", "state/restore.py"),
         _check_file_exists("memory_policy_present", "memory/policy.py"),
         _check_file_exists("quality_reporting_present", "quality/report.py"),
+        _check_file_exists("adapter_registry_present", "adapters/registry.py"),
+        _check_file_exists("flagship_proof_present", "readiness/flagship_proof.py"),
+        _check_file_exists("multimodal_world_state_present", "universal_capability/multimodal_world_state.py"),
     ]
     passed_count = sum(1 for item in checks if item["passed"])
     return {

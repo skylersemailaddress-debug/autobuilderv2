@@ -3,6 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from universal_capability.intelligence import (
+    CapabilityDescriptor,
+    CapabilityIdentity,
+    CapabilityRegistry,
+    CompatibilityScope,
+    validate_capability_descriptor,
+)
+
 
 def _load_registry(path: Path) -> dict[str, object]:
     if not path.exists():
@@ -53,7 +61,48 @@ def evaluate_registration(
             "approval_supplied": approved,
             "is_valid": is_valid,
         },
+        "promotion_eligibility": accepted and quality >= quality_threshold,
+        "demotion_triggers": [
+            "compatibility_regression_detected",
+            "validation_failure_repeat",
+        ],
     }
+
+
+def _descriptor_from_candidate(candidate: dict[str, object], trust_label: str) -> CapabilityDescriptor:
+    compatibility = candidate.get("compatibility")
+    if not isinstance(compatibility, dict):
+        compatibility = {}
+
+    return CapabilityDescriptor(
+        identity=CapabilityIdentity(
+            capability_id=str(candidate.get("capability_id") or candidate.get("tool_id") or ""),
+            family=str(candidate.get("family", "domain")),
+            capability_type=str(candidate.get("capability_kind") or candidate.get("tool_type") or "tool"),
+            version=str(candidate.get("version", "1.0.0")),
+        ),
+        maturity="bounded_prototype",
+        trust_label=(
+            "trusted_internal"
+            if trust_label == "trusted_internal"
+            else ("quarantined" if trust_label == "quarantined" else "candidate")
+        ),
+        compatibility=CompatibilityScope(
+            lanes=list(compatibility.get("lanes") or [str(candidate.get("lane_id", "first_class_commercial"))]),
+            runtimes=list(compatibility.get("runtimes") or ["python"]),
+            stacks=dict(compatibility.get("stacks") or {}),
+            composable_with=list(compatibility.get("composable_with") or []),
+        ),
+        prerequisites=list(candidate.get("prerequisites") or []),
+        dependencies=list(candidate.get("dependencies") or []),
+        validation_rules=list(candidate.get("validation_requirements") or ["candidate_validation"]),
+        proof_requirements=list(candidate.get("proof_requirements") or ["proof_expectations_present"]),
+        promotion_criteria=list(candidate.get("promotion_criteria") or ["validation_threshold_met"]),
+        demotion_criteria=list(candidate.get("demotion_criteria") or ["regression_detected"]),
+        retirement_criteria=list(candidate.get("retirement_criteria") or ["operator_requested_retirement"]),
+        operator_trust_metadata=dict(candidate.get("trust") or {"status": trust_label}),
+        lineage_metadata=dict(candidate.get("lineage") or {"source": "generated"}),
+    )
 
 
 def register_or_quarantine_candidate(
@@ -69,8 +118,18 @@ def register_or_quarantine_candidate(
     registry = _load_registry(registry_file)
     capabilities = registry.setdefault("capabilities", [])
     history = registry.setdefault("history", [])
+    cap_registry = CapabilityRegistry(registry_file)
 
     if decision.get("accepted", False):
+        descriptor = _descriptor_from_candidate(candidate, "trusted_internal")
+        descriptor_issues = validate_capability_descriptor(descriptor)
+        if descriptor_issues:
+            decision = dict(decision)
+            decision["accepted"] = False
+            decision["rejection_reason"] = "capability descriptor validation failed"
+            decision["descriptor_issues"] = descriptor_issues
+        else:
+            cap_registry.add_capability(descriptor)
         entry = {
             "tool_id": candidate.get("tool_id", ""),
             "status": "active",
@@ -84,26 +143,36 @@ def register_or_quarantine_candidate(
                 "status": "trusted_generated_candidate",
                 "requires_human_review_before_production": True,
             },
+            "governance": {
+                "promotion_eligibility": decision.get("promotion_eligibility", False),
+                "demotion_triggers": decision.get("demotion_triggers", []),
+                "descriptor_issues": decision.get("descriptor_issues", []),
+            },
         }
-        capabilities.append(entry)
-        history.append(
-            {
-                "event": "registered",
+        if decision.get("accepted", False):
+            capabilities.append(entry)
+            history.append(
+                {
+                    "event": "registered",
+                    "tool_id": candidate.get("tool_id", ""),
+                    "activation_status": "active",
+                }
+            )
+            _save_registry(registry_file, registry)
+            return {
+                "status": "registered",
                 "tool_id": candidate.get("tool_id", ""),
-                "activation_status": "active",
+                "registry_path": str(registry_file),
             }
-        )
-        _save_registry(registry_file, registry)
-        return {
-            "status": "registered",
-            "tool_id": candidate.get("tool_id", ""),
-            "registry_path": str(registry_file),
-        }
 
     quarantine_file.parent.mkdir(parents=True, exist_ok=True)
     payload = []
     if quarantine_file.exists():
         payload = json.loads(quarantine_file.read_text(encoding="utf-8"))
+
+    quarantine_descriptor = _descriptor_from_candidate(candidate, "quarantined")
+    cap_registry.add_capability(quarantine_descriptor)
+
     payload.append(
         {
             "tool_id": candidate.get("tool_id", ""),
@@ -113,6 +182,7 @@ def register_or_quarantine_candidate(
             "quality_threshold": decision.get("quality_threshold"),
             "quality_score": decision.get("quality_score"),
             "operator_visibility": decision.get("operator_visibility", {}),
+            "descriptor_issues": decision.get("descriptor_issues", []),
         }
     )
     quarantine_file.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -135,6 +205,8 @@ def register_or_quarantine_candidate(
 
 def rollback_capability(*, registry_path: str | Path, tool_id: str) -> dict[str, object]:
     registry_file = Path(registry_path).resolve()
+    cap_registry = CapabilityRegistry(registry_file)
+    cap_registry.rollback(tool_id)
     registry = _load_registry(registry_file)
     changed = False
     for entry in registry.get("capabilities", []):

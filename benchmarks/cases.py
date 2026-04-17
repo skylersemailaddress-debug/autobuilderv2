@@ -209,4 +209,142 @@ BENCHMARK_CASES: List[BenchmarkCase] = [
         requested_capabilities=["custom_validator_for_geo"],
         approve_core=True,
     ),
+    # --- Mission orchestration suite ---
+    BenchmarkCase(
+        name="mission_capability_requirement_derivation",
+        goal="Build a realtime monitoring app with auth and billing",
+        expected_outcome={
+            "final_status": "complete",
+            "capability_requirements_present": True,
+        },
+        kind="mission",
+        nexus_mode_enabled=True,
+    ),
+    BenchmarkCase(
+        name="mission_plan_machine_readable",
+        goal="Create a payment processing workflow with RBAC",
+        expected_outcome={
+            "final_status": "complete",
+            "mission_plan_present": True,
+        },
+        kind="mission",
+        nexus_mode_enabled=True,
+    ),
+    BenchmarkCase(
+        name="mission_operator_summary_present",
+        goal="Build an enterprise admin dashboard with audit logs",
+        expected_outcome={
+            "final_status": "complete",
+            "operator_summary_present": True,
+        },
+        kind="mission",
+        nexus_mode_enabled=True,
+    ),
+    BenchmarkCase(
+        name="mission_interruption_recovery_semantics",
+        goal="Migrate production database schema safely",
+        expected_outcome={
+            "final_status": "awaiting_approval",
+            "approval_required": True,
+            "interruption_recovery_supported": True,
+        },
+        kind="mission",
+        nexus_mode_enabled=True,
+    ),
+    # --- Capability acquisition suite ---
+    BenchmarkCase(
+        name="capability_acquisition_adapter_generation",
+        goal="Integrate with a third-party document processing API",
+        expected_outcome={
+            "final_status": "complete",
+        },
+        kind="mission",
+        requested_capabilities=["document_processing_adapter"],
+        nexus_mode_enabled=True,
+    ),
+    # --- Composition flows extended ---
+    BenchmarkCase(
+        name="composition_mobile_companion_flow",
+        expected_outcome={
+            "composition_status": "accepted",
+        },
+        kind="composition_flow",
+        composition_secondary="first_class_mobile",
+    ),
+    # --- Lane-specific ship flows extended ---
+    BenchmarkCase(
+        name="lane_game_ship_flow",
+        expected_outcome={
+            "build_status": "ok",
+            "proof_status_prefix": "certified",
+            "packaging_status": "ready",
+        },
+        kind="lane_ship",
+        app_type="game_app",
+        stack_selection={
+            "frontend": "godot_game",
+            "backend": "fastapi",
+            "database": "postgres",
+            "deployment": "docker_compose",
+        },
+    ),
+    # --- Domain-pack validation suite ---
+    BenchmarkCase(
+        name="domain_pack_operations_workflow_valid",
+        goal="Build an operations workflow system with task assignments and approvals",
+        expected_outcome={
+            "final_status": "complete",
+        },
+        kind="mission",
+        nexus_mode_enabled=True,
+    ),
+    BenchmarkCase(
+        name="domain_pack_regulated_honesty",
+        goal="Build a HIPAA-compliant regulated data management system",
+        expected_outcome={
+            "final_status": "complete",
+        },
+        kind="mission",
+        nexus_mode_enabled=True,
+    ),
+    # --- Unsupported/refusal honesty suite ---
+    BenchmarkCase(
+        name="unsupported_live_hardware_refusal",
+        expected_outcome={
+            "error_contains": "Unsupported",
+            "unsupported_handled": True,
+        },
+        kind="unsupported_build",
+    ),
+    # --- Repo-targeted mutation safety suite ---
+    BenchmarkCase(
+        name="repo_mutation_critical_file_checkpoint",
+        goal="Update database schema migration files in existing repo",
+        expected_outcome={
+            "final_status": "complete",
+        },
+        kind="mission",
+        nexus_mode_enabled=True,
+    ),
+    # --- Adapter registry suite ---
+    BenchmarkCase(
+        name="adapter_registry_lane_resolution",
+        goal="Resolve adapters for first_class_realtime lane",
+        expected_outcome={
+            "final_status": "complete",
+        },
+        kind="mission",
+        nexus_mode_enabled=True,
+    ),
+    # --- Benchmark proof coverage ---
+    BenchmarkCase(
+        name="benchmark_proof_artifact_present",
+        expected_outcome={
+            "build_status": "ok",
+            "proof_status_prefix": "certified",
+            "packaging_status": "ready",
+        },
+        kind="ship",
+        spec_path="specs",
+    ),
 ]

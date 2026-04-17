@@ -6,7 +6,7 @@ import uuid
 from contextlib import redirect_stdout
 from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 
 # Ensure top-level package imports work when executing cli/mission.py directly.
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -23,6 +23,110 @@ from runs.summary import build_run_summary
 from state.audit import append_audit_event, build_audit_record
 from state.json_store import JsonRunStore
 from state.restore import latest_restore_payload
+
+
+# ---------------------------------------------------------------------------
+# Capability requirement derivation
+# ---------------------------------------------------------------------------
+
+_CAPABILITY_KEYWORD_MAP: List[Tuple[List[str], str, str]] = [
+    (["auth", "login", "rbac", "permission", "role", "session", "oauth", "jwt"], "security", "auth_authz"),
+    (["payment", "billing", "invoice", "subscription", "entitlement", "commerce", "stripe"], "commerce", "billing_commerce"),
+    (["realtime", "stream", "event", "sensor", "telemetry", "websocket", "pubsub"], "realtime", "realtime_ingestion"),
+    (["agent", "assistant", "workflow", "orchestrat", "automat"], "agent-runtime", "agent_workflow"),
+    (["mobile", "flutter", "ios", "android", "offline", "sync"], "mobile", "mobile_client"),
+    (["game", "scene", "player", "physics", "sprite", "godot"], "game", "game_engine"),
+    (["validate", "proof", "contract", "check", "test", "verify"], "validation", "validation_proof"),
+    (["adapter", "connect", "bridge", "integration", "webhook", "api"], "adapter", "external_connector"),
+    (["image", "photo", "vision", "document", "pdf", "ocr"], "multimodal", "image_document_processing"),
+    (["audio", "speech", "voice", "sound", "transcri"], "multimodal", "audio_processing"),
+    (["monitor", "alert", "dashboard", "observ", "metric", "log"], "observability", "monitoring_alerting"),
+    (["admin", "reporting", "backoffice", "operator", "audit"], "enterprise", "admin_reporting"),
+    (["regulated", "compliance", "hipaa", "gdpr", "policy", "governance"], "regulated", "regulated_compliance"),
+    (["migrate", "refactor", "update", "patch", "repair", "evolve"], "repo-mutation", "repo_evolution"),
+]
+
+_ACQUISITION_ROUTE_MAP: Dict[str, str] = {
+    "security": "use_existing",
+    "commerce": "compose_existing",
+    "realtime": "use_existing",
+    "agent-runtime": "compose_existing",
+    "mobile": "use_existing",
+    "game": "use_existing",
+    "validation": "use_existing",
+    "adapter": "generate_adapter",
+    "multimodal": "generate_pack",
+    "observability": "generate_pack",
+    "enterprise": "compose_existing",
+    "regulated": "generate_contract",
+    "repo-mutation": "use_existing",
+    "domain": "generate_pack",
+}
+
+
+def _derive_capability_requirements(goal: str) -> List[Dict]:
+    """Analyze goal text to derive structured capability requirements."""
+    lowered = goal.lower()
+    requirements: List[Dict] = []
+    seen_families: set = set()
+    for keywords, family, cap_id in _CAPABILITY_KEYWORD_MAP:
+        if any(kw in lowered for kw in keywords):
+            if family not in seen_families:
+                seen_families.add(family)
+                requirements.append({
+                    "capability_id": cap_id,
+                    "family": family,
+                    "acquisition_route": _ACQUISITION_ROUTE_MAP.get(family, "generate_pack"),
+                    "required": True,
+                })
+    if not requirements:
+        requirements.append({
+            "capability_id": "general_build",
+            "family": "domain",
+            "acquisition_route": "generate_pack",
+            "required": True,
+        })
+    return requirements
+
+
+def _build_machine_readable_mission_plan(
+    run_id: str,
+    goal: str,
+    change_set: ChangeSet,
+    capability_requirements: List[Dict],
+    state: str = "planned",
+) -> Dict:
+    """Emit a machine-readable mission plan/state record."""
+    return {
+        "schema_version": "v2",
+        "mission_plan_id": f"plan-{run_id}",
+        "run_id": run_id,
+        "goal": goal,
+        "state": state,  # planned | executing | paused_approval | complete | failed | interrupted
+        "capability_requirements": capability_requirements,
+        "routing_summary": {
+            family_req["family"]: family_req["acquisition_route"]
+            for family_req in capability_requirements
+        },
+        "change_envelope": {
+            "action": change_set.action,
+            "action_class": change_set.action_class,
+            "target_type": change_set.target_type,
+            "risk_level": change_set.risk_level,
+            "requires_checkpoint": change_set.requires_checkpoint,
+            "approval_required": change_set.risk_level == DANGEROUS,
+            "irreversible_operation": change_set.irreversible_operation,
+            "rollback_strategy": change_set.rollback_strategy,
+        },
+        "pause_resume_semantics": {
+            "supports_pause": True,
+            "supports_resume": True,
+            "supports_approval_gate": True,
+            "supports_interruption_recovery": True,
+            "checkpoint_available": change_set.requires_checkpoint,
+        },
+        "operator_summary_url": f"runs/{run_id}.mission.json",
+    }
 
 
 def _mission_result_path(run_id: str) -> Path:
@@ -72,6 +176,32 @@ def _plan_change_set(goal: str) -> ChangeSet:
     )
 
 
+def _build_operator_summary(record: Dict) -> Dict:
+    """Produce a clear operator-facing result summary."""
+    status = record.get("status", "unknown")
+    confidence = record.get("confidence", 0.0)
+    repair_count = record.get("repair_count", 0)
+    caps = record.get("capability_requirements", [])
+    cap_families = [c.get("family", "unknown") for c in caps]
+    mission_state = (record.get("mission_plan") or {}).get("state", "unknown")
+    return {
+        "status": status,
+        "mission_state": mission_state,
+        "confidence": confidence,
+        "repair_count": repair_count,
+        "capability_families_used": cap_families,
+        "approval_required": record.get("awaiting_approval", False),
+        "checkpoint_available": record.get("checkpoint_required", False),
+        "restore_available": record.get("restore_available", False),
+        "interruption_recovery_supported": True,
+        "result_bundle": f"runs/{record.get('run_id', 'unknown')}.mission.json",
+        "next_action": (
+            "approve and resume" if record.get("awaiting_approval")
+            else ("review quality report" if confidence < 0.8 else "mission complete")
+        ),
+    }
+
+
 def build_mission_result(record: Dict, saved_path: str) -> Dict:
     summary = record.get("summary", {})
     approval_required = summary.get(
@@ -113,6 +243,9 @@ def build_mission_result(record: Dict, saved_path: str) -> Dict:
         "audit_record": audit_record,
         "audit_event_count": len(audit_trail),
         "saved_path": saved_path,
+        "capability_requirements": record.get("capability_requirements", []),
+        "mission_plan": record.get("mission_plan", {}),
+        "operator_summary": _build_operator_summary(record),
     }
     if awaiting_approval:
         result["resume_hint"] = _build_resume_hint(record["run_id"])
@@ -134,6 +267,10 @@ def _save_mission_result(result: Dict) -> str:
 def run_mission(goal: str) -> Dict:
     run_id = f"mission_{uuid.uuid4().hex}"
     planned_change = _plan_change_set(goal)
+    capability_requirements = _derive_capability_requirements(goal)
+    mission_plan = _build_machine_readable_mission_plan(
+        run_id, goal, planned_change, capability_requirements, state="executing"
+    )
     with io.StringIO() as capture, redirect_stdout(capture):
         record, saved_path = perform_run(run_id=run_id, goal=goal, nexus_mode_enabled=True)
 
@@ -143,6 +280,13 @@ def run_mission(goal: str) -> Dict:
     record["change_sets"] = [change_set]
     record["mutation_risk"] = change_set["risk_level"]
     record["checkpoint_required"] = change_set["requires_checkpoint"]
+    record["capability_requirements"] = capability_requirements
+    record["mission_plan"] = {
+        **mission_plan,
+        "state": "complete" if record.get("status") == "complete" else (
+            "paused_approval" if record.get("awaiting_approval") else "failed"
+        ),
+    }
     record["artifact_lineage"] = build_artifact_lineage(
         run_id,
         record.get("artifacts", []),

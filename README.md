@@ -4,6 +4,34 @@ AutobuilderV2 is a **deterministic, spec-driven application build platform** wit
 
 ---
 
+## Architecture Summary
+
+| Subsystem | Description | Maturity |
+|-----------|-------------|----------|
+| Mission Orchestration | Unified top-level mission engine with capability routing, pause/resume, plan/state | first_class |
+| Runtime/Action Intelligence | Goal-decomposed task planning with state transitions and evidence semantics | first_class |
+| Mutation Safety | Scope envelopes, critical file awareness, provenance records, restore guidance | first_class |
+| Adapter Registry | Capability-aware adapter registry for runtimes, connectors, media, sensors | first_class |
+| Non-commercial Lanes | Mobile (Flutter), Game (Godot), Realtime (WebSocket), Enterprise Agent | first_class |
+| Multimodal/World-State | Schema-level contracts for audio, image/doc, sensor/event; no live execution | structural_only |
+| Security/RBAC/Secrets | Auth scaffold, RBAC defaults, secrets posture, audit contract | bounded_prototype |
+| Commerce/Billing | Plan catalog, entitlements, webhooks, admin surfaces | bounded_prototype |
+| Vertical Domain Packs | Operations, productivity, monitoring, coaching, regulated, enterprise-admin | bounded_prototype |
+| Benchmark/Proof | 35+ case benchmark suite with artifact-derived scoring | first_class |
+| Flagship-Proof Readiness | Mission bundles, operator runbooks, truth-audit, launch evidence | first_class |
+
+### Known Limitations (Honest)
+
+- Task execution is bounded: no real external code compilation or network actuation is performed
+- Multimodal modalities (audio, image, sensor) are structural contracts only; no live media processing
+- Commerce and auth require operator-supplied provider credentials (Stripe, OAuth provider, etc.)
+- ABAC policy engine is scaffold/placeholder; RBAC is the operational enforcement model
+- Regulated/compliance (HIPAA, GDPR) patterns provide structural scaffolds; legal compliance is operator responsibility
+- Generated capabilities from self-extension are sandbox-first, validation-gated, and quarantined by default
+- LLM inference is not integrated; all plans are rule/pattern-based
+
+---
+
 ## Quick Start
 
 ### Bootstrap
@@ -29,7 +57,7 @@ python cli/autobuilder.py ship --spec specs --target /tmp/my-app --json
 # Run end-to-end proof workflow
 python cli/autobuilder.py proof --json
 
-# Start an autonomous mission
+# Start an autonomous mission (with capability routing + machine-readable plan)
 python cli/autobuilder.py mission "Your goal here" --json
 
 # Inspect a saved run
@@ -38,7 +66,7 @@ python cli/autobuilder.py inspect <run_id> --json
 # Resume a paused run (with optional approval)
 python cli/autobuilder.py resume <run_id> --approve --json
 
-# Run benchmarks
+# Run benchmarks (35+ cases)
 python cli/autobuilder.py benchmark --json
 
 # Validate a previously built app
@@ -56,8 +84,6 @@ python cli/autobuilder.py agent-runtime --task "open app and save result" --appr
 # Extend a lane with a new capability
 python cli/autobuilder.py self-extend --lane first_class_commercial --needs custom_validator --sandbox /tmp/sandbox --json
 ```
-
-### Cleanup
 
 ```bash
 scripts/clean_runtime.sh    # Remove runs, memory, and cache

@@ -226,3 +226,118 @@ All commands adhere to the following command safety guarantees:
 | `IRCompiler.compile()` | `ir/compiler.py` | Extend IR with domain fields |
 | `get_lane_validation_plan()` | `generator/template_packs.py` | Override validation plan per lane |
 | `enrich_proof_with_platform_hardening()` | `platform_hardening/proof_enrichment.py` | Add platform contracts to proof |
+
+---
+
+## Mission Orchestration Pipeline
+
+The mission orchestration layer (`cli/mission.py`) extends the compiler pipeline with autonomous goal decomposition:
+
+```
+goal (natural language)
+      │
+      ▼
+  _derive_capability_requirements()   — keyword → capability family routing
+      │
+      ▼
+  Planner.create_plan()               — goal → task list with action_class metadata
+      │
+      ▼
+  Executor.run_tasks_with_recovery()  — state transitions + evidence signatures
+      │
+      ▼
+  _build_machine_readable_mission_plan()  — pause/resume semantics, run_id, signatures
+      │
+      ▼
+  _build_operator_summary()           — human-readable next_action + honesty notes
+```
+
+### Capability Routing
+
+Goals are keyword-matched against 14 capability families (auth, commerce, mobile, game, realtime, multimodal, mutation, agent, analytics, search, notification, storage, devops, i18n).  Each family maps to an acquisition route and maturity level.
+
+### Mission Result Contract
+
+```json
+{
+  "run_id": "<uuid>",
+  "goal": "<string>",
+  "status": "complete|partial|failed",
+  "capability_requirements": [
+    { "family": "<string>", "required": true, "acquisition_route": "<string>", "maturity": "<string>" }
+  ],
+  "mission_plan": {
+    "plan_id": "<uuid>",
+    "tasks": [],
+    "pause_resume_semantics": { "supports_interruption_recovery": true }
+  },
+  "operator_summary": {
+    "total_tasks": 0,
+    "completed_tasks": 0,
+    "next_action": "<string>",
+    "honesty_note": "<string>"
+  }
+}
+```
+
+---
+
+## Adapter Architecture
+
+The adapter registry (`adapters/registry.py`) maps capability requirements to concrete integration adapters.
+
+### Adapter Kinds
+
+| Kind | Description | Examples |
+|------|-------------|---------|
+| `runtime` | Application runtime scaffolds | fastapi, nextjs, flutter, godot, websocket |
+| `framework` | Data/infrastructure frameworks | postgres, docker_compose |
+| `enterprise_connector` | External service integrations | stripe, sendgrid, s3, openai, ldap_sso |
+| `tool_action` | Action-triggered integrations | webhook, approval_gate |
+| `media_sensor` | Multimodal/sensor inputs | image_document, audio, sensor_event |
+
+Adapters are validated on registration. `resolve_for_lane(lane_id, required_capabilities)` returns only validated adapters matching all required capabilities.
+
+---
+
+## Vertical Domain Packs
+
+Six universal vertical domain packs extend the lane capability surface beyond the five first-class lanes:
+
+| Pack ID | Maturity | Domain |
+|---------|----------|--------|
+| `vertical.operations_workflow.v1` | bounded_prototype | Internal ops tooling |
+| `vertical.productivity_coordination.v1` | bounded_prototype | Team coordination |
+| `vertical.monitoring_realtime.v1` | bounded_prototype | Metrics and alerting |
+| `vertical.coaching_feedback.v1` | bounded_prototype | Structured feedback loops |
+| `vertical.regulated_policy_bound.v1` | structural_only | Regulated domains (no automated compliance) |
+| `vertical.enterprise_admin_reporting.v1` | bounded_prototype | Admin surfaces and reports |
+
+All packs carry an `honesty_note` in metadata declaring operator wiring requirements.
+
+---
+
+## Benchmark Proof Semantics
+
+Benchmark cases are categorised by proof dimension:
+
+| Dimension | What it verifies |
+|-----------|-----------------|
+| `proof_coverage` | Proof artefact completeness and machine-readable signatures |
+| `proof_artifact_coverage` | All per-lane artefacts are present and well-formed |
+| `failure_intelligence_coverage` | Failure corpus classification and repair suggestions |
+| `benchmark_breadth` | Scenario coverage across lanes, integrations, edge cases |
+| `capability_routing` | Capability acquisition routes and maturity labels |
+| `mission_orchestration` | Task decomposition, execution state, and recovery semantics |
+| `adapter_resolution` | Adapter registry lane resolution |
+
+---
+
+## Known Limitations
+
+- **No live code execution** — all build outputs are deterministic scaffolds, not executed binaries.
+- **No network actuation** — adapters emit integration scaffolds; API calls require operator wiring.
+- **Multimodal is structural_only** — audio/image/sensor contracts are schema-only; no runtime media processing.
+- **Regulated domains require operator validation** — `vertical.regulated_policy_bound.v1` emits governance templates only; legal/compliance review is the operator's responsibility.
+- **Auth/commerce require credential wiring** — generated auth and billing scaffolds need operator-supplied API keys and secrets to function.
+- **No autonomous deployment** — ship command writes artefacts to disk; deployment to production infrastructure requires operator action.

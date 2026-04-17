@@ -219,3 +219,179 @@ def _register_base_packs() -> None:
 
 
 _register_base_packs()
+
+
+# ---------------------------------------------------------------------------
+# Universal vertical domain pack foundations (cross-lane, reusable)
+# ---------------------------------------------------------------------------
+
+_VERTICAL_DOMAIN_PACKS: list[PackDefinition] = [
+    PackDefinition(
+        pack_id="vertical.operations_workflow.v1",
+        pack_type="vertical_domain",
+        lane_id="universal",
+        version="1.0.0",
+        capabilities=[
+            "task_assignment",
+            "approval_routing",
+            "escalation_chain",
+            "deadline_tracking",
+            "status_audit_trail",
+            "bulk_action_processing",
+            "queue_management",
+        ],
+        metadata={
+            "maturity": "bounded_prototype",
+            "applicable_lanes": ["first_class_commercial", "first_class_enterprise_agent", "first_class_realtime"],
+            "honesty_note": "structural scaffolds; operator wiring required for live task dispatch",
+        },
+        purpose="Operations and workflow management foundations",
+        quality_tier="bounded_prototype",
+        validation_requirements=["workflow_schema_valid", "approval_hooks_present"],
+        safety_tier="standard",
+        priority=10,
+    ),
+    PackDefinition(
+        pack_id="vertical.productivity_coordination.v1",
+        pack_type="vertical_domain",
+        lane_id="universal",
+        version="1.0.0",
+        capabilities=[
+            "calendar_event_schema",
+            "notes_and_tasks",
+            "team_notifications",
+            "file_attachment_references",
+            "activity_feed",
+            "search_surface",
+            "quick_actions",
+        ],
+        metadata={
+            "maturity": "bounded_prototype",
+            "applicable_lanes": ["first_class_commercial", "first_class_mobile", "first_class_enterprise_agent"],
+            "honesty_note": "structural scaffolds; live calendar/search integrations require operator connectors",
+        },
+        purpose="Productivity and coordination vertical foundations",
+        quality_tier="bounded_prototype",
+        validation_requirements=["productivity_schema_valid"],
+        safety_tier="standard",
+        priority=20,
+    ),
+    PackDefinition(
+        pack_id="vertical.monitoring_realtime.v1",
+        pack_type="vertical_domain",
+        lane_id="universal",
+        version="1.0.0",
+        capabilities=[
+            "metric_ingestion_schema",
+            "alert_rules_contract",
+            "threshold_evaluation",
+            "anomaly_detection_hook",
+            "dashboard_data_contract",
+            "incident_creation_flow",
+            "runbook_attachment",
+            "on_call_routing_scaffold",
+        ],
+        metadata={
+            "maturity": "bounded_prototype",
+            "applicable_lanes": ["first_class_realtime", "first_class_commercial"],
+            "honesty_note": "structural scaffolds; live metric ingestion requires operator integration",
+        },
+        purpose="Monitoring and realtime alerting vertical foundations",
+        quality_tier="bounded_prototype",
+        validation_requirements=["metric_schema_valid", "alert_contract_present"],
+        safety_tier="elevated",
+        priority=30,
+    ),
+    PackDefinition(
+        pack_id="vertical.coaching_feedback.v1",
+        pack_type="vertical_domain",
+        lane_id="universal",
+        version="1.0.0",
+        capabilities=[
+            "session_tracking",
+            "progress_measurement",
+            "feedback_collection",
+            "goal_schema",
+            "milestone_tracking",
+            "coaching_notes",
+            "nudge_dispatch_hook",
+        ],
+        metadata={
+            "maturity": "bounded_prototype",
+            "applicable_lanes": ["first_class_mobile", "first_class_commercial", "first_class_enterprise_agent"],
+            "honesty_note": "structural scaffolds; live coaching AI requires operator model integration",
+        },
+        purpose="Coaching and feedback vertical foundations",
+        quality_tier="bounded_prototype",
+        validation_requirements=["coaching_schema_valid"],
+        safety_tier="standard",
+        priority=40,
+    ),
+    PackDefinition(
+        pack_id="vertical.regulated_policy_bound.v1",
+        pack_type="vertical_domain",
+        lane_id="universal",
+        version="1.0.0",
+        capabilities=[
+            "policy_rule_schema",
+            "compliance_check_hooks",
+            "consent_tracking",
+            "data_classification",
+            "retention_policy_contract",
+            "right_to_erasure_hook",
+            "audit_immutable_log",
+            "regulator_report_template",
+        ],
+        metadata={
+            "maturity": "structural_only",
+            "applicable_lanes": ["first_class_commercial", "first_class_enterprise_agent"],
+            "honesty_note": "structural_only; operator must implement actual compliance execution and legal review",
+            "regulated_boundary": "no_automated_compliance_decisions",
+        },
+        purpose="Regulated and policy-bound systems vertical foundations",
+        quality_tier="structural_only",
+        validation_requirements=["consent_schema_present", "audit_log_contract_present"],
+        safety_tier="elevated",
+        priority=50,
+    ),
+    PackDefinition(
+        pack_id="vertical.enterprise_admin_reporting.v1",
+        pack_type="vertical_domain",
+        lane_id="universal",
+        version="1.0.0",
+        capabilities=[
+            "admin_dashboard_surface",
+            "user_management_schema",
+            "org_hierarchy_schema",
+            "billing_admin_surface",
+            "usage_reporting_contract",
+            "export_report_hook",
+            "sso_provider_contract",
+            "role_assignment_surface",
+        ],
+        metadata={
+            "maturity": "bounded_prototype",
+            "applicable_lanes": ["first_class_commercial", "first_class_enterprise_agent"],
+            "honesty_note": "structural scaffolds; live org/SSO integration requires operator connector wiring",
+        },
+        purpose="Enterprise administration and reporting vertical foundations",
+        quality_tier="bounded_prototype",
+        validation_requirements=["admin_surface_valid", "role_assignment_present"],
+        safety_tier="elevated",
+        priority=60,
+    ),
+]
+
+
+def _register_vertical_domain_packs() -> None:
+    for pack in _VERTICAL_DOMAIN_PACKS:
+        GLOBAL_PACK_REGISTRY.register(pack)
+
+
+_register_vertical_domain_packs()
+
+
+def list_universal_vertical_packs() -> list[dict[str, object]]:
+    """Return all universal vertical domain pack definitions."""
+    return [p.to_dict() for p in GLOBAL_PACK_REGISTRY.list_packs(lane_id="universal")]
+

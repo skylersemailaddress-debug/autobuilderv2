@@ -39,6 +39,7 @@ include-package-data = true
 where = ["."]
 include = [
 	"archetypes*",
+		"adapters*",
 	"benchmarks*",
 	"chat_builder*",
 	"cli*",

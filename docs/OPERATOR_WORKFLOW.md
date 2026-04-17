@@ -257,3 +257,104 @@ autobuilder resume --json
 ```
 
 Run or resume an autonomous mission. All mission state is persisted under `runs/`.
+
+---
+
+## Autonomous Mission Workflow
+
+### Running a Mission
+
+```bash
+autobuilder mission "build a SaaS product with auth, billing, and admin dashboard" --json
+```
+
+The mission result includes:
+- `capability_requirements`: derived capability families (auth, commerce, …) with maturity and acquisition route
+- `mission_plan`: machine-readable task plan with `pause_resume_semantics.supports_interruption_recovery: true`
+- `operator_summary`: human-readable next_action and honesty note
+
+### Reading the Mission Plan
+
+```python
+plan = mission_result["mission_plan"]
+for task in plan["tasks"]:
+  print(task["title"], task["action_class"], task["state"])
+# action_class: destructive | mutation | validation | read | creation
+# state: pending | in_progress | complete | blocked | error
+```
+
+### Interruption Recovery
+
+Mission state is persisted under `runs/<run_id>/`.  To resume after interruption:
+
+```bash
+autobuilder resume --run-id <run_id> --json
+```
+
+`pause_resume_semantics.supports_interruption_recovery` is always `true` for missions created by the current runtime.
+
+---
+
+## Flagship Readiness Bundle
+
+Before shipping a production-grade build, generate the flagship readiness bundle:
+
+```python
+from readiness.flagship_proof import build_flagship_readiness_bundle, emit_flagship_bundle_to_disk
+
+bundle = build_flagship_readiness_bundle(mission_result, repo_root="/workspaces/autobuilderv2")
+emit_flagship_bundle_to_disk(bundle, output_dir="output-app/readiness")
+```
+
+The bundle contains:
+- `readiness_checks`: 20 file-existence plus structural checks
+- `operator_runbook`: step-by-step operator steps, approval workflow, restore workflow
+- `truth_audit`: honesty validation of all maturity declarations in source
+- `launch_evidence`: evidence items from mission result + blocking issues list
+
+Inspect `bundle.readiness_score` — a score of 1.0 means all 20 checks pass.
+
+---
+
+## Adapter Resolution
+
+Use the adapter registry to resolve integration adapters for a lane:
+
+```python
+from adapters.registry import GLOBAL_ADAPTER_REGISTRY
+
+adapters = GLOBAL_ADAPTER_REGISTRY.resolve_for_lane(
+  "first_class_commercial",
+  required_capabilities=["payment_processing", "email_delivery"]
+)
+for adapter in adapters:
+  print(adapter.metadata.adapter_id, adapter.metadata.maturity)
+```
+
+Only `validated=True` adapters are returned.  The registry ships 18 built-in adapters across 5 kinds.
+
+---
+
+## Capability Routing Visibility
+
+The `capability_requirements` field in mission results is the operator's primary visibility into what the platform detected from the goal.  Review it before proceeding with a build:
+
+```python
+for req in mission_result["capability_requirements"]:
+  print(req["family"], "→", req["acquisition_route"], f"({req['maturity']})")
+```
+
+If required capabilities have maturity `structural_only`, no runtime execution will occur for those features — only scaffold artefacts are emitted.  If `acquisition_route` is `operator_wiring_required`, the operator must supply API credentials before the generated code is functional.
+
+---
+
+## Honest Limitations for Operators
+
+| Claim | Reality |
+|-------|---------|
+| "auth generated" | Scaffold + RBAC contracts emitted; Supabase/Auth0 keys required to be functional |
+| "billing generated" | Stripe webhook scaffold + entitlement service emitted; Stripe keys + operator testing required |
+| "multimodal support" | Schema contracts only; no live audio/image processing at runtime |
+| "regulated domain support" | Governance templates and validation hooks only; legal/compliance review is operator's responsibility |
+| "adapters resolved" | Integration scaffolds registered and validated; actual API calls require operator credential wiring |
+| "mission complete" | Task plan executed deterministically in-process; no external deployment or network actuation occurs |

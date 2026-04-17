@@ -116,3 +116,155 @@ def build_security_governance_contract(lane_id: str) -> dict[str, object]:
             "audit retention enforcement deferred to operator infrastructure",
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Generated security structure scaffolds
+# ---------------------------------------------------------------------------
+
+AUTH_GENERATED_SCAFFOLD: dict[str, object] = {
+    "scaffold_version": "v2",
+    "maturity": "bounded_prototype",
+    "description": "Generated authentication and authorization code scaffold",
+    "generated_files": {
+        "backend/api/auth.py": {
+            "purpose": "JWT token issuance and validation middleware",
+            "endpoints": [
+                "POST /auth/token — issue access + refresh tokens",
+                "POST /auth/token/refresh — rotate refresh token",
+                "POST /auth/logout — invalidate session",
+                "GET /auth/me — return current user claims",
+            ],
+            "security_controls": [
+                "JWT HS256/RS256 signing required",
+                "refresh_token_rotation enabled",
+                "token_expiry: access=15m, refresh=7d",
+                "rate_limiting on /auth/token",
+                "mfa_hook invocation point present",
+            ],
+        },
+        "backend/api/permissions.py": {
+            "purpose": "RBAC permission guard decorator and dependency",
+            "patterns": [
+                "require_role(role: str) → FastAPI dependency",
+                "require_permission(permission: str) → decorator",
+                "deny_by_default: True",
+            ],
+        },
+        "backend/api/admin.py": {
+            "purpose": "Admin-only surfaces with role guards",
+            "role_guard": "require_role('admin') | require_role('owner')",
+            "endpoints": [
+                "GET /admin/users",
+                "POST /admin/users/{id}/role",
+                "DELETE /admin/users/{id}",
+                "GET /admin/audit-log",
+            ],
+        },
+    },
+    "validation_checks": [
+        "jwt_signing_key_not_hardcoded",
+        "all_routes_have_auth_guard",
+        "admin_endpoints_role_guarded",
+        "refresh_token_rotation_present",
+        "mfa_hook_invocation_present",
+    ],
+}
+
+RBAC_GENERATED_SCAFFOLD: dict[str, object] = {
+    "scaffold_version": "v2",
+    "maturity": "bounded_prototype",
+    "description": "Generated RBAC role/permission table and enforcement scaffold",
+    "role_definitions": {
+        "owner": {"permissions": ["*"], "inherits": None},
+        "admin": {"permissions": ["users:*", "billing:*", "audit:read", "settings:*"], "inherits": "member"},
+        "billing_admin": {"permissions": ["billing:*", "subscriptions:*"], "inherits": "member"},
+        "member": {"permissions": ["workspace:read", "workspace:write", "profile:*"], "inherits": "viewer"},
+        "viewer": {"permissions": ["workspace:read", "profile:read"], "inherits": None},
+    },
+    "permission_matrix_contract": {
+        "format": "role → list[scope:action]",
+        "wildcard_supported": True,
+        "deny_by_default": True,
+        "check_function": "check_permission(user_roles, required_permission) → bool",
+    },
+    "generated_files": {
+        "backend/api/rbac.py": {
+            "purpose": "Role resolution and permission evaluation",
+            "exports": ["check_permission", "get_user_roles", "require_role"],
+        },
+        "db/schema_rbac.sql": {
+            "purpose": "RBAC tables: roles, permissions, role_assignments",
+        },
+    },
+    "validation_checks": [
+        "role_definitions_present",
+        "deny_by_default_enforced",
+        "permission_matrix_has_no_gaps",
+        "rbac_check_function_wired",
+    ],
+}
+
+SECRETS_GENERATED_SCAFFOLD: dict[str, object] = {
+    "scaffold_version": "v2",
+    "maturity": "bounded_prototype",
+    "description": "Generated secrets and config posture scaffold",
+    "generated_files": {
+        ".env.example": {
+            "purpose": "Non-secret environment variable template",
+            "required_vars": [
+                "APP_ENV=development",
+                "APP_VERSION=0.1.0",
+                "DATABASE_URL=postgresql://user:pass@localhost:5432/db",
+                "JWT_SECRET_KEY=REPLACE_WITH_STRONG_SECRET",
+                "ALLOWED_ORIGINS=http://localhost:3000",
+                "STRIPE_PUBLISHABLE_KEY=pk_test_...",
+            ],
+            "forbidden": ["hardcoded secrets in source", "plain-text passwords in repo"],
+        },
+        "backend/api/config.py": {
+            "purpose": "Pydantic BaseSettings config with environment loading",
+            "security_controls": [
+                "secrets loaded from env only",
+                "strict=True on all secret fields",
+                "no default values for secret fields",
+                "production_mode disables debug",
+            ],
+        },
+    },
+    "rotation_policy": {
+        "jwt_secret": "rotate every 90 days or on breach",
+        "database_password": "rotate every 180 days or on breach",
+        "api_keys": "rotate on staff offboarding or annually",
+    },
+    "validation_checks": [
+        "no_hardcoded_secrets_in_source",
+        "env_example_present",
+        "config_uses_pydantic_settings",
+        "production_debug_disabled",
+        "jwt_secret_minimum_entropy",
+    ],
+}
+
+
+def build_generated_security_scaffolds(lane_id: str) -> dict[str, object]:
+    """Return full generated security scaffold definitions for a lane."""
+    return {
+        "lane_id": lane_id,
+        "scaffold_version": "v2",
+        "maturity": "bounded_prototype",
+        "auth_scaffold": AUTH_GENERATED_SCAFFOLD,
+        "rbac_scaffold": RBAC_GENERATED_SCAFFOLD,
+        "secrets_scaffold": SECRETS_GENERATED_SCAFFOLD,
+        "combined_validation_checks": sorted(set(
+            AUTH_GENERATED_SCAFFOLD["validation_checks"]
+            + RBAC_GENERATED_SCAFFOLD["validation_checks"]
+            + SECRETS_GENERATED_SCAFFOLD["validation_checks"]
+        )),
+        "known_limitations": [
+            "no live auth provider wiring; operator must inject credentials",
+            "ABAC not fully implemented; RBAC is primary enforcement",
+            "secrets rotation is policy-only; tooling not included",
+        ],
+    }
+

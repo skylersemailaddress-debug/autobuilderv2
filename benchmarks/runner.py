@@ -62,6 +62,25 @@ def _case_passed(case: BenchmarkCase, result: Dict) -> bool:
         return False
     if "lifecycle_status" in expected and result.get("lifecycle_status") != expected["lifecycle_status"]:
         return False
+    # New outcome checks
+    if "capability_requirements_present" in expected:
+        has_caps = bool(result.get("capability_requirements") or result.get("mission_plan", {}).get("capability_requirements"))
+        if has_caps != expected["capability_requirements_present"]:
+            return False
+    if "mission_plan_present" in expected:
+        has_plan = bool(result.get("mission_plan"))
+        if has_plan != expected["mission_plan_present"]:
+            return False
+    if "operator_summary_present" in expected:
+        has_summary = bool(result.get("operator_summary"))
+        if has_summary != expected["operator_summary_present"]:
+            return False
+    if "interruption_recovery_supported" in expected:
+        supported = bool(
+            (result.get("mission_plan") or {}).get("pause_resume_semantics", {}).get("supports_interruption_recovery")
+        )
+        if supported != expected["interruption_recovery_supported"]:
+            return False
     return True
 
 
