@@ -338,9 +338,12 @@ def run_proof_workflow() -> dict:
     inspected = inspect_run(approval_sensitive["run_id"])
     resumed = resume_mission(approval_sensitive["run_id"], approve=True)
     benchmark_summary = _run_benchmarks(
-        "simple_low_risk_mission,first_class_ship_flow,repair_retry_generated_app,"
-        "interrupted_resumable_mission,unsupported_feature_rejection,repo_targeted_mission,"
-        "self_extension_validation_scenario"
+        "simple_low_risk_mission,first_class_ship_flow,lane_mobile_ship_flow,lane_realtime_ship_flow,"
+        "lane_enterprise_ship_flow,repair_retry_generated_app,interrupted_resumable_mission,"
+        "unsupported_feature_rejection,repo_targeted_mission,self_extension_validation_scenario,"
+        "self_extension_rejection_scenario,chat_preview_flow,chat_build_flow,"
+        "composition_payment_layer_flow,composition_agent_layer_flow,composition_realtime_layer_flow,"
+        "lifecycle_regeneration_flow"
     )
     readiness_checks = run_readiness_checks()
     readiness_report = build_readiness_report(readiness_checks, benchmark_summary=benchmark_summary)

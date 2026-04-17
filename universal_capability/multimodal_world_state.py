@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 
 
 def _list_of_strings(value: object, field: str) -> list[str]:
@@ -103,3 +104,88 @@ def build_world_state_snapshot(payload: dict[str, object]) -> dict[str, object]:
     }
     snapshot["snapshot_signature_sha256"] = _signature(snapshot)
     return snapshot
+
+
+def build_multimodal_runtime_contract(lane_id: str) -> dict[str, object]:
+    contract = {
+        "contract_version": "v1",
+        "lane_id": lane_id,
+        "maturity": "structural_only",
+        "ingestion_contracts": {
+            "documents": {
+                "accepted_types": ["pdf", "txt", "md", "json"],
+                "mode": "reference_only",
+            },
+            "images": {
+                "accepted_types": ["png", "jpg", "jpeg", "webp"],
+                "mode": "reference_only",
+            },
+            "audio": {
+                "accepted_types": ["wav", "mp3", "ogg"],
+                "mode": "reference_only",
+            },
+            "sensors": {
+                "accepted_types": ["sensor_id"],
+                "mode": "channel_reference_only",
+            },
+            "event_streams": {
+                "accepted_types": ["topic_name"],
+                "mode": "channel_reference_only",
+            },
+        },
+        "action_contract": {
+            "mode": "declared_actions_only",
+            "requires_operator_approval_for_side_effects": True,
+            "live_execution_supported": False,
+        },
+        "proof_readiness_semantics": {
+            "proof_requirements": [
+                "multimodal_runtime_contract_emitted",
+                "world_state_snapshot_signature_present",
+            ],
+            "readiness_requirements": [
+                "operator_ingestion_runbook_present",
+                "declared_action_boundary_present",
+            ],
+        },
+    }
+    contract["contract_signature_sha256"] = _signature(contract)
+    return contract
+
+
+def emit_multimodal_runtime_scaffolds(target_repo: str | Path, lane_id: str) -> dict[str, object]:
+    root = Path(target_repo).resolve()
+    autobuilder = root / ".autobuilder"
+    docs = root / "docs"
+    autobuilder.mkdir(parents=True, exist_ok=True)
+    docs.mkdir(parents=True, exist_ok=True)
+
+    runtime_contract = build_multimodal_runtime_contract(lane_id)
+    contract_path = autobuilder / "multimodal_runtime_contract.json"
+    contract_path.write_text(json.dumps(runtime_contract, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    runbook_payload = {
+        "runbook_version": "v1",
+        "lane_id": lane_id,
+        "title": "Multimodal Ingestion And World-State Boundary",
+        "steps": [
+            "declare source references for documents/media/sensors/events",
+            "normalize payload with world-state schema contract",
+            "review action list and approval boundaries",
+            "record deterministic snapshot signature",
+        ],
+        "limitations": [
+            "no live media/sensor execution in structural_only maturity",
+            "actions are declarative contracts only",
+        ],
+    }
+    runbook_payload["runbook_signature_sha256"] = _signature(runbook_payload)
+    runbook_path = docs / "MULTIMODAL_RUNTIME.md"
+    runbook_path.write_text(json.dumps(runbook_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    return {
+        "runtime_contract_path": str(contract_path),
+        "runbook_path": str(runbook_path),
+        "contract_signature_sha256": runtime_contract["contract_signature_sha256"],
+        "runbook_signature_sha256": runbook_payload["runbook_signature_sha256"],
+    }

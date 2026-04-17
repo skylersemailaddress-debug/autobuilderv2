@@ -10,6 +10,7 @@ from platform_hardening.lifecycle import build_lifecycle_contract
 from platform_hardening.packs import get_pack_registry
 from platform_hardening.repair_runtime import verify_runtime_startup
 from platform_hardening.security_governance import build_security_governance_contract
+from universal_capability.multimodal_world_state import emit_multimodal_runtime_scaffolds
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> str:
@@ -36,6 +37,7 @@ def enrich_proof_with_platform_hardening(
     pack_profile = get_pack_registry().compose_lane_profile(lane_id)
     lifecycle_contract = build_lifecycle_contract(lane_id)
     enterprise_artifact = build_enterprise_readiness_artifact(lane_id)
+    multimodal_scaffolds = emit_multimodal_runtime_scaffolds(target, lane_id)
 
     failure_corpus = append_failure_corpus(
         target_repo=target,
@@ -67,6 +69,8 @@ def enrich_proof_with_platform_hardening(
     merged["artifact_paths"]["pack_composition"] = packs_path
     merged["artifact_paths"]["lifecycle_contract"] = lifecycle_path
     merged["artifact_paths"]["enterprise_readiness"] = enterprise_path
+    merged["artifact_paths"]["multimodal_runtime_contract"] = multimodal_scaffolds["runtime_contract_path"]
+    merged["artifact_paths"]["multimodal_runtime_runbook"] = multimodal_scaffolds["runbook_path"]
     merged["artifact_paths"]["failure_corpus"] = failure_corpus["corpus_path"]
     merged["artifact_paths"]["replay_harness"] = replay["replay_harness_path"]
 
@@ -76,6 +80,7 @@ def enrich_proof_with_platform_hardening(
     merged["pack_profile"] = pack_profile
     merged["lifecycle_contract"] = lifecycle_contract
     merged["enterprise_readiness"] = enterprise_artifact
+    merged["multimodal_runtime_scaffolds"] = multimodal_scaffolds
     merged["failure_corpus"] = failure_corpus
     merged["replay_harness"] = replay
     return merged

@@ -13,6 +13,9 @@ class BenchmarkCase:
     requires_resume: bool = False
     auto_approve_on_resume: bool = False
     spec_path: str | None = None
+    app_type: str | None = None
+    stack_selection: dict[str, str] | None = None
+    composition_secondary: str | None = None
     requested_capabilities: list[str] | None = None
     approve_core: bool = False
 
@@ -80,6 +83,113 @@ BENCHMARK_CASES: List[BenchmarkCase] = [
         },
         kind="ship",
         spec_path="specs",
+    ),
+    BenchmarkCase(
+        name="lane_mobile_ship_flow",
+        expected_outcome={
+            "build_status": "ok",
+            "proof_status_prefix": "certified",
+            "packaging_status": "ready",
+        },
+        kind="lane_ship",
+        app_type="mobile_app",
+        stack_selection={
+            "frontend": "flutter_mobile",
+            "backend": "fastapi",
+            "database": "postgres",
+            "deployment": "docker_compose",
+        },
+    ),
+    BenchmarkCase(
+        name="lane_realtime_ship_flow",
+        expected_outcome={
+            "build_status": "ok",
+            "proof_status_prefix": "certified",
+            "packaging_status": "ready",
+        },
+        kind="lane_ship",
+        app_type="realtime_system",
+        stack_selection={
+            "frontend": "react_next",
+            "backend": "fastapi",
+            "database": "postgres",
+            "deployment": "docker_compose",
+        },
+    ),
+    BenchmarkCase(
+        name="lane_enterprise_ship_flow",
+        expected_outcome={
+            "build_status": "ok",
+            "proof_status_prefix": "certified",
+            "packaging_status": "ready",
+        },
+        kind="lane_ship",
+        app_type="enterprise_agent_system",
+        stack_selection={
+            "frontend": "react_next",
+            "backend": "fastapi",
+            "database": "postgres",
+            "deployment": "docker_compose",
+        },
+    ),
+    BenchmarkCase(
+        name="chat_preview_flow",
+        expected_outcome={
+            "chat_status": "preview_ready",
+        },
+        kind="chat_flow",
+        goal="Build a mobile app called Field Assistant with alerts and history",
+    ),
+    BenchmarkCase(
+        name="chat_build_flow",
+        expected_outcome={
+            "chat_status": "built",
+            "proof_status_prefix": "certified",
+        },
+        kind="chat_flow",
+        goal="Build a realtime app called Ops Signal with telemetry streams and operator controls",
+        auto_approve_on_resume=True,
+    ),
+    BenchmarkCase(
+        name="composition_payment_layer_flow",
+        expected_outcome={
+            "composition_status": "accepted",
+        },
+        kind="composition_flow",
+        composition_secondary="commerce",
+    ),
+    BenchmarkCase(
+        name="composition_agent_layer_flow",
+        expected_outcome={
+            "composition_status": "accepted",
+        },
+        kind="composition_flow",
+        composition_secondary="agent-runtime",
+    ),
+    BenchmarkCase(
+        name="composition_realtime_layer_flow",
+        expected_outcome={
+            "composition_status": "accepted",
+        },
+        kind="composition_flow",
+        composition_secondary="first_class_realtime",
+    ),
+    BenchmarkCase(
+        name="lifecycle_regeneration_flow",
+        expected_outcome={
+            "lifecycle_status": "ready",
+        },
+        kind="lifecycle_flow",
+    ),
+    BenchmarkCase(
+        name="self_extension_rejection_scenario",
+        expected_outcome={
+            "status": "quarantined_only",
+            "registered": False,
+        },
+        kind="self_extend",
+        requested_capabilities=["core_auth_guard"],
+        approve_core=False,
     ),
     BenchmarkCase(
         name="unsupported_feature_rejection",

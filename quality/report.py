@@ -41,6 +41,14 @@ def build_mission_quality_report(record: Dict, benchmark_summary: Optional[Dict]
             "awaiting_approval": awaiting_approval,
             "mutation_risk": mutation_risk,
             "repairs_used": repair_count,
+            "trust_grade": reliability_summary.get("grade"),
+            "proof_summary": {
+                "what_was_proven": list(reliability_summary.get("proven", [])),
+                "what_was_repaired": list(reliability_summary.get("repaired", [])),
+                "what_remains_risky": list(reliability_summary.get("remaining_risks", [])),
+                "what_is_unsupported": list(reliability_summary.get("unsupported", [])),
+                "what_is_reproducible": list(reliability_summary.get("reproducibility_notes", [])),
+            },
         },
         "approval_usage": {
             "approval_required": approval_required,
@@ -59,6 +67,12 @@ def build_mission_quality_report(record: Dict, benchmark_summary: Optional[Dict]
             "rollback_ready": audit_record.get("rollback_ready", False),
         },
         "benchmark_context": benchmark_summary,
+        "benchmark_coverage": {
+            "proof_coverage_rate": (benchmark_summary or {}).get("aggregate_scores", {}).get("proof_coverage_rate"),
+            "proof_artifact_coverage_rate": (benchmark_summary or {}).get("aggregate_scores", {}).get("proof_artifact_coverage_rate"),
+            "failure_intelligence_coverage_rate": (benchmark_summary or {}).get("aggregate_scores", {}).get("failure_intelligence_coverage_rate"),
+            "benchmark_breadth_score": (benchmark_summary or {}).get("aggregate_scores", {}).get("benchmark_breadth_score"),
+        },
         "selected_memories": {
             "keys": selected_memory_keys,
             "count": len(selected_memory_keys),

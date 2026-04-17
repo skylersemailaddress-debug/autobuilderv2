@@ -64,10 +64,37 @@ def get_pack_registry() -> PackRegistry:
     return GLOBAL_PACK_REGISTRY
 
 
+def list_domain_vertical_foundations() -> dict[str, list[str]]:
+    registry = get_pack_registry()
+    output: dict[str, list[str]] = {}
+    for lane_id in (
+        "first_class_commercial",
+        "first_class_mobile",
+        "first_class_game",
+        "first_class_realtime",
+        "first_class_enterprise_agent",
+    ):
+        packs = registry.list_packs(lane_id=lane_id, pack_type="domain")
+        capabilities: list[str] = []
+        for pack in packs:
+            capabilities.extend(pack.capabilities)
+        output[lane_id] = sorted(set(capabilities))
+    return output
+
+
 def _register_base_packs() -> None:
     lane_config = {
         "first_class_commercial": {
-            "domain": ["saas_core", "workspace_ops", "api_service"],
+            "domain": [
+                "saas_core",
+                "workspace_ops",
+                "api_service",
+                "coaching_workflow_foundation",
+                "enterprise_operations_foundation",
+                "productivity_workflow_foundation",
+                "monitoring_realtime_foundation",
+                "regulated_pattern_foundation",
+            ],
             "workflow": ["approval_flow", "audit_flow", "retry_flow"],
             "ui": ["enterprise_shell", "admin_surface", "activity_surface"],
             "validation": ["web_structure", "proof_bundle", "packaging_bundle"],
@@ -80,7 +107,13 @@ def _register_base_packs() -> None:
             "commerce": ["subscriptions", "entitlements", "webhook_events"],
         },
         "first_class_mobile": {
-            "domain": ["mobile_workspace", "offline_sync"],
+            "domain": [
+                "mobile_workspace",
+                "offline_sync",
+                "coaching_companion_foundation",
+                "field_ops_foundation",
+                "regulated_mobile_boundary",
+            ],
             "workflow": ["mobile_navigation", "sync_retry_flow"],
             "ui": ["flutter_shell", "settings_surface"],
             "validation": ["mobile_structure", "mobile_markers", "proof_bundle"],
@@ -93,7 +126,7 @@ def _register_base_packs() -> None:
             "commerce": ["subscriptions", "entitlements", "trial_plan"],
         },
         "first_class_game": {
-            "domain": ["gameplay_core", "session_state"],
+            "domain": ["gameplay_core", "session_state", "coaching_simulation_foundation"],
             "workflow": ["input_loop", "physics_loop", "session_retry"],
             "ui": ["hud_shell", "scene_navigation"],
             "validation": ["game_structure", "game_markers", "proof_bundle"],
@@ -106,7 +139,13 @@ def _register_base_packs() -> None:
             "commerce": ["subscriptions", "entitlements", "plan_catalog"],
         },
         "first_class_realtime": {
-            "domain": ["realtime_ops", "sensor_ingestion", "state_projection"],
+            "domain": [
+                "realtime_ops",
+                "sensor_ingestion",
+                "state_projection",
+                "monitoring_realtime_foundation",
+                "enterprise_incident_ops_foundation",
+            ],
             "workflow": ["event_ingestion", "alert_dispatch", "action_pipeline"],
             "ui": ["live_dashboard", "alert_surface"],
             "validation": ["realtime_structure", "realtime_markers", "realtime_packaging"],
@@ -119,7 +158,14 @@ def _register_base_packs() -> None:
             "commerce": ["subscriptions", "entitlements", "usage_billing"],
         },
         "first_class_enterprise_agent": {
-            "domain": ["enterprise_workflows", "agent_orchestration", "corporate_ops"],
+            "domain": [
+                "enterprise_workflows",
+                "agent_orchestration",
+                "corporate_ops",
+                "legal_review_foundation",
+                "accounting_controls_foundation",
+                "regulated_approval_boundary",
+            ],
             "workflow": ["multi_role_routing", "approval_chain", "briefing_generation"],
             "ui": ["operator_console", "workflow_board", "briefing_surface"],
             "validation": ["enterprise_structure", "enterprise_markers", "enterprise_packaging"],
@@ -145,6 +191,12 @@ def _register_base_packs() -> None:
                     metadata={
                         "deterministic": True,
                         "enabled": True,
+                        "maturity_scope": "first_class" if pack_type not in {"commerce", "security", "research"} else "bounded_prototype",
+                        "support_honesty": "capability scaffolds only; operator integration required for live regulated operations",
+                        "regulated_boundaries": [
+                            "no_automated_legal_or_accounting_decisions",
+                            "operator_approval_required_for_sensitive_actions",
+                        ],
                     },
                     purpose=f"{pack_type} capabilities for {lane_id}",
                     dependencies=[],

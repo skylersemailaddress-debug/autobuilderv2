@@ -157,6 +157,25 @@ Stacks with tier `future` are rejected by the `ship` command.
 | lifecycle | bounded_prototype | regeneration safety classification with machine-readable lifecycle decisions |
 | enterprise-readiness | bounded_prototype | deployment/supportability/runbook/escalation artifacts emitted in proof |
 
+### Product Truth Guarantees
+
+- Determinism is enforced through repeat-build signature checks for generated outputs.
+- Proof semantics are machine-readable and emitted as artifacts; they are not marketing-only claims.
+- Support matrix entries define scaffold and contract support only unless explicitly marked first-class runtime behavior.
+- Regulated/legal/accounting foundations are bounded templates and governance contracts, never autonomous decision engines.
+- Multimodal/world-state remains structural_only: runtime contracts and runbooks are emitted, but live execution is not claimed.
+
+### Benchmark And Proof Coverage
+
+- Benchmark suite spans mission, ship, lane-specific ship, repair, unsupported rejection, chat flow, composition flow, lifecycle flow, and self-extension scenarios.
+- Coverage metrics include proof coverage rate, proof artifact coverage rate, failure-intelligence coverage rate, and benchmark breadth score.
+- Replay/failure intelligence artifacts are emitted for both runtime and capability-extension paths.
+
+### Canonical Capability And Composition IDs
+
+- Capability family IDs enforced in code and expected in docs: `chat-first`, `agent-runtime`, `self-extension`, `multimodal-world-state`, `security`, `commerce`, `cross-lane-composition`, `lifecycle`, `enterprise-readiness`.
+- Registered composition pattern IDs: `app_plus_agent`, `app_plus_realtime`, `app_plus_mobile_companion`, `app_plus_payment_layer`.
+
 ### Command Safety Guarantees
 
 - All commands emit deterministic, repo-relative artifact paths.

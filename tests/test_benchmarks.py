@@ -14,8 +14,18 @@ def test_benchmark_cases_exist():
     assert "nexus_mission_mode_run" in case_names
     assert "interrupted_resumable_mission" in case_names
     assert "first_class_ship_flow" in case_names
+    assert "lane_mobile_ship_flow" in case_names
+    assert "lane_realtime_ship_flow" in case_names
+    assert "lane_enterprise_ship_flow" in case_names
+    assert "chat_preview_flow" in case_names
+    assert "chat_build_flow" in case_names
+    assert "composition_payment_layer_flow" in case_names
+    assert "composition_agent_layer_flow" in case_names
+    assert "composition_realtime_layer_flow" in case_names
+    assert "lifecycle_regeneration_flow" in case_names
     assert "unsupported_feature_rejection" in case_names
     assert "self_extension_validation_scenario" in case_names
+    assert "self_extension_rejection_scenario" in case_names
 
 
 def test_runner_returns_structured_results():
@@ -103,3 +113,5 @@ def test_report_output_shape():
     assert "average_reliability" in report
     assert "scenario_breakdown" in report
     assert "replay_intelligence" in report
+    assert "proof_coverage" in report
+    assert "coverage_summary" in report

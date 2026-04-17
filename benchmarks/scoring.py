@@ -56,6 +56,9 @@ def compute_benchmark_scores(results: List[Dict]) -> Dict:
             "repair_flow_success_rate": 0.0,
             "approval_resume_success_rate": 0.0,
             "proof_coverage_rate": 0.0,
+            "proof_artifact_coverage_rate": 0.0,
+            "failure_intelligence_coverage_rate": 0.0,
+            "benchmark_breadth_score": 0.0,
         }
 
     passed = sum(1 for result in results if result.get("success") is True)
@@ -79,6 +82,21 @@ def compute_benchmark_scores(results: List[Dict]) -> Dict:
         if str(result.get("proof_status", "")).startswith("certified")
         or float(result.get("reliability_summary", {}).get("components", {}).get("proof_completeness", 0.0)) >= 0.9
     )
+    proof_artifact_covered = sum(1 for result in results if int(result.get("proof_artifact_count", 0)) > 0)
+    failure_intelligence_covered = sum(1 for result in results if int(result.get("replayable_failures", 0)) > 0 or bool(result.get("reproducible")))
+    scenario_kinds = {str(result.get("scenario_kind", "mission")) for result in results}
+    expected_kinds = {
+        "mission",
+        "ship",
+        "lane_ship",
+        "repair_flow",
+        "unsupported_build",
+        "self_extend",
+        "chat_flow",
+        "composition_flow",
+        "lifecycle_flow",
+    }
+    benchmark_breadth_score = len(scenario_kinds.intersection(expected_kinds)) / len(expected_kinds)
 
     return {
         "pass_rate": passed / total,
@@ -104,4 +122,7 @@ def compute_benchmark_scores(results: List[Dict]) -> Dict:
             approval_resume_success / len(resumable_cases) if resumable_cases else 1.0
         ),
         "proof_coverage_rate": proof_covered / total,
+        "proof_artifact_coverage_rate": proof_artifact_covered / total,
+        "failure_intelligence_coverage_rate": failure_intelligence_covered / total,
+        "benchmark_breadth_score": benchmark_breadth_score,
     }

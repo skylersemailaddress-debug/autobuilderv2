@@ -144,6 +144,18 @@ class AppIR:
 | lifecycle | bounded_prototype | regeneration safety classification executes in build path; lifecycle decisions emitted as machine-readable artifact |
 | enterprise-readiness | bounded_prototype | enterprise deployment/supportability/runbook/escalation artifacts emitted through proof enrichment |
 
+### Truth And Limitations Policy
+
+- Capability tables describe enforced contracts, not speculative future behavior.
+- `bounded_prototype` means deterministic scaffold + contract enforcement with explicit runtime/operator boundaries.
+- `structural_only` means schema and artifact support only; no claim of live side-effect execution.
+- Regulated domain foundations are governance-aware templates and validation hooks, not autonomous compliance engines.
+
+### Benchmark/Proof Semantics
+
+- Benchmark scoring includes proof coverage, proof artifact coverage, failure-intelligence coverage, and breadth coverage.
+- Proof/readiness outputs must be machine-readable and reproducible from deterministic signatures.
+
 ---
 
 ## Build and Ship Commands

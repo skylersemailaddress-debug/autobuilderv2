@@ -164,6 +164,14 @@ The operator must match the spec bundle's `app_type` and `stack_id` against the 
 | lifecycle | bounded_prototype | build path emits lifecycle regeneration decisions; operator-modified production-critical files require approval |
 | enterprise-readiness | bounded_prototype | proof artifacts include deployment/supportability/runbook/escalation readiness documents |
 
+### Operator Truth Rules
+
+1. Treat maturity tables as executable contract boundaries, not aspiration statements.
+2. Require explicit operator approval for sensitive, destructive, or regulated-impact actions.
+3. Interpret multimodal/world-state artifacts as contract readiness only unless maturity is raised by verified runtime behavior.
+4. Validate benchmark/proof coverage metrics before promoting support claims.
+5. Reject any workflow that claims support outside registered lane/capability contracts.
+
 ---
 
 ## Command Safety Guarantees

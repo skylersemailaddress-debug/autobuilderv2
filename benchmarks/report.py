@@ -37,13 +37,11 @@ def build_benchmark_report(results: List[Dict]) -> Dict:
         },
     }
 
-    scenario_breakdown = {
-        "ship": [result.get("case") for result in results if result.get("scenario_kind") == "ship"],
-        "repair_flow": [result.get("case") for result in results if result.get("scenario_kind") == "repair_flow"],
-        "unsupported_build": [result.get("case") for result in results if result.get("scenario_kind") == "unsupported_build"],
-        "self_extend": [result.get("case") for result in results if result.get("scenario_kind") == "self_extend"],
-        "mission": [result.get("case") for result in results if result.get("scenario_kind") in {None, "mission"}],
-    }
+    scenario_breakdown: Dict[str, List[object]] = {}
+    for result in results:
+        kind = str(result.get("scenario_kind") or "mission")
+        scenario_breakdown.setdefault(kind, []).append(result.get("case"))
+    scenario_breakdown = {kind: scenario_breakdown[kind] for kind in sorted(scenario_breakdown)}
     replay_intelligence = {
         "replayable_failure_cases": [
             {
@@ -55,6 +53,16 @@ def build_benchmark_report(results: List[Dict]) -> Dict:
             if int(result.get("replayable_failures", 0)) > 0
         ],
         "replayable_failure_rate": aggregate_scores.get("replayable_failure_rate", 0.0),
+    }
+    proof_coverage = {
+        "proof_coverage_rate": aggregate_scores.get("proof_coverage_rate", 0.0),
+        "proof_artifact_coverage_rate": aggregate_scores.get("proof_artifact_coverage_rate", 0.0),
+        "failure_intelligence_coverage_rate": aggregate_scores.get("failure_intelligence_coverage_rate", 0.0),
+    }
+    coverage_summary = {
+        "benchmark_breadth_score": aggregate_scores.get("benchmark_breadth_score", 0.0),
+        "scenario_kind_count": len({str(result.get("scenario_kind", "mission")) for result in results}),
+        "total_cases": total_cases,
     }
 
     return {
@@ -70,4 +78,6 @@ def build_benchmark_report(results: List[Dict]) -> Dict:
         "regression": regression,
         "scenario_breakdown": scenario_breakdown,
         "replay_intelligence": replay_intelligence,
+        "proof_coverage": proof_coverage,
+        "coverage_summary": coverage_summary,
     }

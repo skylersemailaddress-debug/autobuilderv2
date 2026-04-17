@@ -27,6 +27,10 @@ def append_failure_corpus(
         "validation_status": validation_status,
         "runtime_status": runtime_report.get("runtime_status", "unknown"),
         "failure_classification": failure_classification,
+        "failure_intelligence": {
+            "count": len(failure_classification),
+            "coverage": "present" if failure_classification else "empty",
+        },
     }
     entry["entry_signature_sha256"] = _hash_json(entry)
 
@@ -60,6 +64,11 @@ def emit_replay_harness(
         },
         "validation_status": validation_status,
         "runtime_status": runtime_report.get("runtime_status", "unknown"),
+        "proof_coverage": {
+            "determinism_signature_present": bool(determinism.get("build_signature_sha256")),
+            "proof_signature_present": bool(determinism.get("proof_signature_sha256")),
+            "runtime_report_present": bool(runtime_report),
+        },
         "replay_instructions": [
             "python cli/autobuilder.py build --spec <spec> --target <target> --json",
             "python cli/autobuilder.py validate-app --target <target> --repair --json",

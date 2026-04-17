@@ -96,8 +96,10 @@ def test_failure_corpus_and_replay_harness_outputs(tmp_path: Path) -> None:
     parsed = json.loads(first_line)
     assert parsed["lane_id"] == "first_class_mobile"
     assert "entry_signature_sha256" in parsed
+    assert parsed["failure_intelligence"]["count"] == 1
 
     replay_payload = json.loads(replay_path.read_text(encoding="utf-8"))
     assert replay_payload["lane_id"] == "first_class_mobile"
     assert replay_payload["determinism"]["verified"] is True
+    assert replay_payload["proof_coverage"]["determinism_signature_present"] is True
     assert "replay_signature_sha256" in replay_payload

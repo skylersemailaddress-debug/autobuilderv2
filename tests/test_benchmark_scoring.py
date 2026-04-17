@@ -39,6 +39,9 @@ def test_compute_benchmark_scores_structure_and_values():
         "repair_flow_success_rate",
         "approval_resume_success_rate",
         "proof_coverage_rate",
+        "proof_artifact_coverage_rate",
+        "failure_intelligence_coverage_rate",
+        "benchmark_breadth_score",
     }
     assert scores["pass_rate"] == 0.5
     assert scores["average_confidence"] == 0.7

@@ -1,7 +1,9 @@
 import pytest
 
 from universal_capability.multimodal_world_state import (
+    build_multimodal_runtime_contract,
     build_world_state_snapshot,
+    emit_multimodal_runtime_scaffolds,
     normalize_multimodal_payload,
     world_state_contract,
 )
@@ -44,3 +46,13 @@ def test_world_state_contract_is_stable() -> None:
     assert contract["maturity"] == "structural_only"
     assert "schema" in contract
     assert contract["schema"]["live"]["event_streams"]["type"] == "list[string]"
+
+
+def test_multimodal_runtime_contract_and_scaffolds_are_emitted(tmp_path) -> None:
+    contract = build_multimodal_runtime_contract("first_class_realtime")
+    emitted = emit_multimodal_runtime_scaffolds(tmp_path, "first_class_realtime")
+
+    assert contract["maturity"] == "structural_only"
+    assert "proof_readiness_semantics" in contract
+    assert "multimodal_runtime_contract.json" in emitted["runtime_contract_path"]
+    assert "MULTIMODAL_RUNTIME.md" in emitted["runbook_path"]
