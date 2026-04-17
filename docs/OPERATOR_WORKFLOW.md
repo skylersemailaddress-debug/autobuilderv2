@@ -149,6 +149,16 @@ The operator must match the spec bundle's `app_type` and `stack_id` against the 
 
 **structural_only and future stacks** are rejected at build time for ship-path workflows.
 
+### Capability family maturity
+
+| Capability Family | Maturity | Operator Expectation |
+|---|---|---|
+| lane build/ship (commercial/mobile/game/realtime/enterprise) | first_class | full deterministic build + validation + proof + readiness reporting |
+| chat-first builder | bounded_prototype | preview-first and explicit unsupported request rejection |
+| agent-runtime | bounded_prototype | approval-gated steps, blocked/completed semantics, replay signature |
+| self-extension/tool-factory | bounded_prototype | sandbox generation, validation thresholding, registry/quarantine routing |
+| multimodal/world-state | structural_only | schema contract and snapshot validation only |
+
 ---
 
 ## Command Safety Guarantees

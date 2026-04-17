@@ -129,9 +129,25 @@ Stacks with tier `future` are rejected by the `ship` command.
 | Reliability scoring | first_class |
 | Autonomous mission execution (Nexus mode) | first_class |
 | Approval gates and policy controls | first_class |
-| Chat-driven build preview | bounded_prototype |
-| Self-extension tooling | bounded_prototype |
+| Chat-first builder (conversation-to-spec, preview-first, project memory) | bounded_prototype |
+| Agent-runtime (computer-use task modeling + approval-gated execution) | bounded_prototype |
+| Self-extension/tool-factory (sandbox generation, validation, registry/quarantine) | bounded_prototype |
+| Multimodal/world-state execution | structural_only |
 | Multi-domain IR fields | first_class |
+
+### Universal Capability Maturity Contracts
+
+| Capability Family | Maturity | Contract |
+|---|---|---|
+| commercial web lane | first_class | deterministic build/ship/proof, full readiness and reliability reporting |
+| mobile lane | first_class | flutter lane templates + lane validation + proof artifacts |
+| game lane | first_class | godot lane templates + lane validation + proof artifacts |
+| realtime/sensing lane | first_class | realtime scaffolds + world-state schema contract + proof artifacts |
+| enterprise-agent/workflow lane | first_class | workflow scaffolds + approvals surfaces + proof artifacts |
+| chat-first builder | bounded_prototype | preview-first deterministic flow, explicit unsupported-request rejection |
+| agent-runtime | bounded_prototype | task model + approval gating + blocked/completed semantics + replay signature |
+| self-extension/tool-factory | bounded_prototype | sandbox boundary, validation threshold, registry/quarantine, rollback references |
+| multimodal/world-state | structural_only | schema normalization + world-state snapshot contracts only |
 
 ### Command Safety Guarantees
 

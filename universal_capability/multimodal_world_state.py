@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
+
 
 def _list_of_strings(value: object, field: str) -> list[str]:
     if value is None:
@@ -28,9 +31,30 @@ def normalize_multimodal_payload(payload: dict[str, object]) -> dict[str, object
     }
 
 
+def world_state_contract() -> dict[str, object]:
+    return {
+        "contract_version": "v2",
+        "maturity": "structural_only",
+        "supports": [
+            "schema_normalization",
+            "world_state_snapshot",
+            "deterministic_signature",
+        ],
+        "unsupported": [
+            "live_multimodal_execution",
+            "hardware_control_side_effects",
+        ],
+    }
+
+
+def _signature(payload: dict[str, object]) -> str:
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def build_world_state_snapshot(payload: dict[str, object]) -> dict[str, object]:
     normalized = normalize_multimodal_payload(payload)
-    return {
+    snapshot = {
         "inputs": {
             "text": normalized["text"],
             "documents": normalized["documents"],
@@ -48,5 +72,8 @@ def build_world_state_snapshot(payload: dict[str, object]) -> dict[str, object]:
             "notifications": normalized["notifications"],
             "actions": normalized["actions"],
         },
-        "world_state_version": "v1",
+        "world_state_version": "v2",
+        "contract": world_state_contract(),
     }
+    snapshot["snapshot_signature_sha256"] = _signature(snapshot)
+    return snapshot

@@ -86,8 +86,20 @@ def model_computer_use_task(task: str, world_state: dict[str, object] | None = N
             }
         )
 
+    approval_requirements = sorted(
+        {
+            step["action_type"]
+            for step in steps
+            if bool(step.get("sensitive", False)) or step.get("action_type") in SENSITIVE_ACTION_TYPES
+        }
+    )
+
     plan = {
+        "task_model_version": "v2",
         "task": task,
+        "task_category": "computer_use",
+        "expected_outputs": ["audit_log", "replay_payload", "status"],
+        "approval_requirements": approval_requirements,
         "world_state": world_state or {},
         "steps": steps,
     }
@@ -107,6 +119,8 @@ def execute_computer_use_plan(
 
     audit_log: list[dict[str, object]] = []
     blocked = False
+    blocked_steps: list[str] = []
+    completed_steps: list[str] = []
 
     for index, step in enumerate(steps, start=1):
         if not isinstance(step, dict):
@@ -122,6 +136,9 @@ def execute_computer_use_plan(
         status = "executed" if approved else "awaiting_approval"
         if sensitive and not approved:
             blocked = True
+            blocked_steps.append(step_id)
+        else:
+            completed_steps.append(step_id)
 
         audit_log.append(
             {
@@ -131,13 +148,19 @@ def execute_computer_use_plan(
                 "sensitive": sensitive,
                 "approved": bool(approved),
                 "status": status,
+                "gate": "approval_required" if sensitive else "none",
+                "blocked_reason": ("missing approval" if sensitive and not approved else ""),
                 "replay_token": f"replay::{step_id}",
             }
         )
 
     result = {
+        "runtime_contract_version": "v2",
         "task": plan.get("task", ""),
         "overall_status": "blocked" if blocked else "completed",
+        "completed_steps": completed_steps,
+        "blocked_steps": blocked_steps,
+        "approval_requirements": list(plan.get("approval_requirements", [])),
         "audit_log": audit_log,
         "approval_required": any(item["sensitive"] for item in audit_log),
     }

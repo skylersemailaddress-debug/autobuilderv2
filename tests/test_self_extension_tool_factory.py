@@ -25,6 +25,7 @@ def test_tool_generation_validation_and_safe_registration(tmp_path: Path) -> Non
     assert result["missing_capabilities"] == ["custom_validator_for_geo"]
     assert result["registered_tool_ids"]
     assert not result["quarantined_tool_ids"]
+    assert result["activation_summary"]["registered_count"] >= 1
     assert "confidence" in result["confidence_summary"]
 
 
@@ -46,6 +47,7 @@ def test_quarantine_and_rollback_behavior(tmp_path: Path) -> None:
     )
 
     assert quarantined["quarantined_tool_ids"]
+    assert quarantined["status"] in {"quarantined_only", "partially_extended"}
     assert Path(quarantine_path).exists()
     assert quarantined["failure_intelligence"]
 

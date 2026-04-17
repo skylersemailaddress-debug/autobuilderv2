@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from platform_hardening.packs import get_pack_registry
 from universal_capability.failure_intelligence import (
     append_capability_failure,
@@ -32,6 +34,14 @@ def _tool_type_for_gap(gap: str) -> str:
     return "domain_utility"
 
 
+def _enforce_sandbox_boundary(path: str) -> str:
+    resolved = Path(path).resolve()
+    parts = set(resolved.parts)
+    if ".git" in parts:
+        raise ValueError("sandbox_root cannot point inside .git")
+    return str(resolved)
+
+
 def synthesize_missing_capabilities(
     *,
     lane_id: str,
@@ -43,6 +53,7 @@ def synthesize_missing_capabilities(
     approved: bool,
     failure_intelligence_root: str,
 ) -> dict[str, object]:
+    sandbox_root = _enforce_sandbox_boundary(sandbox_root)
     missing = detect_capability_gaps(lane_id=lane_id, requested_capabilities=requested_capabilities)
 
     generated: list[dict[str, object]] = []
@@ -112,14 +123,29 @@ def synthesize_missing_capabilities(
                 }
             )
 
+    if not missing:
+        status = "no_gap"
+    elif registered and not quarantined:
+        status = "extended"
+    elif quarantined and not registered:
+        status = "quarantined_only"
+    else:
+        status = "partially_extended"
+
     return {
         "lane_id": lane_id,
+        "sandbox_root": sandbox_root,
         "requested_capabilities": sorted(set(requested_capabilities)),
         "missing_capabilities": missing,
         "generated": generated,
         "registered_tool_ids": sorted(registered),
         "quarantined_tool_ids": sorted(quarantined),
+        "activation_summary": {
+            "registered_count": len(registered),
+            "quarantined_count": len(quarantined),
+            "rollback_references": [f"rollback::{tool_id}" for tool_id in sorted(registered)],
+        },
         "failure_intelligence": failure_intelligence,
         "confidence_summary": summarize_capability_confidence(target_root=failure_intelligence_root),
-        "status": "extended" if missing else "no_gap",
+        "status": status,
     }

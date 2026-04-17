@@ -29,6 +29,14 @@ from state.checkpoints import create_checkpoint
 from state.restore import latest_restore_payload
 from quality.reliability import derive_build_reliability, derive_ship_reliability
 from validator.confidence import calculate_confidence_details
+from chat_builder.workflow import run_chat_first_workflow
+from platform_hardening.capability_maturity import (
+    CapabilityContractError,
+    evaluate_capability_family,
+    enforce_lane_contract,
+)
+from universal_capability.agent_runtime import execute_computer_use_plan, model_computer_use_task
+from universal_capability.self_extension import synthesize_missing_capabilities
 
 
 def _print(data, as_json: bool) -> None:
@@ -230,6 +238,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
 
     specs = load_spec_bundle(spec_path)
     ir = compile_specs_to_ir(specs)
+    lane_contract = enforce_lane_contract(ir.app_type, ir.stack_selection)
     plan, execution, execution_payload, files_created, validation_plan = _build_once(target_path)
     primary_plan_payload = plan.to_dict()
     primary_plan_payload["target_repo"] = "__TARGET_REPO__"
@@ -305,7 +314,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         "realtime_system": "first_class_realtime",
         "enterprise_agent_system": "first_class_enterprise_agent",
     }
-    lane_id = _LANE_IDS.get(ir.app_type, "first_class_commercial")
+    lane_id = lane_contract.lane_id if lane_contract else _LANE_IDS.get(ir.app_type, "first_class_commercial")
 
     validation_report = {
         "validation_status": "passed",
@@ -418,6 +427,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         "proof_artifacts": proof_artifacts,
         "reliability_summary": reliability_summary,
         "confidence": confidence_details,
+        "lane_maturity_contract": lane_contract.to_dict(),
         "operator_report": {
             "what_was_proven": reliability_summary.get("proven", []),
             "what_was_repaired": reliability_summary.get("repaired", []),
@@ -700,6 +710,7 @@ def main() -> int:
     chat_build_parser = subparsers.add_parser("chat-build", help="Chat-driven build preview from a natural language prompt")
     chat_build_parser.add_argument("--prompt", required=True, help="Natural language build prompt")
     chat_build_parser.add_argument("--target", required=True, help="Target directory for preview output")
+    chat_build_parser.add_argument("--approve-build", action="store_true", help="Approve and execute build after preview")
     chat_build_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output")
 
     agent_runtime_parser = subparsers.add_parser("agent-runtime", help="Run an autonomous agent task")
@@ -753,7 +764,7 @@ def main() -> int:
         try:
             result = run_build_workflow(args.spec, args.target)
             result = {"command": "build", **result}
-        except (SpecValidationError, ArchetypeResolutionError, StackRegistryResolutionError, RuntimeError) as exc:
+        except (SpecValidationError, ArchetypeResolutionError, StackRegistryResolutionError, RuntimeError, CapabilityContractError) as exc:
             governance = _governance_bundle(
                 "build",
                 target=args.target,
@@ -771,7 +782,7 @@ def main() -> int:
     if args.command == "ship":
         try:
             result = run_ship_workflow(args.spec, args.target)
-        except (SpecValidationError, ArchetypeResolutionError, StackRegistryResolutionError, RuntimeError) as exc:
+        except (SpecValidationError, ArchetypeResolutionError, StackRegistryResolutionError, RuntimeError, CapabilityContractError) as exc:
             governance = _governance_bundle(
                 "ship",
                 target=args.target,
@@ -799,50 +810,96 @@ def main() -> int:
         return 0
 
     if args.command == "chat-build":
-        import hashlib as _hashlib
         target = Path(args.target)
         target.mkdir(parents=True, exist_ok=True)
-        plan_summary = f"Build preview from prompt: {args.prompt[:80]}"
-        sig = _hashlib.sha256(args.prompt.encode()).hexdigest()
+
+        chat_contract = evaluate_capability_family(
+            "chat-first",
+            requested=["preview", "conversation_to_spec", "project_memory"],
+        )
+        if not chat_contract["accepted"]:
+            _print(
+                {
+                    "status": "error",
+                    "command": "chat-build",
+                    "error": "Unsupported chat-first capability request",
+                    "capability_contract": chat_contract,
+                },
+                args.json,
+            )
+            return 2
+
+        workflow = run_chat_first_workflow(
+            prompt=args.prompt,
+            target_path=str(target),
+            approve=args.approve_build,
+            project_memory_root=ROOT_DIR / "state" / "chat_memory",
+            ship_runner=run_ship_workflow,
+        )
         governance = _governance_bundle(
             "chat-build",
             target=str(target),
             action="preview generated application plan",
             target_type="sandbox",
-            details={"prompt_length": len(args.prompt)},
+            details={
+                "prompt_length": len(args.prompt),
+                "approve_build": bool(args.approve_build),
+                "workflow_status": workflow.get("status"),
+            },
         )
         result = {
-            "status": "preview_ready",
+            "status": workflow.get("status", "preview_ready"),
             "command": "chat-build",
-            "plan_summary": plan_summary,
-            "conversation_surface": "chat",
-            "preview_signature_sha256": sig,
+            "capability_contract": chat_contract,
+            "conversation_surface": workflow.get("conversation_surface"),
+            "plan_summary": workflow.get("plan_summary"),
+            "build_progress": workflow.get("build_progress", []),
+            "memory": workflow.get("memory", {}),
+            "final_outputs": workflow.get("final_outputs"),
+            "ship_result": workflow.get("ship_result"),
             **governance,
         }
         _print(result, args.json)
         return 0
 
     if args.command == "agent-runtime":
-        import hashlib as _hashlib
         approvals = json.loads(args.approvals_json)
-        sig = _hashlib.sha256(args.task.encode()).hexdigest()
-        approval_state = "approved" if any(bool(value) for value in approvals.values()) else "not_required"
+        runtime_contract = evaluate_capability_family(
+            "agent-runtime",
+            requested=["task_modeling", "approval_gating", "blocked_semantics", "audit_log", "replay_signature"],
+        )
+        if not runtime_contract["accepted"]:
+            _print(
+                {
+                    "status": "error",
+                    "command": "agent-runtime",
+                    "error": "Unsupported agent-runtime capability request",
+                    "capability_contract": runtime_contract,
+                },
+                args.json,
+            )
+            return 2
+
+        plan = model_computer_use_task(args.task, {"mode": "operator_safe"})
+        execution = execute_computer_use_plan(plan, approvals=approvals)
+        approval_state = "approved" if execution.get("overall_status") == "completed" else "pending"
         governance = _governance_bundle(
             "agent-runtime",
             target=args.task,
             action="execute autonomous agent task",
             approval_state=approval_state,
-            details={"declared_approvals": approvals},
+            details={
+                "declared_approvals": approvals,
+                "blocked_steps": execution.get("blocked_steps", []),
+                "completed_steps": execution.get("completed_steps", []),
+            },
         )
         result = {
-            "status": "ok",
+            "status": "ok" if execution.get("overall_status") == "completed" else "blocked",
             "command": "agent-runtime",
-            "execution": {
-                "task": args.task,
-                "approvals": approvals,
-                "overall_status": "completed",
-                "replay_signature_sha256": sig,
-            },
+            "capability_contract": runtime_contract,
+            "execution": execution,
+            "task_model": plan,
             **governance,
         }
         _print(result, args.json)
@@ -851,6 +908,32 @@ def main() -> int:
     if args.command == "self-extend":
         sandbox = Path(args.sandbox)
         sandbox.mkdir(parents=True, exist_ok=True)
+        extension_contract = evaluate_capability_family(
+            "self-extension",
+            requested=["sandbox_generation", "validation_thresholds", "registry_activation", "quarantine"],
+        )
+        if not extension_contract["accepted"]:
+            _print(
+                {
+                    "status": "error",
+                    "command": "self-extend",
+                    "error": "Unsupported self-extension capability request",
+                    "capability_contract": extension_contract,
+                },
+                args.json,
+            )
+            return 2
+
+        result_payload = synthesize_missing_capabilities(
+            lane_id=args.lane,
+            requested_capabilities=[item.strip() for item in args.needs.split(",") if item.strip()],
+            sandbox_root=str(sandbox),
+            registry_path=str(ROOT_DIR / "state" / "generated_capabilities_registry.json"),
+            quarantine_path=str(ROOT_DIR / "state" / "generated_capabilities_quarantine.json"),
+            require_approval_for_core=True,
+            approved=bool(args.approve_core),
+            failure_intelligence_root=str(ROOT_DIR / "state" / "capability_failure_intelligence"),
+        )
         approval_state = "approved" if args.approve_core else "not_required"
         governance = _governance_bundle(
             "self-extend",
@@ -863,12 +946,14 @@ def main() -> int:
             details={"needs": args.needs, "approve_core": args.approve_core},
         )
         result = {
-            "status": "extended",
+            "status": result_payload.get("status", "extended"),
             "command": "self-extend",
             "lane_id": args.lane,
             "needs": args.needs,
             "approve_core": args.approve_core,
             "sandbox": str(sandbox.resolve()),
+            "capability_contract": extension_contract,
+            **result_payload,
             **governance,
         }
         _print(result, args.json)

@@ -129,6 +129,16 @@ class AppIR:
 - **structural_only** — emitted as scaffold with documented placeholders
 - **future** — excluded; deferred-feature record written to proof artefact
 
+### Capability Family Maturity Contracts
+
+| Capability Family | Maturity | Compiler Enforcement |
+|---|---|---|
+| commercial/mobile/game/realtime/enterprise lanes | first_class | lane contract must match app_type + allowed stack frontends |
+| chat-first builder | bounded_prototype | preview-first path and unsupported capability rejection |
+| agent-runtime | bounded_prototype | approval-gated execution with blocked/completed semantics |
+| self-extension/tool-factory | bounded_prototype | sandbox + validation threshold + registry/quarantine governance |
+| multimodal/world-state | structural_only | schema-only contract support, no first-class live execution claims |
+
 ---
 
 ## Build and Ship Commands

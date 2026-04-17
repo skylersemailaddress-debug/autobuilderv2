@@ -3,6 +3,7 @@ import pytest
 from universal_capability.multimodal_world_state import (
     build_world_state_snapshot,
     normalize_multimodal_payload,
+    world_state_contract,
 )
 
 
@@ -26,8 +27,17 @@ def test_multimodal_world_state_schema_normalization() -> None:
     assert normalized["sensors"] == ["temp_sensor"]
     assert snapshot["inputs"]["live"]["event_streams"] == ["ops.alerts"]
     assert snapshot["outputs"]["actions"] == ["dispatch_team"]
+    assert snapshot["world_state_version"] == "v2"
+    assert snapshot["contract"]["maturity"] == "structural_only"
+    assert snapshot["snapshot_signature_sha256"]
 
 
 def test_multimodal_schema_rejects_invalid_types() -> None:
     with pytest.raises(ValueError, match="documents must be a list"):
         normalize_multimodal_payload({"documents": "not-a-list"})
+
+
+def test_world_state_contract_is_stable() -> None:
+    contract = world_state_contract()
+    assert contract["contract_version"] == "v2"
+    assert contract["maturity"] == "structural_only"

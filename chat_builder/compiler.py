@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from chat_builder.models import ParsedIntent, SynthesizedSpecBundle
+from platform_hardening.capability_maturity import evaluate_capability_family, resolve_lane_contract
 
 
 UNSUPPORTED_KEYWORDS = {
@@ -18,6 +19,16 @@ RISKY_KEYWORDS = {
     "medical": "Medical-regulated workflows require external compliance review.",
     "finance": "Financial workflows may require stricter audit and policy controls.",
     "children": "Apps for children need extra content and privacy safety review.",
+}
+
+
+FEATURE_CAPABILITY_BY_TOKEN = {
+    "approvals": "conversation_to_spec",
+    "notifications": "preview",
+    "analytics": "default_inference",
+    "memory": "project_memory",
+    "realtime": "clarification",
+    "billing": "conversation_to_spec",
 }
 
 
@@ -135,6 +146,12 @@ def parse_conversation_intent(prompt: str) -> ParsedIntent:
         }
     )
 
+    lane_contract = resolve_lane_contract(app_type)
+    chat_contract = evaluate_capability_family(
+        "chat-first",
+        requested=[FEATURE_CAPABILITY_BY_TOKEN[feature] for feature in requested_features if feature in FEATURE_CAPABILITY_BY_TOKEN],
+    )
+
     core_outcome = "Help users complete a clear workflow from input to outcome"
     if "for" in normalized:
         after_for = normalized.split("for", 1)[1].strip()
@@ -148,10 +165,14 @@ def parse_conversation_intent(prompt: str) -> ParsedIntent:
         missing.append("What is the single most important outcome?")
     if not requested_features:
         missing.append("Which one feature matters most for version one?")
+    if risky:
+        missing.append("Confirm required compliance boundary for risky domain request.")
 
     inferred_defaults = lane_defaults + name_defaults
     if not requested_features:
         inferred_defaults.append("No feature list provided; defaulting to auth, health, and basic workflow scaffolds.")
+    inferred_defaults.append(f"Lane contract selected: {lane_contract.lane_id} ({lane_contract.maturity}).")
+    inferred_defaults.append(f"Chat-first maturity: {chat_contract['maturity']} (preview-first).")
 
     return ParsedIntent(
         prompt=prompt,
@@ -161,7 +182,10 @@ def parse_conversation_intent(prompt: str) -> ParsedIntent:
         stack=stack,
         core_outcome=core_outcome,
         requested_features=requested_features,
-        unsupported_requests=unsupported,
+        unsupported_requests=unsupported + [
+            f"Unsupported by chat-first capability contract: {item}"
+            for item in chat_contract["unsupported_requested"]
+        ],
         risky_requests=risky,
         inferred_defaults=inferred_defaults,
         missing_info=missing,

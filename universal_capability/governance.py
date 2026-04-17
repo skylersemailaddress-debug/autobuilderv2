@@ -43,6 +43,9 @@ def evaluate_registration(
         "accepted": accepted,
         "needs_approval": needs_approval,
         "rejection_reason": rejection_reason,
+        "quality_threshold": quality_threshold,
+        "quality_score": quality,
+        "activation_status": "active" if accepted else "quarantined",
     }
 
 
@@ -64,10 +67,21 @@ def register_or_quarantine_candidate(
         entry = {
             "tool_id": candidate.get("tool_id", ""),
             "status": "active",
+            "activation": {
+                "activation_status": "active",
+                "quality_score": decision.get("quality_score"),
+                "quality_threshold": decision.get("quality_threshold"),
+            },
             "candidate": candidate,
         }
         capabilities.append(entry)
-        history.append({"event": "registered", "tool_id": candidate.get("tool_id", "")})
+        history.append(
+            {
+                "event": "registered",
+                "tool_id": candidate.get("tool_id", ""),
+                "activation_status": "active",
+            }
+        )
         _save_registry(registry_file, registry)
         return {
             "status": "registered",
@@ -84,11 +98,21 @@ def register_or_quarantine_candidate(
             "tool_id": candidate.get("tool_id", ""),
             "candidate": candidate,
             "reason": decision.get("rejection_reason", "rejected"),
+            "activation_status": "quarantined",
+            "quality_threshold": decision.get("quality_threshold"),
+            "quality_score": decision.get("quality_score"),
         }
     )
     quarantine_file.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-    history.append({"event": "quarantined", "tool_id": candidate.get("tool_id", "")})
+    history.append(
+        {
+            "event": "quarantined",
+            "tool_id": candidate.get("tool_id", ""),
+            "activation_status": "quarantined",
+            "reason": decision.get("rejection_reason", "rejected"),
+        }
+    )
     _save_registry(registry_file, registry)
     return {
         "status": "quarantined",
