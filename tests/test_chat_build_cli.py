@@ -43,3 +43,5 @@ def test_chat_build_cli_help_and_preview_json(tmp_path: Path) -> None:
     assert payload["status"] in {"preview_ready", "needs_clarification"}
     assert "plan_summary" in payload
     assert "conversation_surface" in payload
+    assert payload["audit_record"]["command"] == "chat-build"
+    assert payload["safety_contract"]["mutation_mode"] == "preview_only"

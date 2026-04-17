@@ -2,6 +2,7 @@ import argparse
 import hashlib
 import json
 import sys
+from dataclasses import asdict
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
@@ -22,6 +23,10 @@ from readiness.checks import run_readiness_checks
 from readiness.report import build_readiness_report
 from stack_registry.registry import StackRegistryResolutionError
 from specs.loader import SpecValidationError, load_spec_bundle
+from mutation.safety import MutationSafetyDecision, MutationSafetyPolicy
+from state.audit import append_audit_event, build_audit_record, get_command_safety_contract
+from state.checkpoints import create_checkpoint
+from state.restore import latest_restore_payload
 
 
 def _print(data, as_json: bool) -> None:
@@ -29,6 +34,137 @@ def _print(data, as_json: bool) -> None:
         print(json.dumps(data, indent=2))
     else:
         print(json.dumps(data, indent=2))
+
+
+def _decision_payload(decision: MutationSafetyDecision) -> dict:
+    return {
+        "action": decision.action,
+        "target": decision.target,
+        "action_class": decision.action_class,
+        "target_type": decision.target_type,
+        "risk_level": decision.risk_level,
+        "checkpoint_required": decision.checkpoint_required,
+        "approval_required": decision.approval_required,
+        "destructive_potential": decision.destructive_potential,
+        "environment_sensitivity": decision.environment_sensitivity,
+        "irreversible_operation": decision.irreversible_operation,
+        "restore_strategy": decision.restore_strategy,
+        "lane_id": decision.lane_id,
+        "stack_id": decision.stack_id,
+        "failure_mode": decision.failure_mode,
+        "policy_basis": decision.policy_basis,
+    }
+
+
+def _governance_bundle(
+    command: str,
+    *,
+    target: str,
+    action: str,
+    actor: str = "autobuilder",
+    lane_id: str | None = None,
+    stack_id: str | None = None,
+    target_type: str | None = None,
+    irreversible_operation: bool | None = None,
+    approval_state: str | None = None,
+    outcome: str = "ok",
+    failure_classification: str = "none",
+    details: dict | None = None,
+) -> dict:
+    decision = MutationSafetyPolicy().evaluate(
+        action,
+        target,
+        lane_id=lane_id,
+        stack_id=stack_id,
+        target_type=target_type,
+        irreversible_operation=irreversible_operation,
+    )
+    checkpoints: list[dict] = []
+    if decision.checkpoint_required or decision.restore_strategy != "not_required":
+        checkpoints.append(
+            asdict(
+                create_checkpoint(
+                    "command_started",
+                    {"command": command, "target": target, "action": action},
+                    mutation_safety=_decision_payload(decision),
+                    command=command,
+                    actor=actor,
+                )
+            )
+        )
+        checkpoints.append(
+            asdict(
+                create_checkpoint(
+                    "command_completed" if outcome != "error" else "command_failed",
+                    {"command": command, "outcome": outcome},
+                    mutation_safety=_decision_payload(decision),
+                    command=command,
+                    actor=actor,
+                    failure_semantics={
+                        "on_command_failure": "halt_and_restore"
+                        if decision.checkpoint_required
+                        else "surface_audit_and_stop"
+                    },
+                )
+            )
+        )
+
+    restore_payload = latest_restore_payload(
+        {
+            "run_id": f"{command}-{hashlib.sha256(f'{target}:{action}'.encode('utf-8')).hexdigest()[:12]}",
+            "checkpoints": checkpoints,
+        }
+    ) if checkpoints else None
+    safety_contract = get_command_safety_contract(command)
+    resolved_approval_state = approval_state or ("pending" if decision.approval_required else "not_required")
+    audit_trail = append_audit_event(
+        [],
+        f"{command}_evaluated",
+        actor=actor,
+        approval_state=resolved_approval_state,
+        failure_classification=failure_classification,
+        details={
+            "target": target,
+            "action": action,
+            "risk_level": decision.risk_level,
+        },
+    )
+    audit_trail = append_audit_event(
+        audit_trail,
+        f"{command}_completed" if outcome != "error" else f"{command}_failed",
+        actor=actor,
+        approval_state=resolved_approval_state,
+        failure_classification=failure_classification,
+        details={"outcome": outcome},
+    )
+    rollback_reference = checkpoints[-1]["rollback_reference"] if checkpoints else None
+    audit_record = build_audit_record(
+        command,
+        action_type=action,
+        outcome=outcome,
+        risk_level=decision.risk_level,
+        approval_state=resolved_approval_state,
+        checkpoint_ids=[item["checkpoint_id"] for item in checkpoints],
+        rollback_ready=bool(checkpoints),
+        rollback_reference=rollback_reference,
+        restore_checkpoint_id=(restore_payload or {}).get("checkpoint_id"),
+        restore_reference=(restore_payload or {}).get("restore_references"),
+        actor=actor,
+        failure_classification=failure_classification,
+        safety_contract=safety_contract,
+        details={
+            "policy": _decision_payload(decision),
+            **(details or {}),
+        },
+    )
+    return {
+        "mutation_policy": _decision_payload(decision),
+        "checkpoints": checkpoints,
+        "restore_payload": restore_payload,
+        "audit_trail": audit_trail,
+        "audit_record": audit_record,
+        "safety_contract": safety_contract,
+    }
 
 
 def _run_benchmarks(case_names: str | None = None) -> dict:
@@ -194,6 +330,19 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         proof_artifacts=base_proof,
     )
 
+    governance = _governance_bundle(
+        "build",
+        target=target_path,
+        action="write scaffold and proof artifacts",
+        lane_id=lane_id,
+        stack_id=ir.stack_selection,
+        target_type="filesystem",
+        details={
+            "spec_root": specs.spec_root,
+            "output_hash": execution.output_hash,
+        },
+    )
+
     return {
         "status": "ok",
         "build_status": "ok",
@@ -232,6 +381,7 @@ def run_build_workflow(spec_path: str, target_path: str) -> dict:
         },
         "determinism": determinism,
         "proof_artifacts": proof_artifacts,
+        **governance,
     }
 
 
@@ -263,6 +413,15 @@ def run_ship_workflow(spec_path: str, target_path: str) -> dict:
         pkg_path.write_text(json.dumps(pkg_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     proof_artifacts = result["proof_artifacts"]
+    governance = _governance_bundle(
+        "ship",
+        target=target_path,
+        action="write packaged application artifacts",
+        lane_id=result["ir"]["app_type"],
+        stack_id=result["ir"]["stack_selection"],
+        target_type="filesystem",
+        details={"spec_path": spec_path, "readiness_status": readiness.get("readiness_status", "unknown")},
+    )
     return {
         **result,
         "command": "ship",
@@ -294,6 +453,7 @@ def run_ship_workflow(spec_path: str, target_path: str) -> dict:
         },
         "repair_actions_taken": [],
         "files_generated": result["files_created_summary"]["paths"],
+        **governance,
     }
 
 
@@ -324,11 +484,23 @@ def run_generated_app_validation_workflow(target_path: str, *, repair: bool = Fa
         unrepaired = missing
 
     validation_status = "passed" if not unrepaired else "failed"
+    failure_classification = "repair_required" if unrepaired else "none"
+    governance = _governance_bundle(
+        "validate-app",
+        target=target_path,
+        action="repair generated application" if repair else "validate generated application",
+        target_type="filesystem",
+        irreversible_operation=False,
+        outcome="ok" if validation_status == "passed" else "error",
+        failure_classification=failure_classification,
+        details={"repair": repair, "missing_files": missing},
+    )
     return {
         "status": "ok",
         "validation_status": validation_status,
         "repaired_issues": repaired,
         "unrepaired_blockers": unrepaired,
+        **governance,
     }
 
 
@@ -381,10 +553,21 @@ def run_generated_app_proof_workflow(target_path: str, *, repair: bool = False) 
         repair_report=repair_report,
     )
 
+    governance = _governance_bundle(
+        "proof-app",
+        target=target_path,
+        action="repair and certify generated application" if repair else "certify generated application",
+        target_type="filesystem",
+        outcome="ok" if validation_result["validation_status"] == "passed" else "error",
+        failure_classification=("repair_required" if validation_result["unrepaired_blockers"] else "none"),
+        details={"repair": repair, "proof_status": proof["proof_status"]},
+    )
+
     return {
         "status": "ok",
         "proof_status": proof["proof_status"],
         "proof_artifacts": proof,
+        **governance,
     }
 
 
@@ -494,7 +677,16 @@ def main() -> int:
             result = run_build_workflow(args.spec, args.target)
             result = {"command": "build", **result}
         except (SpecValidationError, ArchetypeResolutionError, StackRegistryResolutionError, RuntimeError) as exc:
-            _print({"status": "error", "command": "build", "error": str(exc)}, args.json)
+            governance = _governance_bundle(
+                "build",
+                target=args.target,
+                action="write scaffold and proof artifacts",
+                target_type="filesystem",
+                outcome="error",
+                failure_classification="input_validation_error",
+                details={"error": str(exc)},
+            )
+            _print({"status": "error", "command": "build", "error": str(exc), **governance}, args.json)
             return 2
         _print(result, args.json)
         return 0
@@ -503,10 +695,21 @@ def main() -> int:
         try:
             result = run_ship_workflow(args.spec, args.target)
         except (SpecValidationError, ArchetypeResolutionError, StackRegistryResolutionError, RuntimeError) as exc:
-            _print({"status": "error", "command": "ship", "error": str(exc)}, args.json)
+            governance = _governance_bundle(
+                "ship",
+                target=args.target,
+                action="write packaged application artifacts",
+                target_type="filesystem",
+                outcome="error",
+                failure_classification="input_validation_error",
+                details={"error": str(exc)},
+            )
+            _print({"status": "error", "command": "ship", "error": str(exc), **governance}, args.json)
             return 2
         _print(result, args.json)
         return 0
+
+    if args.command == "validate-app":
         result = run_generated_app_validation_workflow(args.target, repair=args.repair)
         result = {"command": "validate-app", **result}
         _print(result, args.json)
@@ -524,12 +727,20 @@ def main() -> int:
         target.mkdir(parents=True, exist_ok=True)
         plan_summary = f"Build preview from prompt: {args.prompt[:80]}"
         sig = _hashlib.sha256(args.prompt.encode()).hexdigest()
+        governance = _governance_bundle(
+            "chat-build",
+            target=str(target),
+            action="preview generated application plan",
+            target_type="sandbox",
+            details={"prompt_length": len(args.prompt)},
+        )
         result = {
             "status": "preview_ready",
             "command": "chat-build",
             "plan_summary": plan_summary,
             "conversation_surface": "chat",
             "preview_signature_sha256": sig,
+            **governance,
         }
         _print(result, args.json)
         return 0
@@ -538,6 +749,14 @@ def main() -> int:
         import hashlib as _hashlib
         approvals = json.loads(args.approvals_json)
         sig = _hashlib.sha256(args.task.encode()).hexdigest()
+        approval_state = "approved" if any(bool(value) for value in approvals.values()) else "not_required"
+        governance = _governance_bundle(
+            "agent-runtime",
+            target=args.task,
+            action="execute autonomous agent task",
+            approval_state=approval_state,
+            details={"declared_approvals": approvals},
+        )
         result = {
             "status": "ok",
             "command": "agent-runtime",
@@ -547,6 +766,7 @@ def main() -> int:
                 "overall_status": "completed",
                 "replay_signature_sha256": sig,
             },
+            **governance,
         }
         _print(result, args.json)
         return 0
@@ -554,6 +774,17 @@ def main() -> int:
     if args.command == "self-extend":
         sandbox = Path(args.sandbox)
         sandbox.mkdir(parents=True, exist_ok=True)
+        approval_state = "approved" if args.approve_core else "not_required"
+        governance = _governance_bundle(
+            "self-extend",
+            target=str(sandbox.resolve()),
+            action="extend core capability" if args.approve_core else "extend sandbox capability",
+            lane_id=args.lane,
+            target_type="sandbox" if not args.approve_core else "filesystem",
+            irreversible_operation=args.approve_core,
+            approval_state=approval_state,
+            details={"needs": args.needs, "approve_core": args.approve_core},
+        )
         result = {
             "status": "extended",
             "command": "self-extend",
@@ -561,6 +792,7 @@ def main() -> int:
             "needs": args.needs,
             "approve_core": args.approve_core,
             "sandbox": str(sandbox.resolve()),
+            **governance,
         }
         _print(result, args.json)
         return 0

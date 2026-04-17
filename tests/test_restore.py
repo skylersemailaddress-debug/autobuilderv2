@@ -9,6 +9,10 @@ def test_build_restore_payload_found_checkpoint():
                 "checkpoint_id": "plan-abc",
                 "stage": "plan",
                 "metadata": {"task_count": 3},
+                "manifest_version": "v3",
+                "rollback_reference": "rollback:plan-abc",
+                "restore_metadata": {"durable": True, "restorable": True},
+                "failure_semantics": {"mode": "resume_from_checkpoint"},
             }
         ],
     }
@@ -20,7 +24,9 @@ def test_build_restore_payload_found_checkpoint():
     assert payload["metadata"]["task_count"] == 3
     assert payload["restore_possible"] is True
     assert payload["restore_plan"]["rollback_ready"] is True
-    assert payload["failure_semantics"] == "resume_from_checkpoint"
+    assert payload["restore_metadata"]["durable"] is True
+    assert payload["failure_semantics"]["mode"] == "resume_from_checkpoint"
+    assert payload["restore_references"]["manifest_version"] == "v3"
 
 
 def test_build_restore_payload_missing_checkpoint():
@@ -30,6 +36,7 @@ def test_build_restore_payload_missing_checkpoint():
     assert payload["checkpoint_id"] == "missing"
     assert payload["restore_possible"] is False
     assert payload["failure_semantics"] == "checkpoint_missing"
+    assert payload["restore_metadata"] == {}
 
 
 def test_latest_restore_payload():
@@ -37,7 +44,12 @@ def test_latest_restore_payload():
         "run_id": "run-1",
         "checkpoints": [
             {"checkpoint_id": "start-a", "stage": "start", "metadata": {}},
-            {"checkpoint_id": "end-b", "stage": "complete", "metadata": {}},
+            {
+                "checkpoint_id": "end-b",
+                "stage": "complete",
+                "metadata": {},
+                "restore_metadata": {"restorable": True},
+            },
         ],
     }
     payload = latest_restore_payload(record)

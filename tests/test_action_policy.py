@@ -44,5 +44,5 @@ def test_medium_risk_classification_exposes_restore_strategy():
 
     assert result["risk_level"] == "medium"
     assert result["approval_required"] is False
-    assert result["restore_strategy"] == "not_required"
+    assert result["restore_strategy"] == "journal_only"
     assert result["destructive_potential"] == "medium"

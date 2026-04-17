@@ -33,6 +33,8 @@ def test_agent_runtime_cli_contract(tmp_path: Path) -> None:
     assert payload["status"] == "ok"
     assert payload["execution"]["overall_status"] in {"completed", "blocked"}
     assert payload["execution"]["replay_signature_sha256"]
+    assert payload["audit_record"]["command"] == "agent-runtime"
+    assert payload["audit_record"]["approval_state"] == "approved"
 
 
 def test_self_extend_cli_contract(tmp_path: Path) -> None:
@@ -65,3 +67,5 @@ def test_self_extend_cli_contract(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["status"] in {"extended", "no_gap"}
     assert payload["lane_id"] == "first_class_commercial"
+    assert payload["audit_record"]["command"] == "self-extend"
+    assert payload["audit_record"]["approval_state"] == "approved"
