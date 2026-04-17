@@ -8,7 +8,6 @@ updates, capability evolution tracking, and long-term maintenance semantics.
 
 import hashlib
 import json
-from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +46,7 @@ def classify_file_regen_safety(
     is_production_critical: bool,
 ) -> dict[str, object]:
     """Classify the regeneration safety level for a given file."""
-    if is_production_critical:
+    if has_operator_modifications and is_production_critical:
         level = REGEN_SAFETY_LEVELS["approval_required"]
     elif has_operator_modifications:
         level = REGEN_SAFETY_LEVELS["merge_required"]

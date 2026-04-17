@@ -557,10 +557,47 @@ console.log("frontend shell check passed");
 '''
 
 
-def _backend_app() -> str:
-    return '''from __future__ import annotations
+def _backend_app(include_security: bool, include_commerce: bool) -> str:
+  security_enabled = "True" if include_security else "False"
+  commerce_enabled = "True" if include_commerce else "False"
 
-from fastapi import FastAPI, Request
+  security_imports = ""
+  security_router_include = ""
+  security_dep = ""
+  security_fields = ""
+  if include_security:
+    security_imports = (
+      "from api.auth import router as auth_router\\n"
+      "from api.security import router as security_router\\n"
+      "from security.auth_dependency import AuthContext, require_auth_context\\n"
+    )
+    security_router_include = (
+      "app.include_router(auth_router)\\n"
+      "app.include_router(security_router)\\n"
+    )
+    security_dep = "auth: AuthContext = Depends(require_auth_context),"
+    security_fields = (
+      '            "actor": auth.actor,\\n'
+      '            "role": auth.role,\\n'
+    )
+
+  commerce_imports = ""
+  commerce_router_include = ""
+  if include_commerce:
+    commerce_imports = (
+      "from api.billing_admin import router as billing_admin_router\\n"
+      "from api.billing_webhooks import router as billing_router\\n"
+      "from api.plans import router as plans_router\\n"
+    )
+    commerce_router_include = (
+      "app.include_router(plans_router)\\n"
+      "app.include_router(billing_router)\\n"
+      "app.include_router(billing_admin_router)\\n"
+    )
+
+  return '''from __future__ import annotations
+
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -570,59 +607,309 @@ from api.config import get_settings
 from api.logging import configure_logging
 from api.operator import router as operator_router
 from api.responses import error_envelope, ok_envelope
+__SECURITY_IMPORTS____COMMERCE_IMPORTS__
 
 
 class CommandRequest(BaseModel):
-    command: str
+  command: str
 
+
+SECURITY_ENABLED = __SECURITY_ENABLED__
+COMMERCE_ENABLED = __COMMERCE_ENABLED__
 
 app = FastAPI(title="Autobuilder Commercial Starter API")
 configure_logging()
 app.include_router(admin_router)
 app.include_router(operator_router)
 app.include_router(audit_router)
+__SECURITY_ROUTER_INCLUDE____COMMERCE_ROUTER_INCLUDE__
 
 
 @app.exception_handler(Exception)
 def unhandled_error_handler(_: Request, exc: Exception) -> JSONResponse:
-    return JSONResponse(status_code=500, content=error_envelope("unhandled_error", str(exc)))
+  return JSONResponse(status_code=500, content=error_envelope("unhandled_error", str(exc)))
 
 
 @app.get("/health")
 def health() -> dict[str, object]:
-    return ok_envelope(data={"status": "ok"})
+  return ok_envelope(data={"status": "ok"})
 
 
 @app.get("/ready")
 def readiness() -> dict[str, object]:
-    settings = get_settings()
-    return ok_envelope(
-        data={
-            "status": "ready",
-            "checks": {
-                "database_url_configured": bool(settings.database_url),
-                "cors_origin_configured": bool(settings.cors_origin),
-            },
-        }
-    )
+  settings = get_settings()
+  return ok_envelope(
+    data={
+      "status": "ready",
+      "checks": {
+        "database_url_configured": bool(settings.database_url),
+        "cors_origin_configured": bool(settings.cors_origin),
+        "security_scaffold_enabled": SECURITY_ENABLED,
+        "commerce_scaffold_enabled": COMMERCE_ENABLED,
+      },
+    }
+  )
 
 
 @app.get("/version")
 def version() -> dict[str, object]:
-    settings = get_settings()
-    return ok_envelope(data={"version": settings.app_version, "env": settings.app_env})
+  settings = get_settings()
+  return ok_envelope(data={"version": settings.app_version, "env": settings.app_env})
 
 
 @app.post("/api/workspace/execute")
-def execute_workspace_command(payload: CommandRequest) -> dict[str, object]:
-    sanitized = payload.command.strip() or "noop"
-    return ok_envelope(
-        data={
-            "command": sanitized,
-            "result": f"accepted command: {sanitized}",
-            "state": "ok",
-        }
+def execute_workspace_command(
+  payload: CommandRequest,
+  __SECURITY_DEP__
+) -> dict[str, object]:
+  sanitized = payload.command.strip() or "noop"
+  return ok_envelope(
+    data={
+__SECURITY_FIELDS__            "command": sanitized,
+      "result": f"accepted command: {sanitized}",
+      "state": "ok",
+    }
+  )
+'''.replace("__SECURITY_IMPORTS__", security_imports).replace(
+    "__COMMERCE_IMPORTS__", commerce_imports
+  ).replace("__SECURITY_ROUTER_INCLUDE__", security_router_include).replace(
+    "__COMMERCE_ROUTER_INCLUDE__", commerce_router_include
+  ).replace("__SECURITY_DEP__", security_dep).replace(
+    "__SECURITY_FIELDS__", security_fields
+  ).replace("__SECURITY_ENABLED__", security_enabled).replace(
+    "__COMMERCE_ENABLED__", commerce_enabled
+  )
+
+
+def _backend_auth_dependency(ir: AppIR) -> str:
+    roles = [str(role.get("name") or role.get("role") or "") for role in ir.auth_roles or []]
+    normalized_roles = sorted({role for role in roles if role}) or ["admin", "member", "viewer"]
+    role_literal = ", ".join([f'"{role}"' for role in normalized_roles])
+    return f'''from __future__ import annotations
+
+from dataclasses import dataclass
+
+from fastapi import Header, HTTPException
+
+
+ALLOWED_ROLES = [{role_literal}]
+
+
+@dataclass(frozen=True)
+class AuthContext:
+  actor: str
+  role: str
+  token_present: bool
+
+
+def require_auth_context(
+  authorization: str | None = Header(default=None),
+  x_actor: str | None = Header(default=None),
+  x_role: str | None = Header(default=None),
+) -> AuthContext:
+  if not authorization:
+    raise HTTPException(status_code=401, detail="Missing Authorization header")
+  if not authorization.lower().startswith("bearer "):
+    raise HTTPException(status_code=401, detail="Authorization header must use Bearer token")
+  role = (x_role or "member").strip().lower()
+  if role not in ALLOWED_ROLES:
+    raise HTTPException(status_code=403, detail="Role not allowed")
+  actor = (x_actor or "unknown_actor").strip() or "unknown_actor"
+  return AuthContext(actor=actor, role=role, token_present=True)
+'''
+
+
+def _backend_rbac_roles(ir: AppIR) -> str:
+    role_names = [str(role.get("name") or role.get("role") or "") for role in ir.auth_roles or []]
+    normalized = sorted({name for name in role_names if name}) or ["admin", "member", "viewer"]
+    enum_members = "\n".join([f'    {name.upper().replace("-", "_")} = "{name}"' for name in normalized])
+    policy_entries = "\n".join(
+        [
+            f'    "{name}": ["read:workspace", "execute:workspace"],'
+            for name in normalized
+        ]
     )
+    return f'''from __future__ import annotations
+
+from enum import Enum
+
+
+class Role(str, Enum):
+{enum_members}
+
+
+ROLE_POLICIES: dict[str, list[str]] = {{
+{policy_entries}
+}}
+
+
+def is_allowed(role: str, permission: str) -> bool:
+  return permission in ROLE_POLICIES.get(role, [])
+'''
+
+
+def _backend_auth_router() -> str:
+    return '''from fastapi import APIRouter, Depends
+
+from api.responses import ok_envelope
+from security.auth_dependency import AuthContext, require_auth_context
+
+router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+@router.get("/session")
+def validate_session(auth: AuthContext = Depends(require_auth_context)) -> dict[str, object]:
+  return ok_envelope(
+    data={
+      "authenticated": True,
+      "actor": auth.actor,
+      "role": auth.role,
+      "token_present": auth.token_present,
+    }
+  )
+'''
+
+
+def _backend_plans_router(enabled: bool) -> str:
+    commerce_enabled = "True" if enabled else "False"
+    return '''from fastapi import APIRouter
+
+from api.responses import ok_envelope
+
+router = APIRouter(prefix="/api/plans", tags=["billing"])
+
+COMMERCE_ENABLED = __COMMERCE_ENABLED__
+
+
+@router.get("")
+def list_plans() -> dict[str, object]:
+  return ok_envelope(
+    data={
+      "plans": [
+        {"id": "free", "price_usd": 0},
+        {"id": "pro", "price_usd": 29},
+        {"id": "enterprise", "price_usd": None},
+      ],
+      "enabled": COMMERCE_ENABLED,
+      "note": "Plan catalogue scaffold only; live billing provider integration required.",
+    }
+  )
+'''.replace("__COMMERCE_ENABLED__", commerce_enabled)
+
+
+def _backend_billing_webhooks_router(enabled: bool) -> str:
+    commerce_enabled = "True" if enabled else "False"
+    return '''from fastapi import APIRouter, Header, HTTPException
+
+from api.responses import ok_envelope
+
+router = APIRouter(prefix="/api/billing", tags=["billing"])
+
+COMMERCE_ENABLED = __COMMERCE_ENABLED__
+
+
+@router.post("/webhooks")
+def billing_webhook(
+  payload: dict[str, object],
+  x_signature: str | None = Header(default=None),
+) -> dict[str, object]:
+  if not x_signature:
+    raise HTTPException(status_code=400, detail="Missing webhook signature header")
+  return ok_envelope(
+    data={
+      "received": True,
+      "enabled": COMMERCE_ENABLED,
+      "event_type": str(payload.get("event_type", "unknown")),
+      "idempotency_key": str(payload.get("id", "")),
+      "note": "Webhook handler scaffold only; add provider signature verification.",
+    }
+  )
+'''.replace("__COMMERCE_ENABLED__", commerce_enabled)
+
+
+def _backend_entitlements_service() -> str:
+    return '''from __future__ import annotations
+
+
+class EntitlementsService:
+  def check_entitlement(self, user_id: str, feature_id: str) -> bool:
+    # Scaffold contract only: wire to subscription provider and entitlement store.
+    _ = (user_id, feature_id)
+    return True
+
+  def get_limits(self, subscription_id: str) -> dict[str, int | None]:
+    _ = subscription_id
+    return {"api_calls_per_month": None, "seats": None}
+
+  def record_usage(self, subscription_id: str, metric: str, amount: int) -> dict[str, object]:
+    _ = (subscription_id, metric, amount)
+    return {"recorded": True, "source": "scaffold"}
+'''
+
+
+def _should_include_commerce_scaffolds(ir: AppIR) -> bool:
+  if ir.app_type in {"saas_web_app", "workspace_app", "internal_tool", "api_service", "workflow_system", "copilot_chat_app"}:
+    return True
+  tokens = " ".join(
+    [
+      *(str(item) for item in ir.acceptance_criteria),
+      *(str(route.get("path", "")) for route in ir.api_routes),
+      *(str(workflow.get("name", "")) for workflow in ir.workflows),
+    ]
+  ).lower()
+  return any(word in tokens for word in ["billing", "payment", "subscription", "plan", "commerce", "stripe"])
+
+
+def _should_include_security_scaffolds(ir: AppIR) -> bool:
+  if ir.app_type in {"saas_web_app", "workspace_app", "internal_tool", "api_service", "workflow_system", "copilot_chat_app"}:
+    return True
+  tokens = " ".join(
+    [
+      *(str(item) for item in ir.acceptance_criteria),
+      *(str(route.get("path", "")) for route in ir.api_routes),
+      *(str(role.get("name", "")) for role in ir.auth_roles),
+    ]
+  ).lower()
+  return any(word in tokens for word in ["auth", "rbac", "role", "security", "authorization"])
+
+
+def _backend_security_router() -> str:
+  return '''from fastapi import APIRouter
+
+from api.responses import ok_envelope
+
+router = APIRouter(prefix="/api/security", tags=["security"])
+
+
+@router.get("/contract")
+def security_contract_surface() -> dict[str, object]:
+  return ok_envelope(
+    data={
+      "auth_dependency": "enabled",
+      "rbac_placeholder": "enabled",
+      "note": "Security scaffold only; integrate provider-backed auth and policy engine.",
+    }
+  )
+'''
+
+
+def _backend_billing_admin_router() -> str:
+  return '''from fastapi import APIRouter
+
+from api.responses import ok_envelope
+
+router = APIRouter(prefix="/api/admin/billing", tags=["billing_admin"])
+
+
+@router.get("/overview")
+def billing_overview() -> dict[str, object]:
+  return ok_envelope(
+    data={
+      "status": "scaffold",
+      "surfaces": ["subscriptions", "invoices", "plans", "usage"],
+      "note": "Billing admin scaffold only; wire to payment provider and data store.",
+    }
+  )
 '''
 
 
@@ -765,11 +1052,17 @@ def test_version_endpoint() -> None:
 
 
 def test_workspace_execute_shape() -> None:
-    response = client.post("/api/workspace/execute", json={"command": "refresh dashboard"})
+    response = client.post(
+        "/api/workspace/execute",
+        json={"command": "refresh dashboard"},
+        headers={"Authorization": "Bearer local-token", "X-Actor": "tester", "X-Role": "admin"},
+    )
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["data"]["command"] == "refresh dashboard"
+    assert payload["data"]["actor"] == "tester"
+    assert payload["data"]["role"] == "admin"
     assert "accepted command" in payload["data"]["result"]
 
 
@@ -777,6 +1070,14 @@ def test_operator_and_admin_routes_exist() -> None:
     assert client.get("/api/admin/status").status_code == 200
     assert client.get("/api/operator/status").status_code == 200
     assert client.get("/api/audit/activity").status_code == 200
+  assert client.get("/api/security/contract").status_code == 200
+  assert client.get("/api/plans").status_code == 200
+  assert client.get("/api/admin/billing/overview").status_code == 200
+  assert client.post(
+    "/api/billing/webhooks",
+    json={"id": "evt_1", "event_type": "invoice.paid"},
+    headers={"X-Signature": "sig"},
+  ).status_code == 200
 '''
 
 
@@ -1163,7 +1464,10 @@ def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
         return realtime_lane_templates(ir)
     if ir.app_type == "enterprise_agent_system":
         return enterprise_agent_lane_templates(ir)
-    return [
+    include_security = _should_include_security_scaffolds(ir)
+    include_commerce = _should_include_commerce_scaffolds(ir)
+
+    templates = [
         GeneratedTemplate(path="README.md", content=_root_readme(ir)),
         GeneratedTemplate(path=".env.example", content=(
             "APP_ENV=local\n"
@@ -1190,13 +1494,23 @@ def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
         GeneratedTemplate(path="frontend/status.seed.json", content=_frontend_status_seed(ir)),
         GeneratedTemplate(path="backend/requirements.txt", content=_backend_requirements()),
         GeneratedTemplate(path="backend/api/__init__.py", content=""),
-        GeneratedTemplate(path="backend/api/main.py", content=_backend_app()),
+        GeneratedTemplate(path="backend/api/main.py", content=_backend_app(include_security, include_commerce)),
+        GeneratedTemplate(path="backend/api/auth.py", content=_backend_auth_router()),
+        GeneratedTemplate(path="backend/api/security.py", content=_backend_security_router()),
         GeneratedTemplate(path="backend/api/config.py", content=_backend_config()),
         GeneratedTemplate(path="backend/api/responses.py", content=_backend_response_envelopes()),
         GeneratedTemplate(path="backend/api/logging.py", content=_backend_logging()),
         GeneratedTemplate(path="backend/api/admin.py", content=_backend_admin_router()),
         GeneratedTemplate(path="backend/api/operator.py", content=_backend_operator_router()),
         GeneratedTemplate(path="backend/api/audit.py", content=_backend_audit_router()),
+        GeneratedTemplate(path="backend/api/billing_admin.py", content=_backend_billing_admin_router()),
+        GeneratedTemplate(path="backend/api/plans.py", content=_backend_plans_router(include_commerce)),
+        GeneratedTemplate(path="backend/api/billing_webhooks.py", content=_backend_billing_webhooks_router(include_commerce)),
+        GeneratedTemplate(path="backend/security/auth_dependency.py", content=_backend_auth_dependency(ir)),
+        GeneratedTemplate(path="backend/security/rbac.py", content=_backend_rbac_roles(ir)),
+        GeneratedTemplate(path="backend/security/__init__.py", content=""),
+        GeneratedTemplate(path="backend/services/entitlements.py", content=_backend_entitlements_service()),
+        GeneratedTemplate(path="backend/services/__init__.py", content=""),
         GeneratedTemplate(path="backend/tests/test_endpoints.py", content=_backend_test()),
         GeneratedTemplate(path="backend/.env.example", content=(
             "APP_ENV=local\n"
@@ -1229,6 +1543,8 @@ def generate_first_class_templates(ir: AppIR) -> list[GeneratedTemplate]:
         GeneratedTemplate(path=".autobuilder/package_artifact_summary.json", content=_package_artifact_summary_json()),
         GeneratedTemplate(path=".autobuilder/proof_readiness_bundle.json", content=_proof_readiness_bundle_json()),
     ]
+
+    return templates
 
 
 def first_class_validation_plan() -> list[str]:
@@ -1310,8 +1626,13 @@ def realtime_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
             "# World state manager\nclass WorldState:\n    def __init__(self) -> None:\n        self._state: dict = {}\n"
         )),
         GeneratedTemplate(path="backend/api/__init__.py", content=""),
-        GeneratedTemplate(path="backend/api/main.py", content=_backend_app()),
+        GeneratedTemplate(path="backend/api/main.py", content=_backend_app(False, False)),
         GeneratedTemplate(path="backend/api/admin.py", content=_backend_admin_router()),
+        GeneratedTemplate(path="backend/api/operator.py", content=_backend_operator_router()),
+        GeneratedTemplate(path="backend/api/audit.py", content=_backend_audit_router()),
+        GeneratedTemplate(path="backend/api/config.py", content=_backend_config()),
+        GeneratedTemplate(path="backend/api/responses.py", content=_backend_response_envelopes()),
+        GeneratedTemplate(path="backend/api/logging.py", content=_backend_logging()),
         GeneratedTemplate(path="backend/requirements.txt", content=_backend_requirements()),
         GeneratedTemplate(path=".autobuilder/README.md", content="# Realtime System — AutobuilderV2\n"),
         GeneratedTemplate(path=".autobuilder/ir.json", content=_json_pretty(ir.to_dict())),
@@ -1349,8 +1670,13 @@ def enterprise_agent_lane_templates(ir: AppIR) -> list[GeneratedTemplate]:
             "# Memory state store\nclass StateStore:\n    def __init__(self) -> None:\n        self._store: dict = {}\n"
         )),
         GeneratedTemplate(path="backend/api/__init__.py", content=""),
-        GeneratedTemplate(path="backend/api/main.py", content=_backend_app()),
+        GeneratedTemplate(path="backend/api/main.py", content=_backend_app(False, False)),
         GeneratedTemplate(path="backend/api/admin.py", content=_backend_admin_router()),
+        GeneratedTemplate(path="backend/api/operator.py", content=_backend_operator_router()),
+        GeneratedTemplate(path="backend/api/audit.py", content=_backend_audit_router()),
+        GeneratedTemplate(path="backend/api/config.py", content=_backend_config()),
+        GeneratedTemplate(path="backend/api/responses.py", content=_backend_response_envelopes()),
+        GeneratedTemplate(path="backend/api/logging.py", content=_backend_logging()),
         GeneratedTemplate(path="backend/requirements.txt", content=_backend_requirements()),
         GeneratedTemplate(path=".autobuilder/README.md", content="# Enterprise Agent System — AutobuilderV2\n"),
         GeneratedTemplate(path=".autobuilder/ir.json", content=_json_pretty(ir.to_dict())),

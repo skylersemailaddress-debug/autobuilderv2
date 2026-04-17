@@ -158,6 +158,11 @@ The operator must match the spec bundle's `app_type` and `stack_id` against the 
 | agent-runtime | bounded_prototype | approval-gated steps, blocked/completed semantics, replay signature |
 | self-extension/tool-factory | bounded_prototype | sandbox generation, validation thresholding, registry/quarantine routing |
 | multimodal/world-state | structural_only | schema contract and snapshot validation only |
+| security | bounded_prototype | commercial lane emits auth dependency scaffold, authorization-header hook, RBAC placeholders, security contract route |
+| commerce | bounded_prototype | commercial lane emits plans route, billing webhook scaffold, entitlement service placeholder, billing admin route |
+| cross-lane-composition | bounded_prototype | composition patterns are validated with explicit unsupported rejection |
+| lifecycle | bounded_prototype | build path emits lifecycle regeneration decisions; operator-modified production-critical files require approval |
+| enterprise-readiness | bounded_prototype | proof artifacts include deployment/supportability/runbook/escalation readiness documents |
 
 ---
 

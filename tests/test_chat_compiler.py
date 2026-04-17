@@ -31,3 +31,37 @@ def test_unsupported_request_is_detected_clearly() -> None:
     assert intent.app_type == "game_app"
     assert intent.unsupported_requests
     assert any("unsupported" in item.lower() for item in intent.unsupported_requests)
+
+
+def test_auth_and_roles_tokens_propagate_into_spec_architecture() -> None:
+    prompt = "Build an internal tool with auth, RBAC, roles for admin and auditor"
+    intent = parse_conversation_intent(prompt)
+    spec = synthesize_spec_bundle(intent)
+
+    routes = {route["path"] for route in spec.architecture["api_routes"]}
+    role_names = {item["name"] for item in spec.architecture["auth_roles"]}
+    runtime_services = {service["name"] for service in spec.architecture["runtime_services"]}
+
+    assert "auth" in intent.requested_features
+    assert "rbac" in intent.requested_features
+    assert "roles" in intent.requested_features
+    assert "/api/auth/session" in routes
+    assert {"admin", "auditor"}.issubset(role_names)
+    assert "security_service" in runtime_services
+
+
+def test_billing_and_payments_tokens_propagate_into_spec_architecture() -> None:
+    prompt = "Build a SaaS app with billing, payments, and Stripe subscriptions"
+    intent = parse_conversation_intent(prompt)
+    spec = synthesize_spec_bundle(intent)
+
+    routes = {route["path"] for route in spec.architecture["api_routes"]}
+    runtime_services = {service["name"] for service in spec.architecture["runtime_services"]}
+    role_names = {item["name"] for item in spec.architecture["auth_roles"]}
+
+    assert "billing" in intent.requested_features
+    assert "payments" in intent.requested_features
+    assert "/api/plans" in routes
+    assert "/api/billing/webhooks" in routes
+    assert "billing_service" in runtime_services
+    assert "billing_admin" in role_names

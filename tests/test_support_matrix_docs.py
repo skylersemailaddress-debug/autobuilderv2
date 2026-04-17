@@ -28,3 +28,19 @@ def test_support_matrix_categories_and_lanes_are_documented_consistently() -> No
     assert "command safety guarantees" in readme.lower()
     assert "command safety guarantees" in spec.lower()
     assert "command safety guarantees" in operator.lower()
+
+    capability_families = [
+        "security",
+        "commerce",
+        "cross-lane-composition",
+        "lifecycle",
+        "enterprise-readiness",
+    ]
+    for family in capability_families:
+        assert family in readme
+        assert family in spec
+        assert family in operator
+
+    assert "auth dependency scaffold" in readme.lower()
+    assert "billing webhook scaffold" in readme.lower()
+    assert "lifecycle regeneration decisions" in readme.lower()

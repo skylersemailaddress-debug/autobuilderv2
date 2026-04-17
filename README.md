@@ -126,6 +126,9 @@ Stacks with tier `future` are rejected by the `ship` command.
 | Determinism verification (repeat-build SHA256 match) | first_class |
 | Proof artifact emission | first_class |
 | Platform hardening (security governance, commerce pack, failure corpus, replay harness) | first_class |
+| Generated security scaffolds (auth dependency scaffold, authorization header hook, RBAC placeholders, security contract route) | bounded_prototype |
+| Generated commerce scaffolds (plans route, billing webhook scaffold, entitlement service, billing admin route) | bounded_prototype |
+| Lifecycle regeneration guardrails (machine-readable lifecycle regeneration decisions) | bounded_prototype |
 | Reliability scoring | first_class |
 | Autonomous mission execution (Nexus mode) | first_class |
 | Approval gates and policy controls | first_class |
@@ -148,6 +151,11 @@ Stacks with tier `future` are rejected by the `ship` command.
 | agent-runtime | bounded_prototype | task model + approval gating + blocked/completed semantics + replay signature |
 | self-extension/tool-factory | bounded_prototype | sandbox boundary, validation threshold, registry/quarantine, rollback references |
 | multimodal/world-state | structural_only | schema normalization + world-state snapshot contracts only |
+| security | bounded_prototype | auth/authz contract + generated auth dependency and RBAC scaffolds for commercial lane |
+| commerce | bounded_prototype | contract + generated plans/webhook/entitlement/billing-admin scaffolds for commercial lane |
+| cross-lane-composition | bounded_prototype | validated composition patterns with explicit unsupported combinations |
+| lifecycle | bounded_prototype | regeneration safety classification with machine-readable lifecycle decisions |
+| enterprise-readiness | bounded_prototype | deployment/supportability/runbook/escalation artifacts emitted in proof |
 
 ### Command Safety Guarantees
 

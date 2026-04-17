@@ -138,6 +138,11 @@ class AppIR:
 | agent-runtime | bounded_prototype | approval-gated execution with blocked/completed semantics |
 | self-extension/tool-factory | bounded_prototype | sandbox + validation threshold + registry/quarantine governance |
 | multimodal/world-state | structural_only | schema-only contract support, no first-class live execution claims |
+| security | bounded_prototype | commercial lane emits auth dependency scaffold, authorization header hook, RBAC placeholders, and security contract route |
+| commerce | bounded_prototype | commercial lane emits plans route, billing webhook scaffold, entitlement service placeholder, billing admin route |
+| cross-lane-composition | bounded_prototype | validates registered composition patterns; unsupported combinations rejected explicitly |
+| lifecycle | bounded_prototype | regeneration safety classification executes in build path; lifecycle decisions emitted as machine-readable artifact |
+| enterprise-readiness | bounded_prototype | enterprise deployment/supportability/runbook/escalation artifacts emitted through proof enrichment |
 
 ---
 

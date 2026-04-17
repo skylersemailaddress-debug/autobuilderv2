@@ -29,11 +29,38 @@ FEATURE_CAPABILITY_BY_TOKEN = {
     "memory": "project_memory",
     "realtime": "clarification",
     "billing": "conversation_to_spec",
+    "payments": "conversation_to_spec",
+    "auth": "conversation_to_spec",
+    "rbac": "conversation_to_spec",
+    "roles": "conversation_to_spec",
 }
 
 
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _infer_auth_roles(normalized_prompt: str, include_billing: bool) -> list[dict[str, str]]:
+    role_map = {
+        "owner": "owner",
+        "admin": "admin",
+        "member": "member",
+        "viewer": "viewer",
+        "operator": "operator",
+        "manager": "manager",
+        "auditor": "auditor",
+        "billing admin": "billing_admin",
+        "billing_admin": "billing_admin",
+    }
+    discovered = [canonical for token, canonical in role_map.items() if token in normalized_prompt]
+
+    if not discovered:
+        discovered = ["admin", "member", "viewer"]
+    if include_billing and "billing_admin" not in discovered:
+        discovered.append("billing_admin")
+
+    unique = sorted(set(discovered))
+    return [{"name": item} for item in unique]
 
 
 def _infer_lane(prompt: str) -> tuple[str, str, dict[str, str], list[str]]:
@@ -141,6 +168,10 @@ def parse_conversation_intent(prompt: str) -> ParsedIntent:
                 "memory" if "memory" in normalized or "history" in normalized else "",
                 "realtime" if "stream" in normalized or "realtime" in normalized else "",
                 "billing" if "billing" in normalized or "subscription" in normalized else "",
+                "payments" if "payment" in normalized or "payments" in normalized or "stripe" in normalized else "",
+                "auth" if "auth" in normalized or "authentication" in normalized else "",
+                "rbac" if "rbac" in normalized else "",
+                "roles" if "role" in normalized or "roles" in normalized else "",
             ]
             if feature
         }
@@ -205,6 +236,9 @@ def synthesize_spec_bundle(intent: ParsedIntent) -> SynthesizedSpecBundle:
     if not architecture_workflows:
         architecture_workflows = [{"name": "core_flow"}]
 
+    include_auth = any(feature in intent.requested_features for feature in ["auth", "rbac", "roles"])
+    include_billing = any(feature in intent.requested_features for feature in ["billing", "payments"])
+
     acceptance_points = [
         "Build completes deterministically",
         "Validation and proof pass",
@@ -218,12 +252,31 @@ def synthesize_spec_bundle(intent: ParsedIntent) -> SynthesizedSpecBundle:
         "app_type": intent.app_type,
         "application_domains": _domains_for_app_type(intent.app_type),
     }
+    api_routes = [{"path": "/health"}, {"path": "/api/workspace/execute"}]
+    if include_auth:
+        api_routes.append({"path": "/api/auth/session"})
+    if include_billing:
+        api_routes.extend([
+            {"path": "/api/plans"},
+            {"path": "/api/billing/webhooks"},
+        ])
+
+    auth_roles: list[dict[str, str]] = []
+    if include_auth or include_billing:
+        auth_roles = _infer_auth_roles(_normalize(intent.prompt), include_billing)
+
     architecture = {
         "entities": [{"name": "WorkspaceItem"}, {"name": "UserProfile"}],
         "workflows": architecture_workflows,
-        "api_routes": [{"path": "/health"}, {"path": "/api/workspace/execute"}],
-        "runtime_services": [{"name": "api"}, {"name": "worker"}],
+        "api_routes": api_routes,
+        "runtime_services": [
+            {"name": "api"},
+            {"name": "worker"},
+            *([{"name": "security_service"}] if include_auth else []),
+            *([{"name": "billing_service"}] if include_billing else []),
+        ],
         "permissions": [{"role": "operator"}, {"role": "admin"}],
+        "auth_roles": auth_roles,
     }
     ui = {
         "pages": [{"name": "Home", "route": "/"}, {"name": "Settings", "route": "/settings"}],
@@ -242,6 +295,11 @@ def synthesize_spec_bundle(intent: ParsedIntent) -> SynthesizedSpecBundle:
         "I kept the stack inside supported first-class combinations to avoid fragile builds.",
         "I used safe defaults where details were missing so you can preview before building.",
     ]
+    if include_auth:
+        explanations.append("I propagated auth/RBAC tokens into architecture.auth_roles and auth API routes.")
+    if include_billing:
+        explanations.append("I propagated billing/payment tokens into plans and billing webhook routes.")
+
     return SynthesizedSpecBundle(
         product=product,
         architecture=architecture,
