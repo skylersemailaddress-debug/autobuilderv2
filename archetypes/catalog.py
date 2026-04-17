@@ -64,7 +64,7 @@ ARCHETYPES: dict[str, AppArchetype] = {
     ),
     "mobile_app": AppArchetype(
         name="mobile_app",
-        expected_surfaces=["mobile_ui", "navigation_stack", "settings_screen"],
+        expected_surfaces=["mobile_ui", "mobile_navigation", "settings_screen"],
         expected_backend_shape=["mobile_api", "push_service", "auth_service"],
         expected_runtime_concerns=["offline_sync", "push_delivery", "mobile_performance"],
         expected_validation_concerns=["mobile_structure", "mobile_markers", "navigation_flows"],
@@ -74,13 +74,13 @@ ARCHETYPES: dict[str, AppArchetype] = {
         expected_surfaces=["game_scene", "hud", "menu_system"],
         expected_backend_shape=["game_api", "leaderboard_service", "session_store"],
         expected_runtime_concerns=["game_loop", "input_handling", "scene_management"],
-        expected_validation_concerns=["game_structure", "game_markers", "scene_flow"],
+        expected_validation_concerns=["game_structure", "game_markers", "scene_transitions"],
     ),
     "realtime_system": AppArchetype(
         name="realtime_system",
         expected_surfaces=["realtime_dashboard", "event_monitor", "ops_console"],
         expected_backend_shape=["event_bus", "connector_layer", "world_state_service"],
-        expected_runtime_concerns=["event_throughput", "channel_reliability", "state_consistency"],
+        expected_runtime_concerns=["event_throughput", "event_ordering", "state_consistency"],
         expected_validation_concerns=["realtime_structure", "realtime_markers", "channel_integrity"],
     ),
     "enterprise_agent_system": AppArchetype(
@@ -88,7 +88,7 @@ ARCHETYPES: dict[str, AppArchetype] = {
         expected_surfaces=["agent_console", "task_monitor", "approval_surface"],
         expected_backend_shape=["agent_runtime", "task_router", "audit_service"],
         expected_runtime_concerns=["agent_safety", "approval_gates", "audit_completeness"],
-        expected_validation_concerns=["agent_structure", "agent_markers", "approval_flows"],
+        expected_validation_concerns=["agent_structure", "agent_markers", "workflow_approvals"],
     ),
 }
 

@@ -46,6 +46,31 @@ def _print(data, as_json: bool) -> None:
         print(json.dumps(data, indent=2))
 
 
+def _build_safety_guarantee(command: str) -> dict[str, str]:
+    if command in {"inspect", "readiness", "benchmark"}:
+        return {
+            "mutation": "read_only",
+            "approval": "not_required",
+            "rollback": "read_only",
+        }
+
+    contract = get_command_safety_contract(command)
+    return {
+        "mutation": str(contract.get("mutation_mode", "unspecified")),
+        "approval": str(contract.get("approval_behavior", "unspecified")),
+        "rollback": str(contract.get("rollback_behavior", "unspecified")),
+    }
+
+
+def _with_command_envelope(command: str, payload: dict) -> dict:
+    return {
+        "status": "ok",
+        "command": command,
+        "safety_guarantee": _build_safety_guarantee(command),
+        **payload,
+    }
+
+
 def _decision_payload(decision: MutationSafetyDecision) -> dict:
     return {
         "action": decision.action,
@@ -877,22 +902,29 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "mission":
-        result = run_mission(args.goal)
+        result = _with_command_envelope("mission", run_mission(args.goal))
         _print(result, args.json)
         return 0
 
     if args.command == "resume":
-        result = resume_mission(args.run_id, approve=args.approve)
+        result = _with_command_envelope("resume", resume_mission(args.run_id, approve=args.approve))
         _print(result, args.json)
         return 0
 
     if args.command == "inspect":
-        result = inspect_run(args.run_id)
+        result = _with_command_envelope("inspect", inspect_run(args.run_id))
         _print(result, args.json)
         return 0
 
     if args.command == "benchmark":
-        report = _run_benchmarks(args.cases)
+        report = _with_command_envelope("benchmark", _run_benchmarks(args.cases))
+        report["audit_record"] = build_audit_record(
+            "benchmark",
+            outcome="ok",
+            actor="autobuilder",
+            safety_contract=get_command_safety_contract("benchmark"),
+            details={"total_cases": report.get("total_cases")},
+        )
         _print(report, args.json)
         return 0
 
@@ -900,7 +932,7 @@ def main() -> int:
         benchmark_summary = _run_benchmarks(args.cases) if args.with_benchmarks else None
         checks = run_readiness_checks()
         report = build_readiness_report(checks, benchmark_summary=benchmark_summary)
-        report = {"status": "ok", "command": "readiness", **report}
+        report = _with_command_envelope("readiness", report)
         _print(report, args.json)
         return 0
 

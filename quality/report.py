@@ -1,5 +1,7 @@
 from typing import Dict, Optional
 
+from quality.reliability import derive_run_reliability
+
 
 def build_mission_quality_report(record: Dict, benchmark_summary: Optional[Dict] = None) -> Dict:
     summary = record.get("summary", {})
@@ -8,19 +10,41 @@ def build_mission_quality_report(record: Dict, benchmark_summary: Optional[Dict]
     restore_payload = record.get("restore_payload") or {}
     audit_record = record.get("audit_record") or {}
     approval_request = record.get("approval_request") or {}
+    confidence = record.get("confidence", summary.get("confidence", 0.0))
+    confidence_details = record.get("confidence_details", summary.get("confidence_details", {}))
+    reliability_summary = (
+        record.get("reliability_summary")
+        or summary.get("reliability_summary")
+        or derive_run_reliability(record)
+    )
+    approval_required = summary.get(
+        "approval_required",
+        record.get("policy", {}).get("approval_required", False),
+    )
+    awaiting_approval = record.get("awaiting_approval", False)
+    mutation_risk = record.get("mutation_risk", summary.get("mutation_risk", "safe"))
+    repair_count = record.get("repair_count", 0)
 
     return {
         "run_id": record.get("run_id"),
         "mission_status": record.get("status", summary.get("final_status")),
-        "confidence": record.get("confidence", summary.get("confidence", 0.0)),
-        "repairs_used": record.get("repair_count", 0),
-        "mutation_risk": record.get("mutation_risk", summary.get("mutation_risk", "safe")),
+        "confidence": confidence,
+        "repairs_used": repair_count,
+        "mutation_risk": mutation_risk,
+        "reliability_summary": reliability_summary,
+        "confidence_derivation": {
+            "score": confidence,
+            "details": confidence_details,
+        },
+        "operator_summary": {
+            "approval_required": approval_required,
+            "awaiting_approval": awaiting_approval,
+            "mutation_risk": mutation_risk,
+            "repairs_used": repair_count,
+        },
         "approval_usage": {
-            "approval_required": summary.get(
-                "approval_required",
-                record.get("policy", {}).get("approval_required", False),
-            ),
-            "awaiting_approval": record.get("awaiting_approval", False),
+            "approval_required": approval_required,
+            "awaiting_approval": awaiting_approval,
             "approval_state": approval_request.get("status", "not_required"),
             "approver_identity": approval_request.get("approver_identity"),
         },
