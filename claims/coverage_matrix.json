@@ -1,0 +1,17 @@
+{
+  "supported_app_classes": [
+    "crud_saas",
+    "internal_dashboard",
+    "content_site",
+    "api_service",
+    "admin_portal"
+  ],
+  "unsupported_app_classes": [
+    "native_mobile",
+    "game_engine_app",
+    "embedded_firmware",
+    "real_time_multiplayer_3d",
+    "safety_critical_medical_system"
+  ],
+  "target_claim": "99_percent_of_apps"
+}
