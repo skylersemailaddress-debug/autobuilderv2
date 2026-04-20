@@ -1,0 +1,9 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "build_id": {"type": "string"},
+    "status": {"type": "string"}
+  },
+  "required": ["build_id", "status"]
+}
