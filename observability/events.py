@@ -20,3 +20,7 @@ def create_event(event_type: str, detail: Dict[str, Any]) -> RunEvent:
 
 def event_to_dict(event: RunEvent) -> Dict[str, Any]:
     return asdict(event)
+
+
+def emit_event(name: str, payload: dict) -> dict:
+    return {"event": name, "payload": payload}
