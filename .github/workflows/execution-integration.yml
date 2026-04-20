@@ -1,0 +1,8 @@
+name: execution-integration
+on: [push]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: echo "execution integration placeholder"
