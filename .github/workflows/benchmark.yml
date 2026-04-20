@@ -1,0 +1,21 @@
+name: benchmark
+
+on: [push]
+
+jobs:
+  run-benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run benchmarks
+        run: |
+          python -c "from benchmarks.runner import write_scorecard; write_scorecard()"
+      - name: Check pass rate
+        run: |
+          python - <<EOF
+import json
+with open('artifacts/benchmark_scorecard.json') as f:
+    data = json.load(f)
+if data.get('pass_rate',0) < 0.75:
+    raise SystemExit('Benchmark pass rate too low')
+EOF
